@@ -274,14 +274,28 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     return false;
   }
 
+  // Estilo da barra colorida Magalu para a borda direita
+  const magaluStripeStyle = {
+    position: 'absolute' as const,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '4px',
+    background: 'linear-gradient(to bottom, #00A1FC 0%, #00A1FC 20%, #EC0082 30%, #EC0082 45%, #FEEE01 55%, #FEEE01 70%, #33B866 80%, #33B866 100%)',
+    zIndex: 41
+  }
+
   return (
     <div
       className={cn(
-        "fixed left-0 top-0 h-screen z-40 flex flex-col transition-all duration-300",
+        "fixed left-0 top-0 h-screen z-40 flex flex-col transition-all duration-300 relative overflow-hidden",
         classes.sidebar,
         isCollapsed ? "w-16" : "w-64",
       )}
     >
+      {/* Barra colorida estilo Magalu */}
+      <div style={magaluStripeStyle}></div>
+      
       <div className={cn("flex items-center justify-between p-4 border-b", classes.border)}>
         {!isCollapsed && <h2 className="text-xl font-bold tracking-tight">SEMTRANSP</h2>}
         <div

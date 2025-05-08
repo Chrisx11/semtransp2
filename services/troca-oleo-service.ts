@@ -188,7 +188,8 @@ export async function getEstatisticasTrocasOleo(veiculoId: string) {
     const ultimaTroca = await getUltimaTrocaOleo(veiculoId)
     const ultimoRegistro = await getUltimoRegistro(veiculoId)
     
-    if (!ultimaTroca || !ultimoRegistro) {
+    // Se não tem nenhum registro (nem troca nem atualização)
+    if (!ultimoRegistro) {
       return {
         ultimaTroca: null,
         kmAtual: 0,
@@ -197,7 +198,17 @@ export async function getEstatisticasTrocasOleo(veiculoId: string) {
       }
     }
     
-    // Cálculo do progresso
+    // Se tem algum registro de atualização, mas não tem troca de óleo
+    if (!ultimaTroca) {
+      return {
+        ultimaTroca: null,
+        kmAtual: ultimoRegistro.km_atual, // Usar km atual do último registro
+        kmProxTroca: ultimoRegistro.km_proxima_troca,
+        progresso: 0, // Sem troca de óleo, o progresso é 0
+      }
+    }
+    
+    // Cálculo do progresso quando tem troca de óleo
     const kmInicial = ultimaTroca.km_atual
     const kmFinal = ultimaTroca.km_proxima_troca
     const kmAtual = ultimoRegistro.km_atual
