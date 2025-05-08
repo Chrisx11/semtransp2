@@ -321,8 +321,8 @@ const RegistrarObservacaoDialog = ({ open, onOpenChange, ordemId, onSuccess, act
           description: `A observação foi registrada com sucesso pelo setor: ${setor}`,
         })
         setObservacao("")
-        onOpenChange(false)
         onSuccess()
+        onOpenChange(false)
       } else {
         toast({
           title: "Erro",

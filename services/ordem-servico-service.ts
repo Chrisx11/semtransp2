@@ -825,13 +825,14 @@ export async function adicionarEventoHistoricoSupabase(
       });
 
     if (error) {
-      console.error('Erro ao adicionar evento ao histórico:', error);
+      console.error('Erro ao adicionar evento ao histórico:', JSON.stringify(error));
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Exceção ao adicionar evento ao histórico:', error);
+    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error('Exceção ao adicionar evento ao histórico:', errorMessage);
     return false;
   }
 }
@@ -841,7 +842,7 @@ export async function adicionarObservacaoSupabase(ordemId: string, observacao: s
   try {
     console.log(`Adicionando observação à ordem ${ordemId}`);
     
-    // Buscar a ordem atual para obter o histórico existente e observações anteriores
+    // Buscar a ordem atual para obter observações anteriores
     const ordemAtual = await getOrdemServicoByIdSupabase(ordemId);
     if (!ordemAtual) {
       console.error('Ordem não encontrada:', ordemId);
@@ -859,7 +860,7 @@ export async function adicionarObservacaoSupabase(ordemId: string, observacao: s
       ? `${ordemAtual.observacao2}\n\n${novaObservacao}`
       : novaObservacao;
     
-    // Atualizar a ordem com a nova observação
+    // Atualizar a ordem com a nova observação - SEM tentar adicionar ao histórico
     const { error } = await supabase
       .from('ordens_servico')
       .update({ 
@@ -869,20 +870,16 @@ export async function adicionarObservacaoSupabase(ordemId: string, observacao: s
       .eq('id', ordemId);
 
     if (error) {
-      console.error('Erro ao adicionar observação:', error);
+      console.error('Erro ao adicionar observação:', JSON.stringify(error));
       return false;
     }
-
-    // Adicionar o evento ao histórico
-    return await adicionarEventoHistoricoSupabase(ordemId, {
-      tipo: 'Observação',
-      de: '',
-      para: '',
-      status: ordemAtual.status,
-      observacao: `${setor}: ${observacao}`
-    });
+    
+    // A observação foi adicionada com sucesso
+    console.log('Observação adicionada com sucesso');
+    return true;
   } catch (error) {
-    console.error('Erro ao adicionar observação:', error);
+    const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
+    console.error('Erro ao adicionar observação:', errorMessage);
     return false;
   }
 }
