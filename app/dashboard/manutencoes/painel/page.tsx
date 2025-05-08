@@ -492,6 +492,37 @@ export default function PainelManutencaoPage() {
         }
       }
 
+      // Ordenar as ordens de cada mecânico pelo campo ordem_execucao
+      // de forma similar à página de planejamento
+      Object.keys(mecanicosMap).forEach(mecanicoId => {
+        // Aplicar a mesma lógica de ordenação da página de planejamento
+        mecanicosMap[mecanicoId] = mecanicosMap[mecanicoId].sort((a, b) => {
+          // Ordenação por ordem_execucao e depois por número da OS
+          try {
+            // Verificar se as ordens têm a propriedade ordem_execucao e se têm valores
+            const ordemExecucaoA = a.ordem_execucao !== undefined ? a.ordem_execucao : null;
+            const ordemExecucaoB = b.ordem_execucao !== undefined ? b.ordem_execucao : null;
+            
+            // Se ambas as ordens têm ordem_execucao, comparar diretamente
+            if (ordemExecucaoA !== null && ordemExecucaoB !== null) {
+              return ordemExecucaoA - ordemExecucaoB;
+            }
+            
+            // Se apenas uma tem ordem_execucao, colocar ela primeiro
+            if (ordemExecucaoA !== null) return -1;
+            if (ordemExecucaoB !== null) return 1;
+            
+            // Se nenhuma tem ordem_execucao, ordenar por número
+            const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0;
+            return numA - numB;
+          } catch (error) {
+            // Em caso de erro, manter a ordem atual
+            return 0;
+          }
+        });
+      });
+
       setMecanicosComOrdens(mecanicosMap)
 
       // Calcular estatísticas
