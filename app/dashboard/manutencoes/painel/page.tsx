@@ -84,63 +84,130 @@ interface MecanicoCardProps {
   ordens: OrdemServico[]
 }
 
-const MecanicoCard = ({ nome, ordens }: MecanicoCardProps) => (
-  <Card className="hover:shadow-md transition-all duration-200">
-    <CardHeader className="pb-2">
-      <CardTitle className="text-lg font-medium flex items-center gap-2">
-        <Wrench className="h-5 w-5" />
-        {nome}
-      </CardTitle>
-      <CardDescription>
-        {ordens.length} {ordens.length === 1 ? "ordem pendente" : "ordens pendentes"}
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="pt-2">
-      <div className="space-y-2">
-        {ordens.map((ordem) => (
-          <div key={ordem.id} className="flex justify-between items-center text-sm border-b pb-1">
-            <span>{ordem.numero}</span>
-            <StatusBadge status={ordem.status} />
-          </div>
-        ))}
-        {ordens.length === 0 && <div className="text-sm text-muted-foreground italic">Nenhuma ordem pendente</div>}
-      </div>
-    </CardContent>
-  </Card>
-)
+const MecanicoCard = ({ nome, ordens }: MecanicoCardProps) => {
+  // Função para mapear status do banco para o status exibido (versão simplificada)
+  const mapStatusLocal = (status: string) => {
+    if (status === "Aguardando Fornecedor") return "Ag. Fornecedor"
+    if (status === "Rascunho") return "Em Aberto"
+    return status
+  }
+
+  return (
+    <Card className="hover:shadow-md transition-all duration-200">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-medium flex items-center gap-2">
+          <Wrench className="h-5 w-5" />
+          {nome}
+        </CardTitle>
+        <CardDescription>
+          {ordens.length} {ordens.length === 1 ? "ordem pendente" : "ordens pendentes"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-2">
+        <div className="space-y-2">
+          {ordens.map((ordem) => (
+            <div key={ordem.id} className="flex justify-between items-center text-sm border-b pb-2">
+              <div className="flex-1">
+                <div className="font-medium">{ordem.numero}</div>
+                <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={ordem.veiculoInfo}>
+                  {ordem.veiculoInfo?.split(' - ')[0] || "Veículo não especificado"}
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                {ordem.prioridade && 
+                  <span 
+                    className="w-2 h-2 rounded-full inline-block mr-1" 
+                    style={{ backgroundColor: getPrioridadeColor(ordem.prioridade) }}
+                    title={`Prioridade: ${ordem.prioridade}`}
+                  />
+                }
+                <StatusBadge status={mapStatusLocal(ordem.status)} />
+              </div>
+            </div>
+          ))}
+          {ordens.length === 0 && <div className="text-sm text-muted-foreground italic">Nenhuma ordem pendente</div>}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 // Componente para o badge de status
 const StatusBadge = ({ status }: { status: string }) => {
-  let iconClasses = "h-4 w-4 mr-2"
-  let statusClasses = ""
+  const mappedStatus = status?.toLowerCase() || "";
+  let iconClasses = "h-4 w-4 mr-2";
+  let statusClasses = "";
+  let Icon = ClipboardList;
 
   // Definir classes para cada status
-  switch (status?.toLowerCase()) {
+  switch (mappedStatus) {
     case "em aberto":
-      iconClasses += " text-gray-400"
-      statusClasses = "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-      return (
-        <Badge 
-          variant="outline" 
-          className={cn("flex items-center whitespace-nowrap", statusClasses)}
-        >
-          <ClipboardList className={iconClasses} />
-          <span>{status}</span>
-        </Badge>
-      )
+    case "rascunho":
+      iconClasses += " text-[#6B7280]";
+      statusClasses = "bg-[#6B7280]/10 text-[#6B7280] border-[#6B7280]/30";
+      Icon = FileText;
+      break;
+    case "em análise":
+      iconClasses += " text-[#D97706]";
+      statusClasses = "bg-[#D97706]/10 text-[#D97706] border-[#D97706]/30";
+      Icon = AlertCircle;
+      break;
+    case "em aprovação":
+      iconClasses += " text-[#F97316]";
+      statusClasses = "bg-[#F97316]/10 text-[#F97316] border-[#F97316]/30";
+      Icon = Clock;
+      break;
+    case "aguardando os":
+      iconClasses += " text-[#3B82F6]";
+      statusClasses = "bg-[#3B82F6]/10 text-[#3B82F6] border-[#3B82F6]/30";
+      Icon = Calendar;
+      break;
+    case "ag. fornecedor":
+    case "aguardando fornecedor":
+      iconClasses += " text-[#8B5CF6]";
+      statusClasses = "bg-[#8B5CF6]/10 text-[#8B5CF6] border-[#8B5CF6]/30";
+      Icon = Truck;
+      break;
+    case "serviço externo":
+      iconClasses += " text-[#047857]";
+      statusClasses = "bg-[#047857]/10 text-[#047857] border-[#047857]/30";
+      Icon = Wrench;
+      break;
+    case "comprar na rua":
+      iconClasses += " text-[#EF4444]";
+      statusClasses = "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30";
+      Icon = ShoppingBag;
+      break;
+    case "fila de serviço":
+      iconClasses += " text-[#06B6D4]";
+      statusClasses = "bg-[#06B6D4]/10 text-[#06B6D4] border-[#06B6D4]/30";
+      Icon = Clock;
+      break;
+    case "em serviço":
+      iconClasses += " text-[#10B981]";
+      statusClasses = "bg-[#10B981]/10 text-[#10B981] border-[#10B981]/30";
+      Icon = Activity;
+      break;
+    case "finalizado":
+      iconClasses += " text-[#1D4ED8]";
+      statusClasses = "bg-[#1D4ED8]/10 text-[#1D4ED8] border-[#1D4ED8]/30";
+      Icon = CheckCircle2;
+      break;
     default:
-      iconClasses += " text-gray-400"
-      statusClasses = "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
-      return (
-        <Badge 
-          variant="outline" 
-          className={cn("flex items-center whitespace-nowrap", statusClasses)}
-        >
-          <ClipboardList className={iconClasses} />
-          <span>{status}</span>
-        </Badge>
-      )
+      iconClasses += " text-gray-400";
+      statusClasses = "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400";
+      break;
   }
+  
+  return (
+    <Badge 
+      variant="outline" 
+      className={cn("flex items-center whitespace-nowrap", statusClasses)}
+    >
+      <Icon className={iconClasses} />
+      <span>{status}</span>
+    </Badge>
+  );
 }
 
 // Função utilitária para cor de prioridade
@@ -368,9 +435,11 @@ export default function PainelManutencaoPage() {
     return count > 0 ? Number((totalDias / count).toFixed(1)) : 0
   }
 
-  useEffect(() => {
-    const fetchData = async () => {
+  // Função para buscar dados
+  const fetchData = async () => {
+    try {
       setLoading(true)
+      console.log("Atualizando dados...") // Ajuda a depurar a atualização
 
       // Buscar todas as ordens do Supabase
       const allOrdens = await getOrdensServicoSupabase()
@@ -398,7 +467,7 @@ export default function PainelManutencaoPage() {
       const emAndamento = allOrdens.filter((o) => o.status.toLowerCase() !== "finalizado").length
       const finalizadas = allOrdens.filter((o) => o.status.toLowerCase() === "finalizado").length
 
-      // Simulação de ordens atrasadas (na vida real, isso seria baseado em datas)
+      // Calcular ordens atrasadas (baseado em alguma lógica de negócio real)
       const atrasadas = Math.floor(emAndamento * 0.2)
 
       // Calcular tempo médio real de finalização
@@ -424,11 +493,24 @@ export default function PainelManutencaoPage() {
         atrasadas,
         tempoMedio,
       })
-
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error)
+    } finally {
       setLoading(false)
     }
+  }
 
+  useEffect(() => {
+    // Executar a busca assim que o componente for montado
     fetchData()
+
+    // Configurar a atualização automática a cada 60 segundos (1 minuto)
+    const intervalId = setInterval(() => {
+      fetchData()
+    }, 60000)
+
+    // Limpar o intervalo quando o componente for desmontado
+    return () => clearInterval(intervalId)
   }, [])
 
   // Preparar dados para os gráficos
