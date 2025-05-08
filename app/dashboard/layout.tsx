@@ -77,13 +77,13 @@ export default function DashboardLayout({
       <div
         className="flex-1"
         style={{
-          marginLeft: sidebarCollapsed ? '4rem' : '16rem',
+          marginLeft: sidebarCollapsed ? '64px' : '256px',
           transition: 'margin-left 0.3s'
         }}
       >
         {/* Conteúdo principal */}
         <main>
-          <div className="p-6 transition-all duration-300">
+          <div className="px-6 pt-6 pb-6 transition-all duration-300">
             {children}
           </div>
         </main>

@@ -203,8 +203,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     sidebar: "bg-white text-slate-800 shadow-lg-custom",
     border: "border-gray-200",
     button: "text-slate-800 hover:bg-gray-100",
-    activeItem: "bg-gray-100 shadow-sm-custom",
-    hoverItem: "hover:bg-gray-100 transition-all duration-200",
+    activeItem: "bg-gradient-to-r from-blue-50 to-blue-100 shadow-sm-custom",
+    hoverItem: "hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 transition-all duration-200",
     submenuBg: "bg-white shadow-lg-custom",
   }
 
@@ -213,8 +213,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     sidebar: "bg-slate-900 text-gray-100 shadow-lg-custom",
     border: "border-slate-700",
     button: "text-gray-100 hover:bg-slate-800",
-    activeItem: "bg-slate-800 shadow-sm-custom",
-    hoverItem: "hover:bg-slate-800 transition-all duration-200",
+    activeItem: "bg-gradient-to-r from-blue-900 to-blue-800 shadow-sm-custom",
+    hoverItem: "hover:bg-gradient-to-r hover:from-blue-900 hover:to-blue-800 transition-all duration-200",
     submenuBg: "bg-slate-900 shadow-lg-custom",
   }
 
@@ -223,7 +223,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Classes comuns para todos os itens de menu
   const menuItemClasses = cn(
-    "flex items-center py-2 rounded-md transition-all duration-200 text-base font-normal",
+    "flex items-center py-2 rounded-md transition-all duration-200 text-sm font-normal",
     classes.hoverItem,
   )
 
@@ -281,14 +281,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     top: 0,
     bottom: 0,
     width: '4px',
-    background: 'linear-gradient(to bottom, #00A1FC 0%, #00A1FC 20%, #EC0082 30%, #EC0082 45%, #FEEE01 55%, #FEEE01 70%, #33B866 80%, #33B866 100%)',
+    background: 'linear-gradient(to bottom, #0056b3 0%, #0080ff 25%, #00a1fc 50%, #33bbff 75%, #66d9ff 100%)',
     zIndex: 41
   }
 
   return (
     <div
       className={cn(
-        "fixed left-0 top-0 h-screen z-40 flex flex-col transition-all duration-300 relative overflow-hidden",
+        "fixed left-0 top-0 h-screen z-40 flex flex-col transition-all duration-300",
         classes.sidebar,
         isCollapsed ? "w-16" : "w-64",
       )}
@@ -297,7 +297,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       <div style={magaluStripeStyle}></div>
       
       <div className={cn("flex items-center justify-between p-4 border-b", classes.border)}>
-        {!isCollapsed && <h2 className="text-xl font-bold tracking-tight">SEMTRANSP</h2>}
+        {!isCollapsed && <h2 className="text-lg font-bold tracking-tight">SEMTRANSP</h2>}
         <div
           onClick={onToggle}
           className={cn(
@@ -330,7 +330,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         classes.submenuBg,
                       )}
                     >
-                      <div className="py-1 px-2 whitespace-nowrap font-medium">{item.title}</div>
+                      <div className="py-1 px-2 whitespace-nowrap text-xs font-medium">{item.title}</div>
                     </div>
                   )}
                 </>
@@ -399,7 +399,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         )}
                         style={{ top: submenuPosition ? `${submenuPosition}px` : "auto" }}
                       >
-                        <div className="py-1 px-2 font-medium">{item.title}</div>
+                        <div className="py-1 px-2 text-xs font-medium">{item.title}</div>
                         <div className="mt-1 space-y-1">
                           {item.submenu?.map((subItem, subIndex) => {
                             // Verifica permissão para cada item do submenu
@@ -409,7 +409,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                   key={subIndex}
                                   href={subItem.href}
                                   className={cn(
-                                    "flex items-center py-2 px-3 text-sm font-light rounded-md transition-all duration-200",
+                                    "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200",
                                     classes.hoverItem,
                                     pathname === subItem.href && classes.activeItem,
                                   )}
@@ -451,7 +451,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                 key={subIndex}
                                 href={subItem.href}
                                 className={cn(
-                                  "flex items-center py-2 px-3 text-sm font-light rounded-md transition-all duration-200",
+                                  "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200",
                                   classes.hoverItem,
                                   pathname === subItem.href && classes.activeItem,
                                 )}
@@ -483,7 +483,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             isCollapsed && "relative group",
           )}>
             <Users className={cn("h-5 w-5", isCollapsed ? "" : "mr-2")} />
-            {!isCollapsed && <span className="font-normal truncate">{user.nome}</span>}
+            {!isCollapsed && <span className="text-xs font-normal truncate">{user.nome}</span>}
             {isCollapsed && (
               <div
                 className={cn(
@@ -491,7 +491,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                   classes.submenuBg,
                 )}
               >
-                <div className="py-1 px-2 whitespace-nowrap">{user.nome}</div>
+                <div className="py-1 px-2 whitespace-nowrap text-xs font-medium">{user.nome}</div>
               </div>
             )}
           </div>
@@ -508,7 +508,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           )}
         >
           <LogOut className={cn("h-5 w-5", isCollapsed ? "" : "mr-2")} />
-          {!isCollapsed && <span>Sair</span>}
+          {!isCollapsed && <span className="text-xs">Sair</span>}
           {isCollapsed && (
             <div
               className={cn(
@@ -516,7 +516,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 classes.submenuBg,
               )}
             >
-              <div className="py-1 px-2 whitespace-nowrap">Sair</div>
+              <div className="py-1 px-2 whitespace-nowrap text-xs font-medium">Sair</div>
             </div>
           )}
         </div>
@@ -536,7 +536,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           ) : (
             <Moon className={cn("h-5 w-5", isCollapsed ? "" : "mr-2")} />
           )}
-          {!isCollapsed && <span>Alternar Tema</span>}
+          {!isCollapsed && <span className="text-xs">Alternar Tema</span>}
           {isCollapsed && (
             <div
               className={cn(
@@ -544,7 +544,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 classes.submenuBg,
               )}
             >
-              <div className="py-1 px-2 whitespace-nowrap">Alternar Tema</div>
+              <div className="py-1 px-2 whitespace-nowrap text-xs font-medium">Alternar Tema</div>
             </div>
           )}
         </div>
