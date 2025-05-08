@@ -80,7 +80,7 @@ const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => {
     default:
       badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80" // Cinza
   }
-  return <Badge className={cn("font-medium", badgeClasses)} variant="outline">{prioridade}</Badge>
+  return <Badge className={cn("font-medium text-xs px-1.5 py-0.5", badgeClasses)} variant="outline">{prioridade}</Badge>
 }
 
 // Componente para exibir o status com a cor apropriada
@@ -140,7 +140,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   }
 
   return (
-    <Badge className={cn("font-medium", badgeClasses)} variant="outline">
+    <Badge className={cn("font-medium text-xs px-1.5 py-0.5", badgeClasses)} variant="outline">
       {status}
     </Badge>
   )
@@ -436,6 +436,21 @@ export default function OrdemServicoPage() {
 
   // Toast
   const { toast } = useToast()
+
+  // Função para formatar a data de yyyy-mm-dd para dd/mm/yyyy
+  const formatarData = (dataString: string) => {
+    if (!dataString) return "—";
+    
+    try {
+      const [ano, mes, dia] = dataString.split('-');
+      if (ano && mes && dia) {
+        return `${dia}/${mes}/${ano}`;
+      }
+      return dataString;
+    } catch (error) {
+      return dataString;
+    }
+  };
 
   // Determinar as abas que o usuário tem permissão para acessar com base nas permissões
   useEffect(() => {
@@ -906,40 +921,40 @@ export default function OrdemServicoPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
-                        <TableHead className="h-10 px-4 text-right align-middle font-medium">Ações</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
+                        <TableHead className="h-9 px-3 text-right align-middle font-medium text-xs">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
                           <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.data}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.numero}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.veiculoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.kmAtual || "—"}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.solicitanteInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.mecanicoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><StatusBadge status={ordem.status} /></TableCell>
-                            <TableCell className="p-2 align-middle text-right">
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.kmAtual || "—"}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.solicitanteInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.mecanicoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-right">
                               <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
-                                <Settings className="h-4 w-4 mr-1" />
-                                Ações
+                                <Settings className="h-3.5 w-3.5 mr-1" />
+                                <span className="text-xs">Ações</span>
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground text-xs">
                             Nenhuma ordem de serviço encontrada.
                           </TableCell>
                         </TableRow>
@@ -1011,40 +1026,40 @@ export default function OrdemServicoPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
-                        <TableHead className="h-10 px-4 text-right align-middle font-medium">Ações</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
+                        <TableHead className="h-9 px-3 text-right align-middle font-medium text-xs">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
                           <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.data}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.numero}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.veiculoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.kmAtual || "—"}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.solicitanteInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.mecanicoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><StatusBadge status={ordem.status} /></TableCell>
-                            <TableCell className="p-2 align-middle text-right">
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.kmAtual || "—"}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.solicitanteInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.mecanicoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-right">
                               <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
-                                <Settings className="h-4 w-4 mr-1" />
-                                Ações
+                                <Settings className="h-3.5 w-3.5 mr-1" />
+                                <span className="text-xs">Ações</span>
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground text-xs">
                             Nenhuma ordem de serviço aguardando peças no momento.
                           </TableCell>
                         </TableRow>
@@ -1116,40 +1131,40 @@ export default function OrdemServicoPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
-                        <TableHead className="h-10 px-4 text-right align-middle font-medium">Ações</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
+                        <TableHead className="h-9 px-3 text-right align-middle font-medium text-xs">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
                           <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.data}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.numero}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.veiculoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.kmAtual || "—"}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.solicitanteInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.mecanicoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><StatusBadge status={ordem.status} /></TableCell>
-                            <TableCell className="p-2 align-middle text-right">
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.kmAtual || "—"}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.solicitanteInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.mecanicoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-right">
                               <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
-                                <Settings className="h-4 w-4 mr-1" />
-                                Ações
+                                <Settings className="h-3.5 w-3.5 mr-1" />
+                                <span className="text-xs">Ações</span>
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground text-xs">
                             Nenhuma ordem de serviço aguardando compras no momento.
                           </TableCell>
                         </TableRow>
@@ -1221,40 +1236,40 @@ export default function OrdemServicoPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
-                        <TableHead className="h-10 px-4 text-left align-middle font-medium cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
-                        <TableHead className="h-10 px-4 text-right align-middle font-medium">Ações</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("data")}>Data {getSortIcon("data")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("numero")}>Número da OS {getSortIcon("numero")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("veiculoInfo")}>Veículo {getSortIcon("veiculoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("kmAtual")}>Km Atual {getSortIcon("kmAtual")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("solicitanteInfo")}>Solicitante {getSortIcon("solicitanteInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("mecanicoInfo")}>Mecânico {getSortIcon("mecanicoInfo")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("prioridade")}>Prioridade {getSortIcon("prioridade")}</TableHead>
+                        <TableHead className="h-9 px-3 text-left align-middle font-medium text-xs cursor-pointer hover:text-foreground" onClick={() => requestSort("status")}>Status {getSortIcon("status")}</TableHead>
+                        <TableHead className="h-9 px-3 text-right align-middle font-medium text-xs">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
                           <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.data}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.numero}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.veiculoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.kmAtual || "—"}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.solicitanteInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm">{ordem.mecanicoInfo}</TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
-                            <TableCell className="p-2 align-middle text-sm"><StatusBadge status={ordem.status} /></TableCell>
-                            <TableCell className="p-2 align-middle text-right">
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.kmAtual || "—"}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.solicitanteInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.mecanicoInfo}</TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
+                            <TableCell className="py-1.5 px-3 align-middle text-right">
                               <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
-                                <Settings className="h-4 w-4 mr-1" />
-                                Ações
+                                <Settings className="h-3.5 w-3.5 mr-1" />
+                                <span className="text-xs">Ações</span>
                               </Button>
                             </TableCell>
                           </TableRow>
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={9} className="h-24 text-center text-muted-foreground text-xs">
                             Nenhuma ordem de serviço finalizada no momento.
                           </TableCell>
                         </TableRow>
