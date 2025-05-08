@@ -20,6 +20,7 @@ import {
   Search,
   Trash2,
   RefreshCw,
+  Loader2,
 } from "lucide-react"
 import {
   Pagination,
@@ -30,12 +31,13 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { OrdemServicoFormDialog } from "@/components/ordem-servico-form-dialog"
 import {
   getOrdensServicoSupabase,
   updateOrdemServicoSupabase,
   deleteOrdemServicoSupabase,
+  adicionarObservacaoSupabase,
   type OrdemServico,
 } from "@/services/ordem-servico-service"
 import { OrdemServicoVisualizacaoDialog } from "@/components/ordem-servico-visualizacao-dialog"
@@ -50,6 +52,8 @@ import { Input } from "@/components/ui/input"
 import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { useAuth } from "@/lib/auth-context"
 import { Table, TableHeader, TableHead, TableRow, TableCell, TableBody, TableCaption } from "@/components/ui/table"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 
 // Tipo para a ordenação
 type SortConfig = {
@@ -171,6 +175,11 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
             <span>Visualizar</span>
           </Button>
 
+          <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("registrar_observacao")}>
+            <FileEdit className="mr-2 h-4 w-4" />
+            <span>Registrar Observação</span>
+          </Button>
+
           {activeTab !== "finalizados" && (
             <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("editar")}>
               <FileEdit className="mr-2 h-4 w-4" />
@@ -257,6 +266,123 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
   )
 }
 
+// Componente para o diálogo de registrar observação
+interface RegistrarObservacaoDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  ordemId: string | null
+  onSuccess: () => void
+  activeTab: string
+}
+
+const RegistrarObservacaoDialog = ({ open, onOpenChange, ordemId, onSuccess, activeTab }: RegistrarObservacaoDialogProps) => {
+  const [observacao, setObservacao] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { toast } = useToast()
+
+  // Mapear a aba ativa para o nome do setor
+  const tabMapping = {
+    "oficina": "Oficina",
+    "almoxarifado": "Almoxarifado",
+    "compras": "Compras",
+    "finalizados": "Finalizados"
+  }
+  const setor = tabMapping[activeTab as keyof typeof tabMapping] || "Sistema"
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!ordemId) {
+      toast({
+        title: "Erro",
+        description: "ID da ordem não encontrado.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!observacao.trim()) {
+      toast({
+        title: "Atenção",
+        description: "Por favor, informe uma observação.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      const result = await adicionarObservacaoSupabase(ordemId, observacao, setor)
+      
+      if (result) {
+        toast({
+          title: "Observação registrada",
+          description: `A observação foi registrada com sucesso pelo setor: ${setor}`,
+        })
+        setObservacao("")
+        onOpenChange(false)
+        onSuccess()
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível registrar a observação no histórico.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao registrar observação no histórico:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao registrar a observação.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Registrar Observação</DialogTitle>
+          <DialogDescription>
+            Adicione uma observação a esta ordem de serviço. Será registrada como observação do setor: {setor}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="observacao">Observação</Label>
+              <Textarea
+                id="observacao"
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+                placeholder="Digite sua observação aqui..."
+                className="h-32"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Registrando..." : "Registrar Observação"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export default function OrdemServicoPage() {
   // Estado para controlar a aba ativa
   const [activeTab, setActiveTab] = useState("oficina")
@@ -296,6 +422,8 @@ export default function OrdemServicoPage() {
   const [isAcoesDialogOpen, setIsAcoesDialogOpen] = useState(false)
   // Estado para controlar o diálogo de confirmação de exclusão
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
+  // Adicionar o estado para controlar a visibilidade do diálogo de observação
+  const [isRegistrarObservacaoDialogOpen, setIsRegistrarObservacaoDialogOpen] = useState(false)
 
   // Estado para os termos de pesquisa em cada aba
   const [searchTermOficina, setSearchTermOficina] = useState("")
@@ -543,6 +671,10 @@ export default function OrdemServicoPage() {
       case "visualizar":
         setSelectedOrdemId(id)
         setIsVisualizacaoDialogOpen(true)
+        break
+      case "registrar_observacao":
+        setSelectedOrdemId(id)
+        setIsRegistrarObservacaoDialogOpen(true)
         break
       case "editar":
         setSelectedOrdemId(id)
@@ -1258,6 +1390,15 @@ export default function OrdemServicoPage() {
         onConfirm={handleExcluirOrdem}
         title="Excluir Ordem de Serviço"
         description="Tem certeza que deseja excluir esta ordem de serviço? Esta ação não pode ser desfeita."
+      />
+
+      {/* Diálogo de Registrar Observação */}
+      <RegistrarObservacaoDialog
+        open={isRegistrarObservacaoDialogOpen}
+        onOpenChange={setIsRegistrarObservacaoDialogOpen}
+        ordemId={selectedOrdemId}
+        onSuccess={handleOSSuccess}
+        activeTab={activeTab}
       />
     </div>
   )

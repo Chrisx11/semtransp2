@@ -285,6 +285,23 @@ export function OrdemServicoVisualizacao({ ordem, onBack, onEdit }: OrdemServico
 
         {/* Aba de Histórico */}
         <TabsContent value="historico" className="space-y-4 mt-4">
+          {/* Card de Observações */}
+          {ordem.observacao2 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-primary" />
+                  Observações Registradas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="p-3 bg-muted/30 rounded-md whitespace-pre-wrap">
+                  {ordem.observacao2}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-lg flex items-center">
@@ -354,6 +371,15 @@ export function OrdemServicoVisualizacao({ ordem, onBack, onEdit }: OrdemServico
             <div className="pl-2 min-h-[40px] print:border-none print:p-0 print:pl-2">{ordem.pecasServicos}</div>
           )}
         </div>
+        {/* Observações Registradas - para impressão */}
+        {ordem.observacao2 && (
+          <div className="mb-2 print:mb-2">
+            <div className="font-semibold mb-0">Observações Registradas:</div>
+            <div className="pl-2 min-h-[40px] print:border-none print:p-0 print:pl-2 whitespace-pre-wrap">
+              {ordem.observacao2}
+            </div>
+          </div>
+        )}
         {/* Histórico de Alterações */}
         <div className="mb-2 print:mb-2">
           <div className="font-semibold mb-0">Histórico de Alterações:</div>

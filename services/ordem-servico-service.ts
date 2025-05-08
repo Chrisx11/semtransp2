@@ -34,6 +34,7 @@ export interface OrdemServico {
   observacoesAlmoxarifado?: string
   observacoesCompras?: string
   observacoesRetorno?: string
+  observacao2?: string // Nova coluna para múltiplas observações
   historico: EventoHistorico[] // Novo campo para armazenar o histórico
   ordem_execucao?: number // Campo para controlar a ordem de execução no planejamento
   createdAt: string
@@ -798,6 +799,90 @@ export async function alterarMecanicoOrdemSupabase(
     return true;
   } catch (error) {
     console.error('Exceção ao alterar mecânico da ordem:', error);
+    return false;
+  }
+}
+
+// Função para adicionar um evento ao histórico de uma ordem de serviço no Supabase
+export async function adicionarEventoHistoricoSupabase(
+  ordemId: string,
+  evento: Omit<EventoHistorico, "id" | "data">
+): Promise<boolean> {
+  try {
+    const now = new Date().toISOString();
+    
+    // Inserir o evento na tabela de histórico
+    const { error } = await supabase
+      .from('ordem_servico_historico')
+      .insert({
+        ordem_id: ordemId,
+        data: now,
+        tipo: evento.tipo,
+        de: evento.de,
+        para: evento.para,
+        status: evento.status,
+        observacao: evento.observacao,
+      });
+
+    if (error) {
+      console.error('Erro ao adicionar evento ao histórico:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Exceção ao adicionar evento ao histórico:', error);
+    return false;
+  }
+}
+
+// Função para adicionar uma observação a uma ordem de serviço
+export async function adicionarObservacaoSupabase(ordemId: string, observacao: string, setor: string): Promise<boolean> {
+  try {
+    console.log(`Adicionando observação à ordem ${ordemId}`);
+    
+    // Buscar a ordem atual para obter o histórico existente e observações anteriores
+    const ordemAtual = await getOrdemServicoByIdSupabase(ordemId);
+    if (!ordemAtual) {
+      console.error('Ordem não encontrada:', ordemId);
+      return false;
+    }
+
+    const now = new Date().toISOString();
+    const dataFormatada = new Date().toLocaleString('pt-BR'); // Formato legível para exibição
+    
+    // Preparar a nova observação com data e hora
+    const novaObservacao = `[${dataFormatada} - ${setor}] ${observacao}`;
+    
+    // Adicionar à observação existente ou criar nova
+    const observacaoAtualizada = ordemAtual.observacao2 
+      ? `${ordemAtual.observacao2}\n\n${novaObservacao}`
+      : novaObservacao;
+    
+    // Atualizar a ordem com a nova observação
+    const { error } = await supabase
+      .from('ordens_servico')
+      .update({ 
+        observacao2: observacaoAtualizada,
+        updatedAt: now
+      })
+      .eq('id', ordemId);
+
+    if (error) {
+      console.error('Erro ao adicionar observação:', error);
+      return false;
+    }
+
+    // Adicionar o evento ao histórico
+    return await adicionarEventoHistoricoSupabase(ordemId, {
+      tipo: 'Observação',
+      de: '',
+      para: '',
+      status: ordemAtual.status,
+      observacao: `${setor}: ${observacao}`
+    });
+  } catch (error) {
+    console.error('Erro ao adicionar observação:', error);
     return false;
   }
 }

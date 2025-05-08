@@ -21,6 +21,7 @@ interface OrdemServicoPDFProps {
     prioridade: string;
     defeitosRelatados?: string;
     pecasServicos?: string;
+    observacao2?: string;
     historico?: HistoricoEvento[];
   };
 }
@@ -440,6 +441,19 @@ export function OrdemServicoPDF({ ordem }: OrdemServicoPDFProps) {
             ))}
           </View>
         </View>
+        
+        {/* Observações Registradas */}
+        {ordem.observacao2 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <SvgIcon path={icons.clipboard} width={18} height={18} />
+              <Text style={styles.sectionTitle}>Observações Registradas</Text>
+            </View>
+            <Text style={{ fontSize: 12, lineHeight: 1.5 }}>
+              {ordem.observacao2}
+            </Text>
+          </View>
+        )}
         
         {/* Histórico */}
         {ordem.historico && ordem.historico.length > 0 && (
