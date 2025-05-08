@@ -3,19 +3,23 @@
 import { useState, useEffect, useCallback } from "react"
 import { getOrdensAgrupadasPorMecanicoSupabase, atualizarOrdemExecucaoSupabase, alterarMecanicoOrdemSupabase } from "@/services/ordem-servico-service"
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, MouseSensor, TouchSensor, DragStartEvent, DragEndEvent, DragOverEvent, closestCorners, MeasuringStrategy } from "@dnd-kit/core"
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { MecanicoCard } from "./components/mecanico-card"
 import { OrdemCard } from "./components/ordem-card"
+import { OrdemPlaceholder } from "./components/ordem-placeholder"
 import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function PlanejamentoPage() {
   const [mecanicos, setMecanicos] = useState<any[]>([])
+  const [mecanicoIds, setMecanicoIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [activeOrdem, setActiveOrdem] = useState<any>(null)
+  const [activeMecanico, setActiveMecanico] = useState<any>(null)
   const [activeMecanicoId, setActiveMecanicoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [dragType, setDragType] = useState<'ordem' | 'mecanico' | null>(null)
 
   // Sensores para controlar o comportamento do drag-and-drop
   const sensors = useSensors(
@@ -40,6 +44,10 @@ export default function PlanejamentoPage() {
     setError(null)
     try {
       const mecanicosData = await getOrdensAgrupadasPorMecanicoSupabase()
+      
+      // Extrair IDs de mecânicos para a ordenação
+      const mecanicoIdsArray = mecanicosData.map(mecanico => mecanico.id)
+      setMecanicoIds(mecanicoIdsArray)
       
       // Corrigir a sequência de ordem_execucao para cada mecânico
       const mecanicosCorrigidos = mecanicosData.map(mecanico => {
@@ -95,6 +103,7 @@ export default function PlanejamentoPage() {
       
       // Mesmo com erro, inicializamos com um array vazio
       setMecanicos([])
+      setMecanicoIds([])
     } finally {
       setLoading(false)
     }
@@ -153,19 +162,33 @@ export default function PlanejamentoPage() {
   // Manipulador de início de arrasto
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
-    const [mecanicoId, ordemId] = (active.id as string).split('_')
+    const activeId = active.id as string
     
-    // Placeholder não é arrastável para iniciar
-    if (ordemId === 'placeholder') return
-    
-    setActiveMecanicoId(mecanicoId)
-    
-    // Encontrar a ordem sendo arrastada
-    const mecanico = mecanicos.find(m => m.id === mecanicoId)
-    if (mecanico) {
-      const ordem = mecanico.ordens.find((o: any) => o.id === ordemId)
-      if (ordem) {
-        setActiveOrdem(ordem)
+    // Verificar se estamos arrastando um mecânico ou uma ordem
+    if (activeId.includes('_')) {
+      // É uma ordem
+      setDragType('ordem')
+      const [mecanicoId, ordemId] = activeId.split('_')
+      
+      // Placeholder não é arrastável para iniciar
+      if (ordemId === 'placeholder') return
+      
+      setActiveMecanicoId(mecanicoId)
+      
+      // Encontrar a ordem sendo arrastada
+      const mecanico = mecanicos.find(m => m.id === mecanicoId)
+      if (mecanico) {
+        const ordem = mecanico.ordens.find((o: any) => o.id === ordemId)
+        if (ordem) {
+          setActiveOrdem(ordem)
+        }
+      }
+    } else {
+      // É um mecânico
+      setDragType('mecanico')
+      const mecanico = mecanicos.find(m => m.id === activeId)
+      if (mecanico) {
+        setActiveMecanico(mecanico)
       }
     }
   }
@@ -176,225 +199,261 @@ export default function PlanejamentoPage() {
     
     if (!over) {
       setActiveOrdem(null)
+      setActiveMecanico(null)
       setActiveMecanicoId(null)
+      setDragType(null)
       return
     }
     
-    const [fromMecanicoId, ordemId] = (active.id as string).split('_')
-    const [toMecanicoId, overId] = (over.id as string).split('_')
-    
-    // Placeholder não é arrastável para iniciar
-    if (ordemId === 'placeholder') {
-      setActiveOrdem(null)
-      setActiveMecanicoId(null)
-      return
-    }
-    
-    // Se mecânico de origem e destino forem diferentes, mover a ordem
-    if (fromMecanicoId !== toMecanicoId) {
-      try {
-        console.log(`Movendo ordem entre mecânicos: De ${fromMecanicoId} para ${toMecanicoId}`);
-        
-        // Encontrar o mecânico de destino
-        const toMecanico = mecanicos.find(m => m.id === toMecanicoId)
-        if (!toMecanico) {
-          throw new Error("Mecânico de destino não encontrado")
-        }
-        
-        // Encontrar a ordem a ser movida
-        const fromMecanico = mecanicos.find(m => m.id === fromMecanicoId)
-        if (!fromMecanico) {
-          throw new Error("Mecânico de origem não encontrado")
-        }
-        
-        const ordemIndex = fromMecanico.ordens.findIndex((o: any) => o.id === ordemId)
-        if (ordemIndex === -1) {
-          throw new Error("Ordem não encontrada")
-        }
-        
-        // Obter a ordem
-        const ordem = fromMecanico.ordens[ordemIndex]
-        
-        // Atualizar o estado local primeiro para feedback imediato
-        const novasMecanicos = [...mecanicos]
-        const novoFromMecanico = {...fromMecanico, ordens: [...fromMecanico.ordens]}
-        novoFromMecanico.ordens.splice(ordemIndex, 1)
-        
-        // Adicionar ao destino
-        const novoToMecanico = {...toMecanico, ordens: [...toMecanico.ordens, {...ordem, mecanicoId: toMecanicoId, mecanicoInfo: `${toMecanico.nome} (${toMecanicoId})`}]}
-        
-        // Atualizar os arrays
-        const fromIndex = novasMecanicos.findIndex(m => m.id === fromMecanicoId)
-        const toIndex = novasMecanicos.findIndex(m => m.id === toMecanicoId)
-        
-        if (fromIndex !== -1) novasMecanicos[fromIndex] = novoFromMecanico
-        if (toIndex !== -1) novasMecanicos[toIndex] = novoToMecanico
-        
-        setMecanicos(novasMecanicos)
-        
-        // Atualizar no Supabase
-        console.log(`Enviando atualização para Supabase - ID: ${ordemId}, Novo Mecânico: ${toMecanicoId}`);
-        const success = await alterarMecanicoOrdemSupabase(
-          ordemId,
-          toMecanicoId,
-          `${toMecanico.nome} (${toMecanicoId})`
-        )
-        
-        if (success) {
-          toast.success("Ordem movida com sucesso", {
-            description: `A ordem foi transferida para ${toMecanico.nome}`
-          })
+    // Verificar se estamos arrastando um mecânico ou uma ordem
+    if (dragType === 'ordem') {
+      const [fromMecanicoId, ordemId] = (active.id as string).split('_')
+      const [toMecanicoId, overId] = (over.id as string).split('_')
+      
+      // Placeholder não é arrastável para iniciar
+      if (ordemId === 'placeholder') {
+        setActiveOrdem(null)
+        setActiveMecanicoId(null)
+        setDragType(null)
+        return
+      }
+      
+      // Se mecânico de origem e destino forem diferentes, mover a ordem
+      if (fromMecanicoId !== toMecanicoId) {
+        try {
+          console.log(`Movendo ordem entre mecânicos: De ${fromMecanicoId} para ${toMecanicoId}`);
           
-          // Recarregar dados do servidor após algum tempo para garantir consistência
-          setTimeout(async () => {
-            try {
-              const mecanicosAtualizados = await getOrdensAgrupadasPorMecanicoSupabase();
-              setMecanicos(mecanicosAtualizados);
-            } catch (refreshError) {
-              console.error('Erro ao atualizar dados após mover ordem:', refreshError);
-            }
-          }, 1000); // Atualizar após 1 segundo
-        } else {
-          toast.error("Falha ao mover ordem", {
-            description: "Ocorreu um erro ao transferir a ordem. Tente novamente."
+          // Encontrar o mecânico de destino
+          const toMecanico = mecanicos.find(m => m.id === toMecanicoId)
+          if (!toMecanico) {
+            throw new Error("Mecânico de destino não encontrado")
+          }
+          
+          // Encontrar a ordem a ser movida
+          const fromMecanico = mecanicos.find(m => m.id === fromMecanicoId)
+          if (!fromMecanico) {
+            throw new Error("Mecânico de origem não encontrado")
+          }
+          
+          const ordemIndex = fromMecanico.ordens.findIndex((o: any) => o.id === ordemId)
+          if (ordemIndex === -1) {
+            throw new Error("Ordem não encontrada")
+          }
+          
+          // Obter a ordem
+          const ordem = fromMecanico.ordens[ordemIndex]
+          
+          // Atualizar o estado local primeiro para feedback imediato
+          const novasMecanicos = [...mecanicos]
+          const novoFromMecanico = {...fromMecanico, ordens: [...fromMecanico.ordens]}
+          novoFromMecanico.ordens.splice(ordemIndex, 1)
+          
+          // Adicionar ao destino
+          const novoToMecanico = {...toMecanico, ordens: [...toMecanico.ordens, {...ordem, mecanicoId: toMecanicoId, mecanicoInfo: `${toMecanico.nome} (${toMecanicoId})`}]}
+          
+          // Atualizar os arrays
+          const fromIndex = novasMecanicos.findIndex(m => m.id === fromMecanicoId)
+          const toIndex = novasMecanicos.findIndex(m => m.id === toMecanicoId)
+          
+          if (fromIndex !== -1) novasMecanicos[fromIndex] = novoFromMecanico
+          if (toIndex !== -1) novasMecanicos[toIndex] = novoToMecanico
+          
+          setMecanicos(novasMecanicos)
+          
+          // Atualizar no Supabase
+          console.log(`Enviando atualização para Supabase - ID: ${ordemId}, Novo Mecânico: ${toMecanicoId}`);
+          const success = await alterarMecanicoOrdemSupabase(
+            ordemId,
+            toMecanicoId,
+            `${toMecanico.nome} (${toMecanicoId})`
+          )
+          
+          if (success) {
+            toast.success("Ordem movida com sucesso", {
+              description: `A ordem foi transferida para ${toMecanico.nome}`
+            })
+            
+            // Recarregar dados do servidor após algum tempo para garantir consistência
+            setTimeout(async () => {
+              try {
+                const mecanicosAtualizados = await getOrdensAgrupadasPorMecanicoSupabase();
+                setMecanicos(mecanicosAtualizados);
+              } catch (refreshError) {
+                console.error('Erro ao atualizar dados após mover ordem:', refreshError);
+              }
+            }, 1000); // Atualizar após 1 segundo
+          } else {
+            toast.error("Falha ao mover ordem", {
+              description: "Ocorreu um erro ao transferir a ordem. Tente novamente."
+            })
+            
+            // Recarregar dados do servidor em caso de erro para restaurar estado
+            carregarDados();
+          }
+        } catch (error) {
+          console.error("Erro ao mover ordem:", error)
+          toast.error("Erro ao mover ordem", {
+            description: "Não foi possível mover a ordem. Tente novamente mais tarde."
           })
           
           // Recarregar dados do servidor em caso de erro para restaurar estado
           carregarDados();
         }
-      } catch (error) {
-        console.error("Erro ao mover ordem:", error)
-        toast.error("Erro ao mover ordem", {
-          description: "Não foi possível mover a ordem. Tente novamente mais tarde."
-        })
-        
-        // Recarregar dados do servidor em caso de erro para restaurar estado
-        carregarDados();
-      }
-    } else if (ordemId !== overId) {
-      // Reordenar dentro do mesmo mecânico
-      try {
-        console.log(`Reordenando no mesmo mecânico: ${fromMecanicoId} - De ${ordemId} para ${overId}`);
-        
-        const mecanicoIndex = mecanicos.findIndex(m => m.id === fromMecanicoId);
-        if (mecanicoIndex === -1) {
-          console.error(`Mecânico não encontrado: ${fromMecanicoId}`);
-          return;
-        }
-        
-        const mecanico = mecanicos[mecanicoIndex];
-        
-        // Filtrar ordens finalizadas/concluídas
-        const ordensFiltradas = mecanico.ordens.filter((ordem: any) => 
-          ordem.status !== 'Finalizado' && ordem.status !== 'Concluída'
-        );
-        
-        const oldIndex = ordensFiltradas.findIndex((o: any) => o.id === ordemId);
-        const newIndex = ordensFiltradas.findIndex((o: any) => o.id === overId);
-        
-        console.log(`Índices: oldIndex=${oldIndex}, newIndex=${newIndex}`);
-        
-        if (oldIndex === -1 || newIndex === -1) {
-          console.error(`Índices inválidos: oldIndex=${oldIndex}, newIndex=${newIndex}`);
-          return;
-        }
-        
-        // Reordenar as ordens localmente primeiro
-        const novasOrdens = arrayMove(ordensFiltradas, oldIndex, newIndex);
-        
-        // Garantir que as ordens tenham ordem_execucao começando em 1 e sequencial
-        const ordensAtualizadas = novasOrdens.map((ordem: any, index: number) => ({
-          ...ordem,
-          ordem_execucao: index + 1
-        }));
-        
-        // Atualizar todas as ordens do mecânico com a sequência normalizada
-        const todasAsOrdens = [...mecanico.ordens];
-        // Substituir apenas as ordens que foram reordenadas (não finalizadas/concluídas)
-        ordensAtualizadas.forEach((ordem: any) => {
-          const index = todasAsOrdens.findIndex((o: any) => o.id === ordem.id);
-          if (index !== -1) {
-            todasAsOrdens[index] = ordem;
+      } else if (ordemId !== overId) {
+        // Reordenar dentro do mesmo mecânico
+        try {
+          console.log(`Reordenando no mesmo mecânico: ${fromMecanicoId} - De ${ordemId} para ${overId}`);
+          
+          const mecanicoIndex = mecanicos.findIndex(m => m.id === fromMecanicoId);
+          if (mecanicoIndex === -1) {
+            console.error(`Mecânico não encontrado: ${fromMecanicoId}`);
+            return;
           }
-        });
-        
-        // Atualize o estado local imediatamente para uma resposta rápida de UI
-        const novosMecanicosTemp = [...mecanicos];
-        novosMecanicosTemp[mecanicoIndex] = {
-          ...mecanico,
-          ordens: todasAsOrdens
-        };
-        setMecanicos(novosMecanicosTemp);
-        
-        // Atualizar as ordens de execução no banco de dados
-        let sucessos = 0;
-        const totalOperacoes = ordensAtualizadas.length;
-        
-        // Usar Promise.all para executar todas as atualizações em paralelo
-        const resultados = await Promise.all(ordensAtualizadas.map(async (ordem: any) => {
-          try {
-            console.log(`Atualizando ordem ${ordem.id} para posição ${ordem.ordem_execucao}`);
-            
-            const success = await atualizarOrdemExecucaoSupabase(ordem.id, ordem.ordem_execucao);
-            if (success) {
-              sucessos++;
-              return { id: ordem.id, success: true };
+          
+          const mecanico = mecanicos[mecanicoIndex];
+          
+          // Filtrar ordens finalizadas/concluídas
+          const ordensFiltradas = mecanico.ordens.filter((ordem: any) => 
+            ordem.status !== 'Finalizado' && ordem.status !== 'Concluída'
+          );
+          
+          const oldIndex = ordensFiltradas.findIndex((o: any) => o.id === ordemId);
+          const newIndex = ordensFiltradas.findIndex((o: any) => o.id === overId);
+          
+          console.log(`Índices: oldIndex=${oldIndex}, newIndex=${newIndex}`);
+          
+          if (oldIndex === -1 || newIndex === -1) {
+            console.error(`Índices inválidos: oldIndex=${oldIndex}, newIndex=${newIndex}`);
+            return;
+          }
+          
+          // Reordenar as ordens localmente primeiro
+          const novasOrdens = arrayMove(ordensFiltradas, oldIndex, newIndex);
+          
+          // Garantir que as ordens tenham ordem_execucao começando em 1 e sequencial
+          const ordensAtualizadas = novasOrdens.map((ordem: any, index: number) => ({
+            ...ordem,
+            ordem_execucao: index + 1
+          }));
+          
+          // Atualizar todas as ordens do mecânico com a sequência normalizada
+          const todasAsOrdens = [...mecanico.ordens];
+          // Substituir apenas as ordens que foram reordenadas (não finalizadas/concluídas)
+          ordensAtualizadas.forEach((ordem: any) => {
+            const index = todasAsOrdens.findIndex((o: any) => o.id === ordem.id);
+            if (index !== -1) {
+              todasAsOrdens[index] = ordem;
             }
-            return { id: ordem.id, success: false };
-          } catch (error) {
-            console.error(`Erro ao atualizar ordem de execução para ${ordem.id}:`, error);
-            return { id: ordem.id, success: false, error };
-          }
-        }));
-        
-        console.log('Resultados das atualizações:', resultados);
-        
-        // Buscar as ordens atualizadas do servidor para garantir consistência
-        if (sucessos > 0) {
-          try {
-            setTimeout(async () => {
-              const mecanicosAtualizados = await getOrdensAgrupadasPorMecanicoSupabase();
-              setMecanicos(mecanicosAtualizados);
-            }, 1000); // Atualizar após 1 segundo
-          } catch (refreshError) {
-            console.error('Erro ao atualizar dados após reordenação:', refreshError);
-          }
-        }
-        
-        if (sucessos === totalOperacoes) {
-          toast.success("Ordens reordenadas com sucesso", {
-            description: `A sequência de ordens foi atualizada para ${mecanico.nome}`
-          });
-        } else if (sucessos > 0) {
-          toast.success("Ordens parcialmente reordenadas", {
-            description: `${sucessos} de ${totalOperacoes} ordens foram atualizadas com sucesso`
-          });
-        } else {
-          toast.error("Falha ao reordenar ordens", {
-            description: "Ocorreu um erro ao salvar a nova ordem. Tente novamente."
           });
           
-          // Reverta a mudança local se nenhuma ordem foi atualizada com sucesso
+          // Atualize o estado local imediatamente para uma resposta rápida de UI
+          const novosMecanicosTemp = [...mecanicos];
+          novosMecanicosTemp[mecanicoIndex] = {
+            ...mecanico,
+            ordens: todasAsOrdens
+          };
+          setMecanicos(novosMecanicosTemp);
+          
+          // Atualizar as ordens de execução no banco de dados
+          let sucessos = 0;
+          const totalOperacoes = ordensAtualizadas.length;
+          
+          // Usar Promise.all para executar todas as atualizações em paralelo
+          const resultados = await Promise.all(ordensAtualizadas.map(async (ordem: any) => {
+            try {
+              console.log(`Atualizando ordem ${ordem.id} para posição ${ordem.ordem_execucao}`);
+              
+              const success = await atualizarOrdemExecucaoSupabase(ordem.id, ordem.ordem_execucao);
+              if (success) {
+                sucessos++;
+                return { id: ordem.id, success: true };
+              }
+              return { id: ordem.id, success: false };
+            } catch (error) {
+              console.error(`Erro ao atualizar ordem de execução para ${ordem.id}:`, error);
+              return { id: ordem.id, success: false, error };
+            }
+          }));
+          
+          console.log('Resultados das atualizações:', resultados);
+          
+          // Buscar as ordens atualizadas do servidor para garantir consistência
+          if (sucessos > 0) {
+            try {
+              setTimeout(async () => {
+                const mecanicosAtualizados = await getOrdensAgrupadasPorMecanicoSupabase();
+                setMecanicos(mecanicosAtualizados);
+              }, 1000); // Atualizar após 1 segundo
+            } catch (refreshError) {
+              console.error('Erro ao atualizar dados após reordenação:', refreshError);
+            }
+          }
+          
+          if (sucessos === totalOperacoes) {
+            toast.success("Ordens reordenadas com sucesso", {
+              description: `A sequência de ordens foi atualizada para ${mecanico.nome}`
+            });
+          } else if (sucessos > 0) {
+            toast.success("Ordens parcialmente reordenadas", {
+              description: `${sucessos} de ${totalOperacoes} ordens foram atualizadas com sucesso`
+            });
+          } else {
+            toast.error("Falha ao reordenar ordens", {
+              description: "Ocorreu um erro ao salvar a nova ordem. Tente novamente."
+            });
+            
+            // Reverta a mudança local se nenhuma ordem foi atualizada com sucesso
+            carregarDados();
+          }
+        } catch (error) {
+          console.error("Erro ao reordenar ordens:", error);
+          toast.error("Erro ao reordenar ordens", {
+            description: "Não foi possível salvar a nova ordem. Tente novamente mais tarde."
+          });
+          
+          // Recarregar os dados em caso de erro
           carregarDados();
         }
-      } catch (error) {
-        console.error("Erro ao reordenar ordens:", error);
-        toast.error("Erro ao reordenar ordens", {
-          description: "Não foi possível salvar a nova ordem. Tente novamente mais tarde."
-        });
+      }
+    } else if (dragType === 'mecanico') {
+      // Reorganizar os mecânicos
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      
+      if (activeId !== overId) {
+        const oldIndex = mecanicoIds.indexOf(activeId);
+        const newIndex = mecanicoIds.indexOf(overId);
         
-        // Recarregar os dados em caso de erro
-        carregarDados();
+        if (oldIndex !== -1 && newIndex !== -1) {
+          // Atualizar a ordem dos IDs
+          const novosMecanicoIds = arrayMove(mecanicoIds, oldIndex, newIndex);
+          setMecanicoIds(novosMecanicoIds);
+          
+          // Reorganizar a lista de mecânicos com base na nova ordem
+          const novosMecanicos = [...mecanicos].sort((a, b) => {
+            const indexA = novosMecanicoIds.indexOf(a.id);
+            const indexB = novosMecanicoIds.indexOf(b.id);
+            return indexA - indexB;
+          });
+          
+          setMecanicos(novosMecanicos);
+          
+          toast.success("Mecânicos reorganizados", {
+            description: "A ordem dos mecânicos foi atualizada com sucesso."
+          });
+        }
       }
     }
     
     setActiveOrdem(null)
+    setActiveMecanico(null)
     setActiveMecanicoId(null)
+    setDragType(null)
   }
 
   // Manipulador de arrastar sobre
   const handleDragOver = (event: DragOverEvent) => {
-    // Não precisa fazer nada especial aqui por enquanto, pois estamos tratando tudo no handleDragEnd
+    // Não precisa fazer nada especial aqui por enquanto
   }
 
   return (
@@ -442,40 +501,41 @@ export default function PlanejamentoPage() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragOver={handleDragOver}
-          collisionDetection={(args) => {
-            // Essa configuração usa uma estratégia de colisão que prioriza a interseção no eixo vertical
-            // o que é mais adequado para listas verticais
-            const intersections = closestCorners(args);
-            const filtered = intersections.filter(
-              i => (i.id as string).split('_')[0] === (args.active.id as string).split('_')[0]
-            );
-
-            // Se não tivermos interseções no mesmo mecânico, retornamos todas as interseções
-            return filtered.length > 0 ? filtered : intersections;
-          }}
+          collisionDetection={closestCorners}
           measuring={{
             droppable: {
               strategy: MeasuringStrategy.Always
             }
           }}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {mecanicos.map(mecanico => (
-              <MecanicoCard 
-                key={mecanico.id} 
-                mecanico={mecanico} 
-                getStatusColor={getStatusColor}
-              />
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+            <SortableContext items={mecanicoIds} strategy={horizontalListSortingStrategy}>
+              {mecanicos.map(mecanico => (
+                <MecanicoCard 
+                  key={mecanico.id} 
+                  mecanico={mecanico} 
+                  getStatusColor={getStatusColor}
+                />
+              ))}
+            </SortableContext>
           </div>
           
           {/* Overlay que segue o cursor durante o arrasto */}
           <DragOverlay>
-            {activeOrdem && activeMecanicoId && (
+            {activeOrdem && activeMecanicoId && dragType === 'ordem' && (
               <div className="w-full max-w-[350px]">
                 <OrdemCard 
                   ordem={activeOrdem}
                   mecanicoId={activeMecanicoId}
+                  getStatusColor={getStatusColor}
+                  isDragging={true}
+                />
+              </div>
+            )}
+            {activeMecanico && dragType === 'mecanico' && (
+              <div className="w-full max-w-[350px] opacity-80">
+                <MecanicoCard 
+                  mecanico={activeMecanico} 
                   getStatusColor={getStatusColor}
                   isDragging={true}
                 />

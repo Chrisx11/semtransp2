@@ -41,9 +41,9 @@ export const OrdemPlaceholder: React.FC<OrdemPlaceholderProps> = ({ mecanicoId }
       <Card className={cn(
         "border border-dashed border-blue-300 bg-blue-50/30",
         isDragging ? "shadow-lg" : "shadow-sm",
-        "transition-all duration-200 group hover:border-blue-400 hover:bg-blue-50/50"
+        "transition-all duration-200 group hover:border-blue-400 hover:bg-blue-50/50 h-[120px]"
       )}>
-        <CardContent className="p-6 flex items-center justify-center">
+        <CardContent className="p-6 flex items-center justify-center h-full">
           <div className="flex flex-col items-center text-blue-500 gap-3">
             <div className="bg-blue-100 p-2 rounded-full group-hover:bg-blue-200 transition-colors">
               <Plus className="h-5 w-5" />

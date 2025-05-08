@@ -111,31 +111,33 @@ export const OrdemCard: React.FC<OrdemCardProps> = ({
         <Card className={cn(
           "border border-transparent hover:border-primary/60",
           isDragging || isSortableDragging ? "shadow-lg scale-105 border-primary" : "shadow-sm",
-          "transition-all duration-200"
+          "transition-all duration-200 h-[120px]"
         )}>
-          <CardContent className="p-3 relative">
+          <CardContent className="p-3 relative h-full">
             <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
               <div className="bg-primary/10 w-full h-full flex items-center justify-center rounded">
                 <ArrowUpDown className="h-5 w-5 text-primary" />
               </div>
             </div>
             
-            <div className="flex items-start gap-2 relative z-10">
+            <div className="flex items-start gap-2 relative z-10 h-full">
               <div className={`w-1 self-stretch rounded-full ${getStatusColor(ordem.status)}`} />
               
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <Truck className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-sm">{placa}</span>
+              <div className="flex-1 min-w-0 flex flex-col justify-between h-full">
+                <div>
+                  <div className="flex justify-between items-start mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium text-sm">{placa}</span>
+                    </div>
+                    <Badge variant="outline" className="text-xs px-1.5 py-0">
+                      #{ordem.numero.replace('OS-', '')}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="text-xs px-1.5 py-0">
-                    #{ordem.numero.replace('OS-', '')}
-                  </Badge>
-                </div>
-                
-                <div className="mb-1.5 text-xs line-clamp-2 text-muted-foreground">
-                  {ordem.defeitosRelatados || "Sem descrição"}
+                  
+                  <div className="mb-1.5 text-xs line-clamp-2 text-muted-foreground h-[32px]">
+                    {ordem.defeitosRelatados || "Sem descrição"}
+                  </div>
                 </div>
                 
                 <div className="flex items-center justify-between gap-2 text-xs">
