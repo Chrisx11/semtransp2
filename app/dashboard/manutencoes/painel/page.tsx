@@ -315,6 +315,25 @@ export default function PainelManutencaoPage() {
   const [modalRankingMotoristas, setModalRankingMotoristas] = useState(false)
   const [modalPrioridade, setModalPrioridade] = useState(false)
   const [modalRankingMecanicos, setModalRankingMecanicos] = useState(false)
+  const [modalTempoMedio, setModalTempoMedio] = useState(false)
+  const [modalTotalOrdens, setModalTotalOrdens] = useState(false)
+  const [modalEmAndamento, setModalEmAndamento] = useState(false)
+  const [modalEficiencia, setModalEficiencia] = useState(false)
+  const [detalhesTempoMedio, setDetalhesTempoMedio] = useState<{
+    ordensFinalizadas: number,
+    ordensValidas: number,
+    detalhes: Array<{
+      numero: string,
+      veiculoInfo: string,
+      inicio: string,
+      fim: string,
+      dias: number
+    }>
+  }>({
+    ordensFinalizadas: 0,
+    ordensValidas: 0,
+    detalhes: []
+  })
 
   // Cores para os status
   const statusColors = {
@@ -533,20 +552,94 @@ export default function PainelManutencaoPage() {
       const atrasadas = Math.floor(emAndamento * 0.2)
 
       // Calcular tempo médio real de finalização
-      const ordensFinalizadas = allOrdens.filter((o) => o.status.toLowerCase() === "finalizado" && o.historico && o.createdAt)
-      const tempoMedio = ordensFinalizadas.length > 0
-        ? Math.round(
-            ordensFinalizadas.reduce((acc, ordem) => {
-              const inicio = new Date(ordem.createdAt)
-              // Buscar evento de finalização no historico
-              const eventoFinalizado = ordem.historico.find((h) => h.status && h.status.toLowerCase() === "finalizado")
-              if (!eventoFinalizado) return acc
-              const fim = new Date(eventoFinalizado.data)
-              const diff = (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24) // diferença em dias
-              return acc + diff
-            }, 0) / ordensFinalizadas.length
-          )
-        : 0
+      const ordensFinalizadas = allOrdens.filter((o) => 
+        o.status.toLowerCase() === "finalizado" && 
+        o.historico && 
+        Array.isArray(o.historico) && 
+        o.historico.length > 0 && 
+        o.createdAt
+      )
+      
+      console.log(`Total de ordens finalizadas para cálculo: ${ordensFinalizadas.length}`)
+      
+      let tempoMedio = 0
+      let ordensComCalculoValido = 0
+      const detalhesCalculo: Array<{
+        numero: string,
+        veiculoInfo: string,
+        inicio: string,
+        fim: string,
+        dias: number
+      }> = []
+      
+      if (ordensFinalizadas.length > 0) {
+        let tempoTotal = 0
+        
+        for (const ordem of ordensFinalizadas) {
+          try {
+            const inicio = new Date(ordem.createdAt)
+            if (isNaN(inicio.getTime())) {
+              console.log(`Data de criação inválida para ordem ${ordem.numero}: ${ordem.createdAt}`)
+              continue
+            }
+            
+            // Buscar evento de finalização no historico
+            const eventoFinalizado = ordem.historico.find(
+              (h) => h.status && h.status.toLowerCase() === "finalizado" && h.data
+            )
+            
+            if (!eventoFinalizado) {
+              console.log(`Ordem ${ordem.numero} não tem evento de finalização no histórico`)
+              continue
+            }
+            
+            const fim = new Date(eventoFinalizado.data)
+            if (isNaN(fim.getTime())) {
+              console.log(`Data de finalização inválida para ordem ${ordem.numero}: ${eventoFinalizado.data}`)
+              continue
+            }
+            
+            const diff = (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24) // diferença em dias
+            
+            if (diff <= 0) {
+              console.log(`Diferença de tempo inválida para ordem ${ordem.numero}: ${diff} dias`)
+              continue
+            }
+            
+            tempoTotal += diff
+            ordensComCalculoValido++
+            
+            // Adicionar aos detalhes para mostrar no modal
+            detalhesCalculo.push({
+              numero: ordem.numero,
+              veiculoInfo: ordem.veiculoInfo,
+              inicio: inicio.toLocaleDateString(),
+              fim: fim.toLocaleDateString(),
+              dias: Number(diff.toFixed(1))
+            })
+            
+            console.log(`Ordem ${ordem.numero}: ${diff.toFixed(1)} dias (de ${inicio.toLocaleDateString()} até ${fim.toLocaleDateString()})`)
+          } catch (err) {
+            console.error(`Erro ao calcular tempo para ordem ${ordem.numero || 'desconhecida'}:`, err)
+          }
+        }
+        
+        if (ordensComCalculoValido > 0) {
+          tempoMedio = Math.round(tempoTotal / ordensComCalculoValido)
+          console.log(`Tempo médio calculado: ${tempoMedio} dias (baseado em ${ordensComCalculoValido} ordens válidas)`)
+        } else {
+          console.log('Nenhuma ordem com cálculo válido de tempo')
+        }
+      } else {
+        console.log('Não há ordens finalizadas para calcular o tempo médio')
+      }
+
+      // Atualizar o estado com os detalhes do cálculo
+      setDetalhesTempoMedio({
+        ordensFinalizadas: ordensFinalizadas.length,
+        ordensValidas: ordensComCalculoValido,
+        detalhes: detalhesCalculo
+      })
 
       setEstatisticas({
         total: allOrdens.length,
@@ -634,6 +727,15 @@ export default function PainelManutencaoPage() {
             <p className="text-xs text-muted-foreground">{estatisticas.finalizadas} finalizadas</p>
             <Progress value={conclusionPercentage} className="h-2 mt-2" />
             <p className="text-xs text-muted-foreground mt-1">{conclusionPercentage}% concluído</p>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setModalTotalOrdens(true); 
+              }} 
+              className="text-xs text-blue-500 hover:underline mt-1"
+            >
+              Ver detalhes
+            </button>
           </CardContent>
         </Card>
 
@@ -647,6 +749,15 @@ export default function PainelManutencaoPage() {
             <p className="text-xs text-muted-foreground">
               {estatisticas.atrasadas > 0 ? `${estatisticas.atrasadas} atrasadas` : "Nenhuma atrasada"}
             </p>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setModalEmAndamento(true); 
+              }} 
+              className="text-xs text-blue-500 hover:underline mt-1"
+            >
+              Ver detalhes
+            </button>
           </CardContent>
         </Card>
 
@@ -658,6 +769,15 @@ export default function PainelManutencaoPage() {
           <CardContent>
             <div className="text-2xl font-bold">{estatisticas.tempoMedio} dias</div>
             <p className="text-xs text-muted-foreground">Para finalização de ordens</p>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setModalTempoMedio(true); 
+              }} 
+              className="text-xs text-blue-500 hover:underline mt-1"
+            >
+              Ver detalhes do cálculo
+            </button>
           </CardContent>
         </Card>
 
@@ -671,6 +791,15 @@ export default function PainelManutencaoPage() {
               {estatisticas.total > 0 ? Math.round((estatisticas.finalizadas / estatisticas.total) * 100) : 0}%
             </div>
             <p className="text-xs text-muted-foreground">Taxa de conclusão</p>
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                setModalEficiencia(true); 
+              }} 
+              className="text-xs text-blue-500 hover:underline mt-1"
+            >
+              Ver detalhes
+            </button>
           </CardContent>
         </Card>
       </div>
@@ -1486,6 +1615,445 @@ export default function PainelManutencaoPage() {
                 <li><span style={{ color: COLORS[1] }}>Média</span>: Ordem relevante, pode aguardar um pouco.</li>
                 <li><span style={{ color: COLORS[0] }}>Baixa</span>: Ordem sem urgência, pode ser programada.</li>
               </ul>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal detalhado do Tempo Médio */}
+      <Dialog open={modalTempoMedio} onOpenChange={setModalTempoMedio}>
+        <DialogContent className="max-w-3xl w-full p-0 overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <DialogTitle className="sr-only">Detalhes do Cálculo do Tempo Médio</DialogTitle>
+          <div className="flex items-center gap-3 px-6 py-4 bg-[#06B6D4] text-white flex-shrink-0 rounded-t-md">
+            <Clock className="text-white text-2xl" />
+            <div>
+              <div className="text-lg font-bold leading-tight">Detalhes do Cálculo do Tempo Médio</div>
+              <div className="text-xs opacity-80">
+                Tempo médio: {estatisticas.tempoMedio} dias
+              </div>
+            </div>
+          </div>
+          <div className="px-6 pt-4 pb-6 bg-background flex-1 overflow-y-auto scrollbar-none">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Resumo do Cálculo</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li className="flex justify-between">
+                      <span>Total de ordens finalizadas:</span>
+                      <span className="font-medium">{detalhesTempoMedio.ordensFinalizadas}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Ordens com dados válidos:</span>
+                      <span className="font-medium">{detalhesTempoMedio.ordensValidas}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Tempo médio calculado:</span>
+                      <span className="font-medium">{estatisticas.tempoMedio} dias</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Como é calculado?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    O tempo médio é calculado considerando a diferença em dias entre a data de criação da ordem 
+                    e a data do evento de finalização no histórico. Apenas ordens com status "Finalizado" e 
+                    com datas válidas são consideradas no cálculo.
+                  </p>
+                </div>
+              </div>
+              
+              <h3 className="font-medium mt-6">Detalhes por Ordem</h3>
+              {detalhesTempoMedio.detalhes.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border rounded text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Ordem</th>
+                        <th className="px-3 py-2 text-left">Veículo</th>
+                        <th className="px-3 py-2 text-center">Data Início</th>
+                        <th className="px-3 py-2 text-center">Data Fim</th>
+                        <th className="px-3 py-2 text-right">Tempo (dias)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detalhesTempoMedio.detalhes.map((detalhe) => (
+                        <tr key={detalhe.numero} className="border-t">
+                          <td className="px-3 py-2">{detalhe.numero}</td>
+                          <td className="px-3 py-2">{detalhe.veiculoInfo.split(' - ')[0]}</td>
+                          <td className="px-3 py-2 text-center">{detalhe.inicio}</td>
+                          <td className="px-3 py-2 text-center">{detalhe.fim}</td>
+                          <td className="px-3 py-2 text-right font-medium">{detalhe.dias}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-muted">
+                      <tr>
+                        <td colSpan={4} className="px-3 py-2 text-right font-medium">Média:</td>
+                        <td className="px-3 py-2 text-right font-bold">{estatisticas.tempoMedio}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center p-8 border rounded-md">
+                  <p className="text-muted-foreground">Não há ordens com dados válidos para mostrar o cálculo.</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Possíveis razões: não há ordens finalizadas, as ordens não têm evento de finalização no histórico, 
+                    ou há problemas com as datas registradas.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal detalhado do Total de Ordens */}
+      <Dialog open={modalTotalOrdens} onOpenChange={setModalTotalOrdens}>
+        <DialogContent className="max-w-3xl w-full p-0 overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <DialogTitle className="sr-only">Detalhes do Total de Ordens</DialogTitle>
+          <div className="flex items-center gap-3 px-6 py-4 bg-[#3B82F6] text-white flex-shrink-0 rounded-t-md">
+            <FileText className="text-white text-2xl" />
+            <div>
+              <div className="text-lg font-bold leading-tight">Detalhes do Total de Ordens</div>
+              <div className="text-xs opacity-80">
+                Total: {estatisticas.total} ordens
+              </div>
+            </div>
+          </div>
+          <div className="px-6 pt-4 pb-6 bg-background flex-1 overflow-y-auto scrollbar-none">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Resumo</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li className="flex justify-between">
+                      <span>Total de ordens:</span>
+                      <span className="font-medium">{estatisticas.total}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Ordens finalizadas:</span>
+                      <span className="font-medium">{estatisticas.finalizadas}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Ordens em andamento:</span>
+                      <span className="font-medium">{estatisticas.emAndamento}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Taxa de conclusão:</span>
+                      <span className="font-medium">{conclusionPercentage}%</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Distribuição por Status</h3>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: 'Finalizadas', value: estatisticas.finalizadas },
+                            { name: 'Em andamento', value: estatisticas.emAndamento }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={true}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell fill="#1D4ED8" /> {/* Azul para finalizadas */}
+                          <Cell fill="#10B981" /> {/* Verde para em andamento */}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+              
+              <h3 className="font-medium mt-6">Distribuição por Status</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border rounded text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right">Quantidade</th>
+                      <th className="px-3 py-2 text-right">Percentual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statusList.map((status) => {
+                      const count = ordens.filter((o) => mapStatus(o.status) === status).length;
+                      const percentage = estatisticas.total > 0 ? ((count / estatisticas.total) * 100).toFixed(1) : "0.0";
+                      return (
+                        <tr key={status} className="border-t">
+                          <td className="px-3 py-2 flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: getStatusBarColor(status) }}></span>
+                            {status}
+                          </td>
+                          <td className="px-3 py-2 text-right">{count}</td>
+                          <td className="px-3 py-2 text-right">{percentage}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal detalhado de Em Andamento */}
+      <Dialog open={modalEmAndamento} onOpenChange={setModalEmAndamento}>
+        <DialogContent className="max-w-3xl w-full p-0 overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <DialogTitle className="sr-only">Detalhes de Ordens em Andamento</DialogTitle>
+          <div className="flex items-center gap-3 px-6 py-4 bg-[#10B981] text-white flex-shrink-0 rounded-t-md">
+            <Activity className="text-white text-2xl" />
+            <div>
+              <div className="text-lg font-bold leading-tight">Detalhes de Ordens em Andamento</div>
+              <div className="text-xs opacity-80">
+                Total em andamento: {estatisticas.emAndamento} ordens
+              </div>
+            </div>
+          </div>
+          <div className="px-6 pt-4 pb-6 bg-background flex-1 overflow-y-auto scrollbar-none">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Resumo</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li className="flex justify-between">
+                      <span>Total em andamento:</span>
+                      <span className="font-medium">{estatisticas.emAndamento}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Ordens atrasadas:</span>
+                      <span className="font-medium">{estatisticas.atrasadas}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Percentual de atraso:</span>
+                      <span className="font-medium">
+                        {estatisticas.emAndamento > 0 
+                          ? ((estatisticas.atrasadas / estatisticas.emAndamento) * 100).toFixed(1) 
+                          : "0.0"}%
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Distribuição por Prioridade</h3>
+                  <div className="h-[200px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { 
+                              name: 'Urgente', 
+                              value: ordens.filter(o => o.status.toLowerCase() !== "finalizado" && o.prioridade === "Urgente").length 
+                            },
+                            { 
+                              name: 'Alta', 
+                              value: ordens.filter(o => o.status.toLowerCase() !== "finalizado" && o.prioridade === "Alta").length 
+                            },
+                            { 
+                              name: 'Média', 
+                              value: ordens.filter(o => o.status.toLowerCase() !== "finalizado" && o.prioridade === "Média").length 
+                            },
+                            { 
+                              name: 'Baixa', 
+                              value: ordens.filter(o => o.status.toLowerCase() !== "finalizado" && o.prioridade === "Baixa").length 
+                            }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={true}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          <Cell fill="#EF4444" /> {/* Vermelho para Urgente */}
+                          <Cell fill="#F97316" /> {/* Laranja para Alta */}
+                          <Cell fill="#FACC15" /> {/* Amarelo para Média */}
+                          <Cell fill="#3B82F6" /> {/* Azul para Baixa */}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+              
+              <h3 className="font-medium mt-6">Distribuição por Status (Exceto Finalizadas)</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full border rounded text-sm">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Status</th>
+                      <th className="px-3 py-2 text-right">Quantidade</th>
+                      <th className="px-3 py-2 text-right">Percentual</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statusList.filter(status => status !== "Finalizado").map((status) => {
+                      const count = ordens.filter((o) => mapStatus(o.status) === status).length;
+                      const percentage = estatisticas.emAndamento > 0 
+                        ? ((count / estatisticas.emAndamento) * 100).toFixed(1) 
+                        : "0.0";
+                      return (
+                        <tr key={status} className="border-t">
+                          <td className="px-3 py-2 flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full" style={{ backgroundColor: getStatusBarColor(status) }}></span>
+                            {status}
+                          </td>
+                          <td className="px-3 py-2 text-right">{count}</td>
+                          <td className="px-3 py-2 text-right">{percentage}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal detalhado da Eficiência */}
+      <Dialog open={modalEficiencia} onOpenChange={setModalEficiencia}>
+        <DialogContent className="max-w-3xl w-full p-0 overflow-hidden flex flex-col" style={{ maxHeight: '80vh' }}>
+          <DialogTitle className="sr-only">Detalhes da Eficiência</DialogTitle>
+          <div className="flex items-center gap-3 px-6 py-4 bg-[#F97316] text-white flex-shrink-0 rounded-t-md">
+            <TrendingUp className="text-white text-2xl" />
+            <div>
+              <div className="text-lg font-bold leading-tight">Detalhes da Eficiência</div>
+              <div className="text-xs opacity-80">
+                Taxa de conclusão: {conclusionPercentage}%
+              </div>
+            </div>
+          </div>
+          <div className="px-6 pt-4 pb-6 bg-background flex-1 overflow-y-auto scrollbar-none">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Resumo</h3>
+                  <ul className="space-y-1 text-sm">
+                    <li className="flex justify-between">
+                      <span>Total de ordens:</span>
+                      <span className="font-medium">{estatisticas.total}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Ordens finalizadas:</span>
+                      <span className="font-medium">{estatisticas.finalizadas}</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Taxa de conclusão:</span>
+                      <span className="font-medium">{conclusionPercentage}%</span>
+                    </li>
+                    <li className="flex justify-between">
+                      <span>Tempo médio de finalização:</span>
+                      <span className="font-medium">{estatisticas.tempoMedio} dias</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="p-4 border rounded-md">
+                  <h3 className="font-medium mb-2">Como é calculado?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    A eficiência é calculada como a porcentagem de ordens finalizadas em relação ao total de ordens cadastradas:
+                  </p>
+                  <div className="bg-muted p-3 rounded-md mt-2 text-center">
+                    <p className="font-mono">
+                      Eficiência = (Ordens Finalizadas ÷ Total de Ordens) × 100%
+                    </p>
+                    <p className="font-mono mt-2">
+                      {estatisticas.finalizadas} ÷ {estatisticas.total} × 100% = {conclusionPercentage}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 border rounded-md mt-4">
+                <h3 className="font-medium mb-4">Progresso de Conclusão</h3>
+                <div className="w-full bg-gray-200 rounded-full h-6 mb-2">
+                  <div 
+                    className="bg-blue-600 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                    style={{ width: `${conclusionPercentage}%` }}
+                  >
+                    {conclusionPercentage}%
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>0%</span>
+                  <span>50%</span>
+                  <span>100%</span>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-md mt-4">
+                <h3 className="font-medium mb-2">Comparativo por Mecânico</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border rounded text-sm">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Mecânico</th>
+                        <th className="px-3 py-2 text-right">Total de Ordens</th>
+                        <th className="px-3 py-2 text-right">Finalizadas</th>
+                        <th className="px-3 py-2 text-right">Taxa de Conclusão</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(
+                        ordens.reduce((acc: { [key: string]: { 
+                          info: string, 
+                          total: number, 
+                          finalizadas: number 
+                        } }, ordem) => {
+                          const mecanicoId = ordem.mecanicoId || "sem-mecanico";
+                          const mecanicoInfo = ordem.mecanicoInfo || "Sem mecânico";
+                          
+                          if (!acc[mecanicoId]) {
+                            acc[mecanicoId] = { 
+                              info: mecanicoInfo, 
+                              total: 0, 
+                              finalizadas: 0 
+                            };
+                          }
+                          
+                          acc[mecanicoId].total++;
+                          if (ordem.status.toLowerCase() === "finalizado") {
+                            acc[mecanicoId].finalizadas++;
+                          }
+                          
+                          return acc;
+                        }, {})
+                      )
+                        .map(([mecanicoId, { info, total, finalizadas }]) => ({
+                          mecanicoId,
+                          info,
+                          total,
+                          finalizadas,
+                          taxa: total > 0 ? Math.round((finalizadas / total) * 100) : 0
+                        }))
+                        .sort((a, b) => b.taxa - a.taxa)
+                        .map((item) => (
+                          <tr key={item.mecanicoId} className="border-t">
+                            <td className="px-3 py-2">{item.info}</td>
+                            <td className="px-3 py-2 text-right">{item.total}</td>
+                            <td className="px-3 py-2 text-right">{item.finalizadas}</td>
+                            <td className="px-3 py-2 text-right">{item.taxa}%</td>
+                          </tr>
+                        ))
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </DialogContent>
