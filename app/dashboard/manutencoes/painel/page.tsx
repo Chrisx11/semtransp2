@@ -108,7 +108,9 @@ const MecanicoCard = ({ nome, ordens }: MecanicoCardProps) => {
           {ordens.map((ordem) => (
             <div key={ordem.id} className="flex justify-between items-center text-sm border-b pb-2">
               <div className="flex-1">
-                <div className="font-medium">{ordem.numero}</div>
+                <div className="normal-case">
+                  {ordem.numero.startsWith('OS-') ? ordem.numero : `OS ${ordem.numero}`}
+                </div>
                 <div className="text-xs text-muted-foreground truncate max-w-[150px]" title={ordem.veiculoInfo}>
                   {ordem.veiculoInfo?.split(' - ')[0] || "Veículo não especificado"}
                 </div>
@@ -413,26 +415,55 @@ export default function PainelManutencaoPage() {
 
   // Função para calcular o tempo médio em dias que uma ordem ficou em um status
   function calcularTempoMedioStatus(status: string): number {
-    // Para cada ordem, procure no histórico os eventos de entrada e saída desse status
-    let totalDias = 0
-    let count = 0
+    // Implementação aprimorada para calcular o tempo médio por status
+    const temposPorStatus = []
+    
+    // Para cada ordem, calcular quanto tempo ela ficou em cada status
     for (const ordem of ordens) {
-      if (!ordem.historico || ordem.historico.length === 0) continue
-      // Encontrar todos os eventos desse status
-      const eventos = ordem.historico.filter(h => mapStatus(h.status) === status)
-      for (let i = 0; i < eventos.length; i++) {
-        const eventoAtual = eventos[i]
-        const dataInicio = new Date(eventoAtual.data)
-        // A saída é o próximo evento do histórico, se existir, senão usa a data atual
-        const dataFim = i + 1 < ordem.historico.length ? new Date(ordem.historico[i + 1].data) : new Date()
-        const diffDias = (dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24)
-        if (diffDias >= 0) {
-          totalDias += diffDias
-          count++
+      if (!ordem.historico || ordem.historico.length < 2) continue
+      
+      // Ordenar histórico por data
+      const historicoOrdenado = [...ordem.historico]
+        .filter(h => h.data && h.status) // Filtrar apenas registros válidos
+        .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+      
+      // Para cada entrada no histórico que corresponde ao status procurado
+      for (let i = 0; i < historicoOrdenado.length; i++) {
+        const evento = historicoOrdenado[i]
+        if (mapStatus(evento.status) !== status) continue
+        
+        // Encontramos um evento com o status que estamos procurando
+        const dataInicio = new Date(evento.data)
+        
+        // Procurar o próximo evento com status diferente
+        let dataFim = null
+        for (let j = i + 1; j < historicoOrdenado.length; j++) {
+          if (mapStatus(historicoOrdenado[j].status) !== status) {
+            dataFim = new Date(historicoOrdenado[j].data)
+            break
+          }
+        }
+        
+        // Se não encontrou data fim e a ordem ainda está neste status, usar data atual
+        if (!dataFim && mapStatus(ordem.status) === status) {
+          dataFim = new Date()
+        }
+        
+        // Se encontrou uma data de fim, calcular a duração
+        if (dataFim) {
+          const duracao = (dataFim.getTime() - dataInicio.getTime()) / (1000 * 60 * 60 * 24) // em dias
+          if (duracao > 0) {
+            temposPorStatus.push(duracao)
+          }
         }
       }
     }
-    return count > 0 ? Number((totalDias / count).toFixed(1)) : 0
+    
+    // Calcular a média dos tempos
+    if (temposPorStatus.length === 0) return 0
+    
+    const media = temposPorStatus.reduce((soma, tempo) => soma + tempo, 0) / temposPorStatus.length
+    return Number(media.toFixed(1))
   }
 
   // Função para buscar dados
@@ -700,7 +731,9 @@ export default function PainelManutencaoPage() {
                                 <AccordionTrigger>
                                   <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-2">
                                     <div className="flex items-center gap-2">
-                                      <span className="font-semibold text-base">OS {ordem.numero} - {ordem.veiculoInfo.split(' - ')[0]}</span>
+                                      <span className="text-base">
+                                        {ordem.numero.startsWith('OS-') ? ordem.numero : `OS ${ordem.numero}`} - {ordem.veiculoInfo.split(' - ')[0]}
+                                      </span>
                                       <span className="ml-2"><StatusBadge status={ordem.status} /></span>
                                       <PrioridadeBadge prioridade={ordem.prioridade} />
                                     </div>
@@ -800,15 +833,18 @@ export default function PainelManutencaoPage() {
           <Card className="col-span-3">
             <CardHeader>
               <CardTitle>Distribuição por Status</CardTitle>
+              <CardDescription>Tempo médio (em dias) que as ordens permanecem em cada status</CardDescription>
             </CardHeader>
             <CardContent className="pl-2">
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={statusList.map(status => ({
-                      name: status,
-                      tempo: calcularTempoMedioStatus(status)
-                    }))}
+                    data={statusList
+                      .filter(status => status !== "Finalizado") // Remover o status "Finalizado"
+                      .map(status => ({
+                        name: status,
+                        tempo: calcularTempoMedioStatus(status)
+                      }))}
                     margin={{
                       top: 5,
                       right: 30,
@@ -818,16 +854,18 @@ export default function PainelManutencaoPage() {
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
+                    <YAxis label={{ value: 'Dias', angle: -90, position: 'insideLeft' }} />
+                    <Tooltip formatter={(value) => [`${value} dias`, 'Tempo médio']} />
                     <Legend />
-                    <Bar dataKey="tempo">
-                      {statusList.map((status, idx) => {
-                        const colorKey = status as keyof typeof statusColors;
-                        return (
-                          <Cell key={status} fill={statusColors[colorKey]?.text?.replace('text', '#') || '#888888'} />
-                        );
-                      })}
+                    <Bar dataKey="tempo" name="Tempo Médio (dias)">
+                      {statusList
+                        .filter(status => status !== "Finalizado")
+                        .map((status) => {
+                          // Usar a função getStatusBarColor que já está definida para mapear status para cores
+                          return (
+                            <Cell key={status} fill={getStatusBarColor(status)} />
+                          );
+                        })}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -924,7 +962,9 @@ export default function PainelManutencaoPage() {
                               <AccordionTrigger>
                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-2">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-base">OS {ordem.numero} - {ordem.veiculoInfo.split(' - ')[0]}</span>
+                                    <span className="text-base">
+                                      {ordem.numero.startsWith('OS-') ? ordem.numero : `OS ${ordem.numero}`} - {ordem.veiculoInfo.split(' - ')[0]}
+                                    </span>
                                     <span className="ml-2"><StatusBadge status={ordem.status} /></span>
                                     <PrioridadeBadge prioridade={ordem.prioridade} />
                                   </div>
