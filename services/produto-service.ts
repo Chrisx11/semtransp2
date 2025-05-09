@@ -509,6 +509,36 @@ export async function addCategoriaSupabase(nome: string): Promise<Categoria> {
   return data[0]
 }
 
+export async function updateCategoriaSupabase(id: string, nome: string): Promise<Categoria | null> {
+  // Primeiro, obter o nome atual da categoria
+  const { data: categoriaAtual, error: errorCategoria } = await supabase
+    .from("categorias")
+    .select("nome")
+    .eq("id", id)
+    .single();
+  
+  if (errorCategoria) throw errorCategoria;
+  
+  // Atualizar a categoria
+  const { data, error } = await supabase.from("categorias").update({ nome }).eq("id", id).select();
+  if (error) throw error;
+  
+  // Atualizar todos os produtos que usam esta categoria
+  if (categoriaAtual && categoriaAtual.nome !== nome) {
+    const { error: errorProdutos } = await supabase
+      .from("produtos")
+      .update({ categoria: nome, updatedAt: new Date().toISOString() })
+      .eq("categoria", categoriaAtual.nome);
+    
+    if (errorProdutos) {
+      console.error("Erro ao atualizar produtos com a categoria:", errorProdutos);
+      // Não lançamos o erro aqui para não interromper o fluxo principal
+    }
+  }
+  
+  return data[0];
+}
+
 export async function deleteCategoriaSupabase(id: string): Promise<boolean> {
   const { error } = await supabase.from("categorias").delete().eq("id", id)
   if (error) throw error
@@ -528,6 +558,36 @@ export async function addUnidadeSupabase(nome: string, sigla: string): Promise<U
   return data[0]
 }
 
+export async function updateUnidadeSupabase(id: string, nome: string, sigla: string): Promise<Unidade | null> {
+  // Primeiro, obter o nome atual da unidade
+  const { data: unidadeAtual, error: errorUnidade } = await supabase
+    .from("unidades")
+    .select("nome")
+    .eq("id", id)
+    .single();
+  
+  if (errorUnidade) throw errorUnidade;
+  
+  // Atualizar a unidade
+  const { data, error } = await supabase.from("unidades").update({ nome, sigla }).eq("id", id).select();
+  if (error) throw error;
+  
+  // Atualizar todos os produtos que usam esta unidade
+  if (unidadeAtual && unidadeAtual.nome !== nome) {
+    const { error: errorProdutos } = await supabase
+      .from("produtos")
+      .update({ unidade: nome, updatedAt: new Date().toISOString() })
+      .eq("unidade", unidadeAtual.nome);
+    
+    if (errorProdutos) {
+      console.error("Erro ao atualizar produtos com a unidade:", errorProdutos);
+      // Não lançamos o erro aqui para não interromper o fluxo principal
+    }
+  }
+  
+  return data[0];
+}
+
 export async function deleteUnidadeSupabase(id: string): Promise<boolean> {
   const { error } = await supabase.from("unidades").delete().eq("id", id)
   if (error) throw error
@@ -545,6 +605,36 @@ export async function addLocalizacaoSupabase(nome: string, setor: string): Promi
   const { data, error } = await supabase.from("localizacoes").insert([{ nome, setor }]).select()
   if (error) throw error
   return data[0]
+}
+
+export async function updateLocalizacaoSupabase(id: string, nome: string, setor: string): Promise<Localizacao | null> {
+  // Primeiro, obter o nome atual da localização
+  const { data: localizacaoAtual, error: errorLocalizacao } = await supabase
+    .from("localizacoes")
+    .select("nome")
+    .eq("id", id)
+    .single();
+  
+  if (errorLocalizacao) throw errorLocalizacao;
+  
+  // Atualizar a localização
+  const { data, error } = await supabase.from("localizacoes").update({ nome, setor }).eq("id", id).select();
+  if (error) throw error;
+  
+  // Atualizar todos os produtos que usam esta localização
+  if (localizacaoAtual && localizacaoAtual.nome !== nome) {
+    const { error: errorProdutos } = await supabase
+      .from("produtos")
+      .update({ localizacao: nome, updatedAt: new Date().toISOString() })
+      .eq("localizacao", localizacaoAtual.nome);
+    
+    if (errorProdutos) {
+      console.error("Erro ao atualizar produtos com a localização:", errorProdutos);
+      // Não lançamos o erro aqui para não interromper o fluxo principal
+    }
+  }
+  
+  return data[0];
 }
 
 export async function deleteLocalizacaoSupabase(id: string): Promise<boolean> {

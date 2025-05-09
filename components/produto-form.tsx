@@ -15,7 +15,7 @@ import {
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Plus, Trash2, Pencil, Check, X } from "lucide-react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -32,6 +32,9 @@ import {
   deleteCategoriaSupabase,
   deleteUnidadeSupabase,
   deleteLocalizacaoSupabase,
+  updateCategoriaSupabase,
+  updateUnidadeSupabase,
+  updateLocalizacaoSupabase,
   type Categoria,
   type Unidade,
   type Localizacao,
@@ -90,6 +93,11 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deleteType, setDeleteType] = useState<"categoria" | "unidade" | "localizacao" | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+
+  // Estados para edição
+  const [editingCategoriaId, setEditingCategoriaId] = useState<string | null>(null)
+  const [editingUnidadeId, setEditingUnidadeId] = useState<string | null>(null)
+  const [editingLocalizacaoId, setEditingLocalizacaoId] = useState<string | null>(null)
 
   const { toast } = useToast()
 
@@ -233,19 +241,34 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
   // Função para adicionar nova categoria
   const onSubmitCategoria = async (values: CategoriaFormValues) => {
     try {
-      const added = await addCategoriaSupabase(values.nome)
-      if (added) {
-        toast({
-          title: "Categoria adicionada",
-          description: `${values.nome} foi adicionada com sucesso.`,
-        })
-        categoriaForm.reset()
-        loadCategorias()
+      if (editingCategoriaId) {
+        // Atualizar categoria existente
+        const updated = await updateCategoriaSupabase(editingCategoriaId, values.nome)
+        if (updated) {
+          toast({
+            title: "Categoria atualizada",
+            description: `${values.nome} foi atualizada com sucesso. Todos os produtos relacionados também foram atualizados.`,
+          })
+          setEditingCategoriaId(null)
+          categoriaForm.reset()
+          loadCategorias()
+        }
+      } else {
+        // Adicionar nova categoria
+        const added = await addCategoriaSupabase(values.nome)
+        if (added) {
+          toast({
+            title: "Categoria adicionada",
+            description: `${values.nome} foi adicionada com sucesso.`,
+          })
+          categoriaForm.reset()
+          loadCategorias()
+        }
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao adicionar a categoria.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao processar a categoria.",
         variant: "destructive",
       })
     }
@@ -254,19 +277,34 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
   // Função para adicionar nova unidade
   const onSubmitUnidade = async (values: UnidadeFormValues) => {
     try {
-      const added = await addUnidadeSupabase(values.nome, values.sigla)
-      if (added) {
-        toast({
-          title: "Unidade adicionada",
-          description: `${values.nome} (${values.sigla}) foi adicionada com sucesso.`,
-        })
-        unidadeForm.reset()
-        loadUnidades()
+      if (editingUnidadeId) {
+        // Atualizar unidade existente
+        const updated = await updateUnidadeSupabase(editingUnidadeId, values.nome, values.sigla)
+        if (updated) {
+          toast({
+            title: "Unidade atualizada",
+            description: `${values.nome} (${values.sigla}) foi atualizada com sucesso. Todos os produtos relacionados também foram atualizados.`,
+          })
+          setEditingUnidadeId(null)
+          unidadeForm.reset()
+          loadUnidades()
+        }
+      } else {
+        // Adicionar nova unidade
+        const added = await addUnidadeSupabase(values.nome, values.sigla)
+        if (added) {
+          toast({
+            title: "Unidade adicionada",
+            description: `${values.nome} (${values.sigla}) foi adicionada com sucesso.`,
+          })
+          unidadeForm.reset()
+          loadUnidades()
+        }
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao adicionar a unidade.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao processar a unidade.",
         variant: "destructive",
       })
     }
@@ -275,22 +313,69 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
   // Função para adicionar nova localização
   const onSubmitLocalizacao = async (values: LocalizacaoFormValues) => {
     try {
-      const added = await addLocalizacaoSupabase(values.nome, values.setor)
-      if (added) {
-        toast({
-          title: "Localização adicionada",
-          description: `${values.nome} foi adicionada com sucesso.`,
-        })
-        localizacaoForm.reset()
-        loadLocalizacoes()
+      if (editingLocalizacaoId) {
+        // Atualizar localização existente
+        const updated = await updateLocalizacaoSupabase(editingLocalizacaoId, values.nome, values.setor)
+        if (updated) {
+          toast({
+            title: "Localização atualizada",
+            description: `${values.nome} foi atualizada com sucesso. Todos os produtos relacionados também foram atualizados.`,
+          })
+          setEditingLocalizacaoId(null)
+          localizacaoForm.reset()
+          loadLocalizacoes()
+        }
+      } else {
+        // Adicionar nova localização
+        const added = await addLocalizacaoSupabase(values.nome, values.setor)
+        if (added) {
+          toast({
+            title: "Localização adicionada",
+            description: `${values.nome} foi adicionada com sucesso.`,
+          })
+          localizacaoForm.reset()
+          loadLocalizacoes()
+        }
       }
     } catch (error) {
       toast({
         title: "Erro",
-        description: error instanceof Error ? error.message : "Ocorreu um erro ao adicionar a localização.",
+        description: error instanceof Error ? error.message : "Ocorreu um erro ao processar a localização.",
         variant: "destructive",
       })
     }
+  }
+
+  // Funções para iniciar edição
+  const startEditCategoria = (categoria: Categoria) => {
+    categoriaForm.reset({ nome: categoria.nome })
+    setEditingCategoriaId(categoria.id)
+  }
+
+  const startEditUnidade = (unidade: Unidade) => {
+    unidadeForm.reset({ nome: unidade.nome, sigla: unidade.sigla })
+    setEditingUnidadeId(unidade.id)
+  }
+
+  const startEditLocalizacao = (localizacao: Localizacao) => {
+    localizacaoForm.reset({ nome: localizacao.nome, setor: localizacao.setor })
+    setEditingLocalizacaoId(localizacao.id)
+  }
+
+  // Funções para cancelar edição
+  const cancelEditCategoria = () => {
+    setEditingCategoriaId(null)
+    categoriaForm.reset({ nome: "" })
+  }
+
+  const cancelEditUnidade = () => {
+    setEditingUnidadeId(null)
+    unidadeForm.reset({ nome: "", sigla: "" })
+  }
+
+  const cancelEditLocalizacao = () => {
+    setEditingLocalizacaoId(null)
+    localizacaoForm.reset({ nome: "", setor: "" })
   }
 
   // Função para confirmar exclusão
@@ -488,7 +573,9 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
             <TabsContent value="cadastros" className="space-y-6 mt-4">
               {/* Formulário de Categoria */}
               <div className="border rounded-md p-4 bg-card shadow-sm">
-                <h3 className="text-lg font-medium mb-4">Adicionar Categoria</h3>
+                <h3 className="text-lg font-medium mb-4">
+                  {editingCategoriaId ? "Editar Categoria" : "Adicionar Categoria"}
+                </h3>
                 <Form {...categoriaForm}>
                   <form onSubmit={categoriaForm.handleSubmit(onSubmitCategoria)} className="space-y-4">
                     <FormField
@@ -504,9 +591,24 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                         </FormItem>
                       )}
                     />
-                    <Button type="submit" className="w-full">
-                      <Plus className="mr-2 h-4 w-4" /> Adicionar Categoria
-                    </Button>
+                    <div className="flex gap-2">
+                      {editingCategoriaId && (
+                        <Button type="button" variant="outline" onClick={cancelEditCategoria} className="flex-1">
+                          <X className="mr-2 h-4 w-4" /> Cancelar
+                        </Button>
+                      )}
+                      <Button type="submit" className={editingCategoriaId ? "flex-1" : "w-full"}>
+                        {editingCategoriaId ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" /> Salvar Alterações
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="mr-2 h-4 w-4" /> Adicionar Categoria
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
 
@@ -515,7 +617,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                     <TableHeader>
                       <TableRow>
                         <TableHead>Nome</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[100px] text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -523,16 +625,29 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                         categorias.map((categoria) => (
                           <TableRow key={categoria.id}>
                             <TableCell>{categoria.nome}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
-                                onClick={() => confirmDelete("categoria", categoria.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Excluir</span>
-                              </Button>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+                                  onClick={() => startEditCategoria(categoria)}
+                                  disabled={!!editingCategoriaId}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">Editar</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                  onClick={() => confirmDelete("categoria", categoria.id)}
+                                  disabled={!!editingCategoriaId}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Excluir</span>
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -550,7 +665,9 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
 
               {/* Formulário de Unidade */}
               <div className="border rounded-md p-4 bg-card shadow-sm">
-                <h3 className="text-lg font-medium mb-4">Adicionar Unidade</h3>
+                <h3 className="text-lg font-medium mb-4">
+                  {editingUnidadeId ? "Editar Unidade" : "Adicionar Unidade"}
+                </h3>
                 <Form {...unidadeForm}>
                   <form onSubmit={unidadeForm.handleSubmit(onSubmitUnidade)} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -581,9 +698,24 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                         )}
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      <Plus className="mr-2 h-4 w-4" /> Adicionar Unidade
-                    </Button>
+                    <div className="flex gap-2">
+                      {editingUnidadeId && (
+                        <Button type="button" variant="outline" onClick={cancelEditUnidade} className="flex-1">
+                          <X className="mr-2 h-4 w-4" /> Cancelar
+                        </Button>
+                      )}
+                      <Button type="submit" className={editingUnidadeId ? "flex-1" : "w-full"}>
+                        {editingUnidadeId ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" /> Salvar Alterações
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="mr-2 h-4 w-4" /> Adicionar Unidade
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
 
@@ -593,7 +725,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Sigla</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[100px] text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -602,16 +734,29 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                           <TableRow key={unidade.id}>
                             <TableCell>{unidade.nome}</TableCell>
                             <TableCell>{unidade.sigla}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
-                                onClick={() => confirmDelete("unidade", unidade.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Excluir</span>
-                              </Button>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+                                  onClick={() => startEditUnidade(unidade)}
+                                  disabled={!!editingUnidadeId}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">Editar</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                  onClick={() => confirmDelete("unidade", unidade.id)}
+                                  disabled={!!editingUnidadeId}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Excluir</span>
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -629,7 +774,9 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
 
               {/* Formulário de Localização */}
               <div className="border rounded-md p-4 bg-card shadow-sm">
-                <h3 className="text-lg font-medium mb-4">Adicionar Localização</h3>
+                <h3 className="text-lg font-medium mb-4">
+                  {editingLocalizacaoId ? "Editar Localização" : "Adicionar Localização"}
+                </h3>
                 <Form {...localizacaoForm}>
                   <form onSubmit={localizacaoForm.handleSubmit(onSubmitLocalizacao)} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -660,9 +807,24 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                         )}
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      <Plus className="mr-2 h-4 w-4" /> Adicionar Localização
-                    </Button>
+                    <div className="flex gap-2">
+                      {editingLocalizacaoId && (
+                        <Button type="button" variant="outline" onClick={cancelEditLocalizacao} className="flex-1">
+                          <X className="mr-2 h-4 w-4" /> Cancelar
+                        </Button>
+                      )}
+                      <Button type="submit" className={editingLocalizacaoId ? "flex-1" : "w-full"}>
+                        {editingLocalizacaoId ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" /> Salvar Alterações
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="mr-2 h-4 w-4" /> Adicionar Localização
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </form>
                 </Form>
 
@@ -672,7 +834,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                       <TableRow>
                         <TableHead>Nome</TableHead>
                         <TableHead>Setor</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead className="w-[100px] text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -681,16 +843,29 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                           <TableRow key={localizacao.id}>
                             <TableCell>{localizacao.nome}</TableCell>
                             <TableCell>{localizacao.setor}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
-                                onClick={() => confirmDelete("localizacao", localizacao.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Excluir</span>
-                              </Button>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+                                  onClick={() => startEditLocalizacao(localizacao)}
+                                  disabled={!!editingLocalizacaoId}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">Editar</span>
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                  onClick={() => confirmDelete("localizacao", localizacao.id)}
+                                  disabled={!!editingLocalizacaoId}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Excluir</span>
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
