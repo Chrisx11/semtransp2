@@ -400,7 +400,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                               <SelectValue placeholder="Selecione uma categoria" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-[200px] overflow-y-auto">
                             {categorias.map((categoria) => (
                               <SelectItem key={categoria.id} value={categoria.nome}>
                                 {categoria.nome}
@@ -429,7 +429,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                               <SelectValue placeholder="Selecione uma unidade" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-[200px] overflow-y-auto">
                             {unidades.map((unidade) => (
                               <SelectItem key={unidade.id} value={unidade.nome}>
                                 {unidade.nome} ({unidade.sigla})
@@ -458,7 +458,7 @@ export function ProdutoForm({ open, onOpenChange, editingId, onSuccess }: Produt
                               <SelectValue placeholder="Selecione uma localização" />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent>
+                          <SelectContent className="max-h-[200px] overflow-y-auto">
                             {localizacoes.map((localizacao) => (
                               <SelectItem key={localizacao.id} value={localizacao.nome}>
                                 {localizacao.nome} - {localizacao.setor}
