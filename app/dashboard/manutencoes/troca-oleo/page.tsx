@@ -15,7 +15,7 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { supabase } from "@/lib/supabase"
-import { Trash2, CheckCircle, AlertCircle, Search } from "lucide-react"
+import { Trash2, CheckCircle, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import * as XLSX from "xlsx"
@@ -39,6 +39,16 @@ interface VeiculoComDados extends Veiculo {
   progresso: number
 }
 
+// Interface para o relatório de importação
+interface RelatorioImportacao {
+  totalAtualizados: number
+  totalRejeitados: number
+}
+
+// Definir tipos para ordenação
+type SortColumn = 'veiculo' | 'kmAtual' | 'kmProxTroca' | 'progresso'
+type SortDirection = 'asc' | 'desc' | null
+
 export default function TrocaOleoPage() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [veiculosComDados, setVeiculosComDados] = useState<VeiculoComDados[]>([])
@@ -57,8 +67,11 @@ export default function TrocaOleoPage() {
   const [confirmacaoExclusaoAberta, setConfirmacaoExclusaoAberta] = useState(false)
   const [registroParaExcluir, setRegistroParaExcluir] = useState<TrocaOleo | null>(null)
   const [importResults, setImportResults] = useState<any[]>([])
-  const [relatorioImport, setRelatorioImport] = useState<any[]>([])
+  const [relatorioImport, setRelatorioImport] = useState<RelatorioImportacao>({ totalAtualizados: 0, totalRejeitados: 0 })
   const [relatorioModalOpen, setRelatorioModalOpen] = useState(false)
+  // Estados para ordenação
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const { toast } = useToast()
   
   useEffect(() => {
@@ -67,7 +80,7 @@ export default function TrocaOleoPage() {
   
   useEffect(() => {
     if (!searchTerm.trim()) {
-      setVeiculosFiltrados(veiculosComDados)
+      setVeiculosFiltrados(ordenarVeiculos(veiculosComDados))
       return
     }
     
@@ -78,8 +91,8 @@ export default function TrocaOleoPage() {
       veiculo.marca.toLowerCase().includes(termoBusca)
     )
     
-    setVeiculosFiltrados(resultados)
-  }, [searchTerm, veiculosComDados])
+    setVeiculosFiltrados(ordenarVeiculos(resultados))
+  }, [searchTerm, veiculosComDados, sortColumn, sortDirection])
   
   useEffect(() => {
     const hoje = new Date()
@@ -88,6 +101,66 @@ export default function TrocaOleoPage() {
     const ano = hoje.getFullYear()
     setDataInput(`${dia}/${mes}/${ano}`)
   }, [])
+
+  // Função para ordenar veículos com base na coluna e direção selecionadas
+  const ordenarVeiculos = (veiculos: VeiculoComDados[]): VeiculoComDados[] => {
+    if (!sortColumn || !sortDirection) {
+      return veiculos
+    }
+
+    return [...veiculos].sort((a, b) => {
+      let comparacao = 0
+      
+      switch (sortColumn) {
+        case 'veiculo':
+          comparacao = a.placa.localeCompare(b.placa)
+          break
+        case 'kmAtual':
+          comparacao = a.kmAtual - b.kmAtual
+          break
+        case 'kmProxTroca':
+          comparacao = a.kmProxTroca - b.kmProxTroca
+          break
+        case 'progresso':
+          comparacao = a.progresso - b.progresso
+          break
+      }
+      
+      return sortDirection === 'asc' ? comparacao : -comparacao
+    })
+  }
+
+  // Função para alternar a ordenação quando um cabeçalho é clicado
+  const alternarOrdenacao = (coluna: SortColumn) => {
+    if (sortColumn === coluna) {
+      // Se a mesma coluna for clicada, alterne a direção ou redefina
+      if (sortDirection === 'asc') {
+        setSortDirection('desc')
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null)
+        setSortDirection(null)
+      } else {
+        setSortDirection('asc')
+      }
+    } else {
+      // Se uma nova coluna for clicada, defina-a como ascendente
+      setSortColumn(coluna)
+      setSortDirection('asc')
+    }
+  }
+
+  // Função para renderizar o ícone de ordenação
+  const renderSortIcon = (coluna: SortColumn) => {
+    if (sortColumn !== coluna) {
+      return <ArrowUpDown className="ml-2 h-4 w-4" />
+    }
+    
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="ml-2 h-4 w-4" />
+    }
+    
+    return <ArrowDown className="ml-2 h-4 w-4" />
+  }
   
   async function carregarVeiculos() {
     setLoading(true)
@@ -116,7 +189,7 @@ export default function TrocaOleoPage() {
       
       const veiculosProcessados = await Promise.all(veiculosPromises)
       setVeiculosComDados(veiculosProcessados)
-      setVeiculosFiltrados(veiculosProcessados)
+      setVeiculosFiltrados(ordenarVeiculos(veiculosProcessados))
     } catch (error) {
       console.error("Erro ao carregar veículos:", error)
     } finally {
@@ -530,10 +603,42 @@ export default function TrocaOleoPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Veículo</TableHead>
-              <TableHead>Km Atual</TableHead>
-              <TableHead>Próxima Troca</TableHead>
-              <TableHead>Progresso</TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => alternarOrdenacao('veiculo')}
+              >
+                <div className="flex items-center">
+                  Veículo
+                  {renderSortIcon('veiculo')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => alternarOrdenacao('kmAtual')}
+              >
+                <div className="flex items-center">
+                  Km Atual
+                  {renderSortIcon('kmAtual')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => alternarOrdenacao('kmProxTroca')}
+              >
+                <div className="flex items-center">
+                  Próxima Troca
+                  {renderSortIcon('kmProxTroca')}
+                </div>
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => alternarOrdenacao('progresso')}
+              >
+                <div className="flex items-center">
+                  Progresso
+                  {renderSortIcon('progresso')}
+                </div>
+              </TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
