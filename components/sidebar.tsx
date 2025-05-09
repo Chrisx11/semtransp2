@@ -26,7 +26,11 @@ import {
   Sun,
   AlertCircle,
   CalendarRange,
-  Disc
+  Disc,
+  Briefcase,
+  Store,
+  Wrench,
+  Droplets
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -53,6 +57,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const { logout, verificarPermissao, user } = useAuth()
   const [openMovimento, setOpenMovimento] = useState(false)
   const [openManutencoes, setOpenManutencoes] = useState(false)
+  const [openServicoExterno, setOpenServicoExterno] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [openCollapsedSubmenu, setOpenCollapsedSubmenu] = useState<string | null>(null)
   const [submenuPosition, setSubmenuPosition] = useState<number | null>(null)
@@ -86,6 +91,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }
     if (pathname?.includes("/dashboard/manutencoes")) {
       setOpenManutencoes(true)
+    }
+    if (pathname?.includes("/dashboard/servico-externo")) {
+      setOpenServicoExterno(true)
     }
   }, [pathname])
 
@@ -187,6 +195,34 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           href: "/dashboard/manutencoes/historicos",
           icon: History,
           requiredPermission: { modulo: "manutencoes", acao: "visualizar" }
+        },
+      ],
+    },
+    {
+      title: "Serviço Externo",
+      icon: Briefcase,
+      isSubmenu: true,
+      isOpen: openServicoExterno,
+      toggle: () => setOpenServicoExterno(!openServicoExterno),
+      requiredPermission: { modulo: "servico-externo", acao: "visualizar" },
+      submenu: [
+        {
+          title: "Fornecedores",
+          href: "/dashboard/servico-externo/fornecedores",
+          icon: Store,
+          requiredPermission: { modulo: "servico-externo", acao: "visualizar", submodulo: true, pagina: "fornecedores" }
+        },
+        {
+          title: "Borracharia",
+          href: "/dashboard/servico-externo/borracharia",
+          icon: Wrench,
+          requiredPermission: { modulo: "servico-externo", acao: "visualizar", submodulo: true, pagina: "borracharia" }
+        },
+        {
+          title: "Lavador",
+          href: "/dashboard/servico-externo/lavador",
+          icon: Droplets,
+          requiredPermission: { modulo: "servico-externo", acao: "visualizar", submodulo: true, pagina: "lavador" }
         },
       ],
     },

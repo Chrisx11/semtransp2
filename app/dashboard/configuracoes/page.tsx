@@ -107,6 +107,9 @@ export default function ConfiguracoesPage() {
       { id: "trocaPneu", name: "Troca de Pneu", view: false, full: false },
       { id: "historico", name: "Histórico", view: false, full: false },
       { id: "configuracoes", name: "Configurações", view: false, full: false },
+      { id: "fornecedores", name: "Fornecedores", view: false, full: false },
+      { id: "borracharia", name: "Borracharia", view: false, full: false },
+      { id: "lavador", name: "Serviços de Lavagem", view: false, full: false },
     ],
     ordemServico: {
       id: "ordemServico",
