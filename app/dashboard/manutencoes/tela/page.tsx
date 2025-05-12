@@ -168,138 +168,63 @@ const OrdemCard = ({ ordem }: OrdemCardProps) => {
 
 export default function TelaManutencoesPage() {
   const [mecanicosComOrdens, setMecanicosComOrdens] = useState<{ [key: string]: OrdemServico[] }>({})
-  const [ordensAnteriores, setOrdensAnteriores] = useState<OrdemServico[]>([])
   const [loading, setLoading] = useState(true)
-  const [mecanicoAtual, setMecanicoAtual] = useState<number>(0)
-  const [autopilot, setAutopilot] = useState<boolean>(true)
-  
+
   // Função para buscar dados
   const fetchData = async () => {
     try {
       setLoading(true)
-      
-      // Buscar todas as ordens do Supabase
       const allOrdens = await getOrdensServicoSupabase()
-      
-      // Guardar todas as ordens para comparação
-      const todasOrdensAtuais = [...allOrdens]
-      
-      // Filtrar apenas ordens não finalizadas para exibição
       const ordensAtivas = allOrdens.filter(
-        (ordem) => ordem.status !== "Finalizado"
+        (ordem) =>
+          ordem.status === "Em Serviço" ||
+          ordem.status === "Fila de Serviço" ||
+          ordem.status === "Aguardando Mecânico"
       )
-      
       // Agrupar ordens por mecânico
       const mecanicosMap: { [key: string]: OrdemServico[] } = {}
-      
       for (const ordem of ordensAtivas) {
         const mecanicoId = ordem.mecanicoId || "sem-mecanico"
-        const mecanicoInfo = ordem.mecanicoInfo || "Sem mecânico atribuído"
-        
         if (!mecanicosMap[mecanicoId]) {
           mecanicosMap[mecanicoId] = []
         }
-        
         mecanicosMap[mecanicoId].push(ordem)
       }
-      
-      // Ordenar as ordens de cada mecânico pelo campo ordem_execucao
-      Object.keys(mecanicosMap).forEach(mecanicoId => {
+      // Ordenar os mecânicos por nome
+      const sortedMecanicos = Object.keys(mecanicosMap).sort((a, b) => {
+        const nomeA = mecanicosMap[a][0]?.mecanicoInfo || "Sem mecânico"
+        const nomeB = mecanicosMap[b][0]?.mecanicoInfo || "Sem mecânico"
+        return nomeA.localeCompare(nomeB)
+      })
+      // Ordenar as ordens de cada mecânico por prioridade e ordem_execucao
+      sortedMecanicos.forEach(mecanicoId => {
         mecanicosMap[mecanicoId] = mecanicosMap[mecanicoId].sort((a, b) => {
-          // Primeiro pela prioridade
           const prioridadeOrder = { "Urgente": 0, "Alta": 1, "Média": 2, "Baixa": 3 }
           const prioridadeA = prioridadeOrder[a.prioridade as keyof typeof prioridadeOrder] ?? 4
           const prioridadeB = prioridadeOrder[b.prioridade as keyof typeof prioridadeOrder] ?? 4
-          
-          if (prioridadeA !== prioridadeB) {
-            return prioridadeA - prioridadeB
-          }
-          
-          // Verificar se as ordens têm ordem_execucao
+          if (prioridadeA !== prioridadeB) return prioridadeA - prioridadeB
           const ordemExecucaoA = a.ordem_execucao !== undefined ? a.ordem_execucao : null
           const ordemExecucaoB = b.ordem_execucao !== undefined ? b.ordem_execucao : null
-          
-          // Se ambas as ordens têm ordem_execucao, comparar diretamente
-          if (ordemExecucaoA !== null && ordemExecucaoB !== null) {
-            return ordemExecucaoA - ordemExecucaoB
-          }
-          
-          // Se apenas uma tem ordem_execucao, colocar ela primeiro
+          if (ordemExecucaoA !== null && ordemExecucaoB !== null) return ordemExecucaoA - ordemExecucaoB
           if (ordemExecucaoA !== null) return -1
           if (ordemExecucaoB !== null) return 1
-          
-          // Se nenhuma tem ordem_execucao, ordenar por número
           const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
           const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
           return numA - numB
         })
       })
-      
       setMecanicosComOrdens(mecanicosMap)
-      setOrdensAnteriores(todasOrdensAtuais)
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
     } finally {
       setLoading(false)
     }
   }
-  
-  // Obter lista de IDs de mecânicos
-  const mecanicosIds = Object.keys(mecanicosComOrdens)
-
-  // Função para avançar para o próximo mecânico
-  const proximoMecanico = () => {
-    if (mecanicosIds.length === 0) return
-    setMecanicoAtual((prev) => (prev + 1) % mecanicosIds.length)
-  }
-
-  // Função para voltar para o mecânico anterior
-  const mecanicoAnterior = () => {
-    if (mecanicosIds.length === 0) return
-    setMecanicoAtual((prev) => (prev - 1 + mecanicosIds.length) % mecanicosIds.length)
-  }
-
-  // Alternar modo automático/manual
-  const toggleAutopilot = () => {
-    setAutopilot(!autopilot)
-  }
 
   useEffect(() => {
-    // Carregar dados inicialmente
     fetchData()
-    
-    // Configurar timer para recarregar a cada 10 segundos (10000ms)
-    const timerDados = setInterval(() => {
-      fetchData()
-    }, 10000)
-    
-    // Limpar timer quando o componente for desmontado
-    return () => {
-      clearInterval(timerDados)
-    }
-  }, [])
-
-  // Efeito para trocar de mecânico a cada 10 segundos quando em modo automático
-  useEffect(() => {
-    if (autopilot && mecanicosIds.length > 1) {
-      const timerCarrossel = setInterval(() => {
-        setMecanicoAtual((prev) => (prev + 1) % mecanicosIds.length)
-      }, 10000)  // 10 segundos
-      
-      return () => clearInterval(timerCarrossel)
-    }
-  }, [autopilot, mecanicosIds.length])
-
-  // Atualizar o relógio
-  useEffect(() => {
-    const timerRelogio = setInterval(() => {
-      const relogioElement = document.getElementById('relogio')
-      if (relogioElement) {
-        relogioElement.textContent = new Date().toLocaleTimeString()
-      }
-    }, 1000)
-    
-    return () => clearInterval(timerRelogio)
+    const timerDados = setInterval(() => { fetchData() }, 10000)
+    return () => { clearInterval(timerDados) }
   }, [])
 
   if (loading) {
@@ -313,104 +238,61 @@ export default function TelaManutencoesPage() {
     )
   }
 
-  // Não mostrar nada se não houver mecânicos com ordens
-  if (mecanicosIds.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-screen">
+  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
+    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
+    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
+    return nomeA.localeCompare(nomeB)
+  })
+
+  return (
+    <div className="p-2" style={{ height: '90vh', overflow: 'hidden' }}>
+      <h1 className="text-2xl font-bold mb-4">Painel de Ordens de Serviço por Mecânico</h1>
+      {sortedMecanicos.length === 0 ? (
         <div className="text-center p-10 bg-muted/50 rounded-lg">
           <CheckCircle className="h-16 w-16 text-primary mx-auto mb-4" />
           <h2 className="text-3xl font-bold">Nenhuma ordem de serviço em andamento</h2>
           <p className="text-xl text-muted-foreground mt-2">Todas as ordens foram finalizadas</p>
         </div>
-      </div>
-    )
-  }
-
-  // Obter o ID do mecânico atual
-  const mecanicoIdAtual = mecanicosIds[mecanicoAtual]
-  const ordens = mecanicosComOrdens[mecanicoIdAtual] || []
-  const nomeMecanico = ordens.length > 0 
-    ? ordens[0].mecanicoInfo 
-    : (mecanicoIdAtual === "sem-mecanico" ? "Sem mecânico atribuído" : `Mecânico ${mecanicoIdAtual}`)
-
-  return (
-    <div className="space-y-4 pb-6 h-screen flex flex-col">
-      <div className="bg-gradient-to-r from-primary/20 to-primary/5 p-4 rounded-lg shadow-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Painel de Acompanhamento</h1>
-            <p className="text-lg text-muted-foreground">Ordens de serviço em andamento</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleAutopilot()
-              }} 
-              className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                autopilot 
-                  ? "bg-primary text-white hover:bg-primary/90" 
-                  : "bg-muted hover:bg-muted/80"
-              }`}
-            >
-              {autopilot ? "Automático" : "Manual"}
-            </button>
-            <div className="text-xl font-bold flex items-center gap-2">
-              <Clock className="h-6 w-6" />
-              <span id="relogio">{new Date().toLocaleTimeString()}</span>
-            </div>
-          </div>
+      ) : (
+        <div
+          className="grid gap-4 h-full pb-2"
+          style={{
+            gridTemplateColumns: `repeat(${sortedMecanicos.length}, 1fr)`
+          }}
+        >
+          {sortedMecanicos.map(mecanicoId => {
+            const ordens = mecanicosComOrdens[mecanicoId]
+            const nomeMecanicoOriginal = ordens[0]?.mecanicoInfo || "Sem mecânico atribuído"
+            const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
+            return (
+              <div key={mecanicoId} className="bg-white rounded-lg shadow-md border p-3 flex flex-col max-h-full min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <Wrench className="h-5 w-5 text-primary" />
+                  <span className="font-bold text-lg truncate" title={nomeMecanico}>{nomeMecanico}</span>
+                  <span className="ml-auto bg-primary text-white rounded-full px-2 py-0.5 text-xs">
+                    {ordens.length}
+                  </span>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+                  {ordens.map(ordem => (
+                    <div key={ordem.id} className="border rounded bg-primary/5 hover:bg-primary/10 transition flex flex-col gap-0.5 px-2 py-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-sm">{ordem.numero}</span>
+                        <StatusBadge status={ordem.status} />
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">{ordem.veiculoInfo}</div>
+                      <div className="flex items-center gap-2 text-xs mt-0.5">
+                        <span className="font-medium">{(() => { const d = ordem.data?.split('-'); return d ? `${d[2]}/${d[1]}/${d[0]}` : ordem.data })()}</span>
+                        <PrioridadeBadge prioridade={ordem.prioridade} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
-      </div>
-
-      {/* Navegação do carrossel */}
-      <div className="flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">
-            {mecanicoAtual + 1} de {mecanicosIds.length}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation()
-              mecanicoAnterior()
-            }}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
-            aria-label="Mecânico anterior"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation()
-              proximoMecanico()
-            }}
-            className="p-2 rounded-full hover:bg-muted transition-colors"
-            aria-label="Próximo mecânico"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </button>
-        </div>
-      </div>
-
-      {/* Seção do mecânico atual */}
-      <div className="flex-1 overflow-auto pb-4 px-1">
-        <div className="flex items-center gap-2 mb-3 bg-primary/10 p-3 rounded-lg">
-          <Wrench className="h-6 w-6 text-primary" />
-          <h2 className="text-2xl font-bold">{nomeMecanico}</h2>
-          <span className="ml-2 bg-primary text-white rounded-full px-2 py-0.5 text-base">
-            {ordens.length} {ordens.length === 1 ? "ordem" : "ordens"}
-          </span>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {ordens.map((ordem) => (
-            <OrdemCard key={ordem.id} ordem={ordem} />
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   )
 } 
