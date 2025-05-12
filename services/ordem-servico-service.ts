@@ -403,17 +403,6 @@ export async function addOrdemServicoSupabase(ordem: Omit<OrdemServico, "id" | "
     throw new Error(error.message || JSON.stringify(error))
   }
   
-  // Disparar um evento personalizado que o GlobalNotifications pode ouvir
-  try {
-    const eventoNovaOS = new CustomEvent('nova-ordem-servico', { 
-      detail: { ordem: data[0] } 
-    })
-    window.dispatchEvent(eventoNovaOS)
-    console.log("Evento nova-ordem-servico disparado")
-  } catch (e) {
-    console.error("Erro ao disparar evento personalizado:", e)
-  }
-  
   return data[0]
 }
 

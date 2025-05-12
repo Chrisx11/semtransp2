@@ -13,6 +13,7 @@ export const GlobalNotifications = () => {
   const [componenteMontado, setComponenteMontado] = useState<boolean>(false)
   const [audioDesbloqueado, setAudioDesbloqueado] = useState<boolean>(false)
   const [ultimasOrdensIds, setUltimasOrdensIds] = useState<Set<string>>(new Set())
+  const ultimasOrdensIdsRef = useRef<Set<string>>(new Set())
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const unblockRef = useRef<boolean>(false)
   const subscriptionRef = useRef<(() => void) | null>(null)
@@ -197,25 +198,13 @@ export const GlobalNotifications = () => {
   // Função para tratar uma nova ordem (chamada pelo listener em tempo real)
   const handleNovaOrdem = (ordem: OrdemServico) => {
     console.log("Nova OS detectada globalmente:", ordem.numero)
-    
-    // Verificar se já processamos esta ordem antes (evitar duplicatas)
-    if (ultimasOrdensIds.has(ordem.id)) {
+    // Controle de duplicidade usando ref para garantir sincronia
+    if (ultimasOrdensIdsRef.current.has(ordem.id)) {
       console.log("Ordem já processada, ignorando:", ordem.id)
       return
     }
-    
-    // Adicionar à lista de ordens processadas
-    setUltimasOrdensIds(prev => {
-      const novoSet = new Set(prev)
-      novoSet.add(ordem.id)
-      // Manter apenas as últimas 20 ordens processadas
-      if (novoSet.size > 20) {
-        const valores = Array.from(novoSet)
-        return new Set(valores.slice(valores.length - 20))
-      }
-      return novoSet
-    })
-    
+    ultimasOrdensIdsRef.current.add(ordem.id)
+    setUltimasOrdensIds(new Set(ultimasOrdensIdsRef.current))
     setNovaOrdemDetectada(true)
     setUltimaOrdemModificada(ordem)
     
@@ -293,20 +282,6 @@ export const GlobalNotifications = () => {
       console.error('Erro ao configurar subscription:', error)
     }
     
-    // Configurar listener para evento personalizado de nova OS
-    const handleNovaOrdemEvento = (event: CustomEvent) => {
-      console.log('Evento nova-ordem-servico recebido!', event.detail)
-      if (event.detail && event.detail.ordem) {
-        // Processar a ordem como se fosse recebida do Supabase
-        handleNovaOrdem(event.detail.ordem)
-        
-        // Não precisamos tocar o som aqui novamente, pois handleNovaOrdem já faz isso
-      }
-    }
-    
-    // Adicionar o listener ao window
-    window.addEventListener('nova-ordem-servico', handleNovaOrdemEvento as EventListener)
-    
     // Adicionar um listener global para eventos de teclado (para tocar sons em novas ordens)
     const handleKeyDown = (e: KeyboardEvent) => {
       // Usar F8 como tecla para testar o som
@@ -364,9 +339,7 @@ export const GlobalNotifications = () => {
         subscriptionRef.current()
         subscriptionRef.current = null
       }
-      
       window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('nova-ordem-servico', handleNovaOrdemEvento as EventListener)
       window.removeEventListener('realtime-reconnecting', handleRealtimeReconnecting as EventListener)
       window.removeEventListener('realtime-connection-failed', handleRealtimeConnectionFailed)
       window.removeEventListener('realtime-connection-restored', handleRealtimeConnectionRestored)
