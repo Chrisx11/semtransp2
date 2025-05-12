@@ -510,13 +510,15 @@ export default function PlanejamentoPage() {
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
             <SortableContext items={mecanicoIds} strategy={horizontalListSortingStrategy}>
-              {mecanicos.map(mecanico => (
-                <MecanicoCard 
-                  key={mecanico.id} 
-                  mecanico={mecanico} 
-                  getStatusColor={getStatusColor}
-                />
-              ))}
+              {[...mecanicos]
+                .sort((a, b) => b.ordens.length - a.ordens.length)
+                .map(mecanico => (
+                  <MecanicoCard 
+                    key={mecanico.id} 
+                    mecanico={mecanico} 
+                    getStatusColor={getStatusColor}
+                  />
+                ))}
             </SortableContext>
           </div>
           
