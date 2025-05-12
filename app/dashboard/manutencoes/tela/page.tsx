@@ -261,9 +261,26 @@ export default function TelaManutencoesPage() {
           }}
         >
           {sortedMecanicos.map(mecanicoId => {
-            const ordens = mecanicosComOrdens[mecanicoId]
-            const nomeMecanicoOriginal = ordens[0]?.mecanicoInfo || "Sem mecânico atribuído"
+            const ordensOriginais = mecanicosComOrdens[mecanicoId]
+            const nomeMecanicoOriginal = ordensOriginais[0]?.mecanicoInfo || "Sem mecânico atribuído"
             const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
+            // Filtrar pelos status permitidos e ordenar igual ao planejamento
+            const ordens = ordensOriginais
+              .filter(ordem =>
+                ordem.status === "Em Serviço" ||
+                ordem.status === "Fila de Serviço" ||
+                ordem.status === "Aguardando Mecânico"
+              )
+              .sort((a, b) => {
+                if (a.ordem_execucao && b.ordem_execucao) {
+                  return a.ordem_execucao - b.ordem_execucao
+                }
+                if (a.ordem_execucao) return -1
+                if (b.ordem_execucao) return 1
+                const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
+                const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
+                return numA - numB
+              })
             return (
               <div key={mecanicoId} className="bg-white rounded-lg shadow-md border p-3 flex flex-col max-h-full min-w-0">
                 <div className="flex items-center gap-2 mb-2">
