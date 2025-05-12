@@ -240,6 +240,10 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
           {activeTab === "oficina" && (
             <>
               <div className="mt-2 mb-1 text-sm font-semibold text-muted-foreground">Mudar Status</div>
+              <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("fila_servico")}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Fila de Serviço</span>
+              </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("em_servico")}>
                 <Wrench className="mr-2 h-4 w-4" />
                 <span>Em Serviço</span>
@@ -710,6 +714,21 @@ export default function OrdemServicoPage() {
       case "retornar_almoxarifado_compras":
         setSelectedOrdemId(id)
         setIsRetornarAlmoxarifadoComprasDialogOpen(true)
+        break
+      case "fila_servico":
+        try {
+          console.log('[EDITAR] Atualizando status para Fila de Serviço, ID:', id)
+          const result = await updateOrdemServicoSupabase(id, { status: "Fila de Serviço" })
+          console.log('[EDITAR] Resultado updateOrdemServicoSupabase:', result)
+          carregarOrdensServico()
+        } catch (error) {
+          console.error('[EDITAR] Erro ao atualizar para Fila de Serviço:', error)
+          toast({
+            title: "Erro ao atualizar status",
+            description: error instanceof Error ? error.message : JSON.stringify(error),
+            variant: "destructive",
+          })
+        }
         break
       case "em_servico":
         try {
