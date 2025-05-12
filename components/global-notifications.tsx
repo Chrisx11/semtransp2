@@ -17,6 +17,7 @@ export const GlobalNotifications = () => {
   const unblockRef = useRef<boolean>(false)
   const subscriptionRef = useRef<(() => void) | null>(null)
   const audioElements = useRef<HTMLAudioElement[]>([])
+  const ultimoSomRef = useRef<number>(0) // Timestamp da última reprodução de som
   
   // Hook para inicializar o componente
   useEffect(() => {
@@ -84,6 +85,15 @@ export const GlobalNotifications = () => {
   
   // Função para tocar o som de notificação com múltiplas estratégias
   const tocarSomNotificacao = () => {
+    // Evitar tocar som várias vezes em um curto período de tempo
+    const agora = Date.now()
+    if (agora - ultimoSomRef.current < 2000) {
+      console.log('Som já tocado recentemente, ignorando nova chamada')
+      return
+    }
+    
+    // Atualizar o timestamp da última reprodução
+    ultimoSomRef.current = agora
     console.log('Tentando reproduzir som de notificação...')
     
     try {
@@ -219,13 +229,8 @@ export const GlobalNotifications = () => {
     if (somAtivado) {
       console.log('Som ativado, reproduzindo notificação para nova OS')
       
-      // Tentar reproduzir o som em múltiplas tentativas com intervalos diferentes
-      tocarSomNotificacao() // Imediatamente
-      
-      // Tentativas adicionais em intervalos diferentes para contornar restrições
-      setTimeout(() => tocarSomNotificacao(), 100)
-      setTimeout(() => tocarSomNotificacao(), 500)
-      setTimeout(() => tocarSomNotificacao(), 1000)
+      // Tocar o som apenas uma vez
+      tocarSomNotificacao()
     }
     
     // Resetar flags de notificação após 5 segundos
@@ -250,9 +255,8 @@ export const GlobalNotifications = () => {
     if (somAtivado) {
       console.log('Som ativado, reproduzindo notificação para OS atualizada')
       
-      // Múltiplas tentativas
+      // Tocar o som apenas uma vez
       tocarSomNotificacao()
-      setTimeout(() => tocarSomNotificacao(), 300)
     }
     
     // Resetar flags de notificação após 5 segundos
@@ -296,13 +300,7 @@ export const GlobalNotifications = () => {
         // Processar a ordem como se fosse recebida do Supabase
         handleNovaOrdem(event.detail.ordem)
         
-        // Tentar várias reproduções de som para maximizar chances
-        if (somAtivado) {
-          console.log('Tocando som via evento personalizado')
-          for (let i = 0; i < 5; i++) {
-            setTimeout(() => tocarSomNotificacao(), i * 200)
-          }
-        }
+        // Não precisamos tocar o som aqui novamente, pois handleNovaOrdem já faz isso
       }
     }
     
@@ -318,7 +316,46 @@ export const GlobalNotifications = () => {
       }
     }
     
+    // Adicionar listener para eventos de status da conexão realtime
+    const handleRealtimeReconnecting = (event: CustomEvent) => {
+      if (event.detail) {
+        const { tentativa, maximo, tempoEspera } = event.detail
+        console.log(`Tentando reconectar realtime: ${tentativa}/${maximo} em ${tempoEspera}s`)
+        
+        // Se for a primeira ou quinta tentativa, notificar o usuário
+        if (tentativa === 1 || tentativa === 5 || tentativa === 10) {
+          toast({
+            title: "Reconectando...",
+            description: `Tentando restabelecer conexão com o servidor (${tentativa}/${maximo})`,
+            duration: 4000,
+          })
+        }
+      }
+    }
+    
+    const handleRealtimeConnectionFailed = () => {
+      console.log('Falha permanente na conexão realtime')
+      toast({
+        variant: "destructive",
+        title: "Problema de conexão",
+        description: "Não foi possível estabelecer conexão com o servidor. Algumas notificações podem não aparecer.",
+        duration: 6000,
+      })
+    }
+    
+    const handleRealtimeConnectionRestored = () => {
+      console.log('Conexão realtime restaurada')
+      toast({
+        title: "Conexão restabelecida",
+        description: "A conexão com o servidor foi restaurada com sucesso!",
+        duration: 3000,
+      })
+    }
+    
     window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('realtime-reconnecting', handleRealtimeReconnecting as EventListener)
+    window.addEventListener('realtime-connection-failed', handleRealtimeConnectionFailed)
+    window.addEventListener('realtime-connection-restored', handleRealtimeConnectionRestored)
     
     // Limpar listener quando o componente for desmontado
     return () => {
@@ -330,6 +367,9 @@ export const GlobalNotifications = () => {
       
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('nova-ordem-servico', handleNovaOrdemEvento as EventListener)
+      window.removeEventListener('realtime-reconnecting', handleRealtimeReconnecting as EventListener)
+      window.removeEventListener('realtime-connection-failed', handleRealtimeConnectionFailed)
+      window.removeEventListener('realtime-connection-restored', handleRealtimeConnectionRestored)
     }
   }, [componenteMontado, somAtivado])
 

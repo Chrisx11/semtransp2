@@ -403,32 +403,6 @@ export async function addOrdemServicoSupabase(ordem: Omit<OrdemServico, "id" | "
     throw new Error(error.message || JSON.stringify(error))
   }
   
-  // Tentar reproduzir som diretamente (isso serve como fallback adicional)
-  try {
-    // Tentar reproduzir um som para notificar da criação
-    const notificationAudio = new Audio('/level-up-191997.mp3')
-    notificationAudio.volume = 1.0
-    notificationAudio.play().catch(() => {
-      // Ignorar erros silenciosamente - o componente GlobalNotifications é a fonte primária de som
-      console.log("Reprodução direta do som falhou, isso é esperado")
-    })
-    
-    // Tentar uma segunda abordagem
-    const audioElement = document.createElement('audio')
-    audioElement.src = '/level-up-191997.mp3'
-    audioElement.volume = 1.0
-    document.body.appendChild(audioElement)
-    audioElement.play().catch(() => {}).finally(() => {
-      setTimeout(() => {
-        try {
-          document.body.removeChild(audioElement)
-        } catch (e) {}
-      }, 2000)
-    })
-  } catch (e) {
-    // Ignorar erros de áudio - isso é apenas um fallback
-  }
-  
   // Disparar um evento personalizado que o GlobalNotifications pode ouvir
   try {
     const eventoNovaOS = new CustomEvent('nova-ordem-servico', { 
@@ -929,57 +903,263 @@ export function subscribeToOrdensServico(
 ) {
   console.log('Iniciando subscrição em tempo real da tabela ordens_servico')
   
-  try {
-    const channel = supabase
-      .channel('ordens_servico_changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'ordens_servico' },
-        (payload) => {
-          console.log('EVENTO REALTIME: Nova ordem de serviço criada:', payload.new);
-          
-          // Processar ordem para garantir que todos os campos estejam presentes
-          const ordem = payload.new as OrdemServico;
-          // Se a ordem não tiver histórico, adicionar um array vazio
-          if (!ordem.historico) ordem.historico = [];
-          
-          onInsert(ordem);
+  // Variáveis para controle de reconexão
+  let tentativasReconexao = 0;
+  const maxTentativas = 15; // Aumentado de 5 para 15
+  let intervalReconexao: any = null;
+  let canalAtivo: any = null;
+  let conectado = false;
+  
+  // Função para criar e configurar o canal
+  const configurarCanal = () => {
+    try {
+      // Limpar canal anterior se existir
+      if (canalAtivo) {
+        try {
+          supabase.removeChannel(canalAtivo);
+          canalAtivo = null;
+        } catch (e) {
+          console.log('Erro ao remover canal anterior:', e);
         }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'ordens_servico' },
-        (payload) => {
-          console.log('EVENTO REALTIME: Ordem de serviço atualizada:', payload.new);
-          
-          // Processar ordem para garantir que todos os campos estejam presentes
-          const ordem = payload.new as OrdemServico;
-          // Se a ordem não tiver histórico, adicionar um array vazio
-          if (!ordem.historico) ordem.historico = [];
-          
-          onUpdate(ordem);
-        }
-      );
-
-    // Iniciar a subscrição
-    const subscription = channel.subscribe((status) => {
-      console.log(`Supabase realtime status: ${status}`);
+      }
       
-      if (status === 'SUBSCRIBED') {
-        console.log('Subscrição à tabela ordens_servico ativa!');
-      } else if (status === 'CHANNEL_ERROR') {
-        console.error('Erro na subscrição realtime do Supabase');
+      // Gerar um ID único para este canal
+      const canalId = 'ordens_servico_changes_' + new Date().getTime() + '_' + Math.random().toString(36).substring(2, 9);
+      console.log(`Criando novo canal com ID: ${canalId}`);
+      
+      // Criar um novo canal
+      const channel = supabase
+        .channel(canalId)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'ordens_servico' },
+          (payload) => {
+            console.log('EVENTO REALTIME: Nova ordem de serviço criada:', payload.new);
+            
+            try {
+              // Processar ordem para garantir que todos os campos estejam presentes
+              const ordem = payload.new as OrdemServico;
+              // Se a ordem não tiver histórico, adicionar um array vazio
+              if (!ordem.historico) ordem.historico = [];
+              
+              onInsert(ordem);
+            } catch (error) {
+              console.error('Erro ao processar nova ordem:', error);
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'ordens_servico' },
+          (payload) => {
+            console.log('EVENTO REALTIME: Ordem de serviço atualizada:', payload.new);
+            
+            try {
+              // Processar ordem para garantir que todos os campos estejam presentes
+              const ordem = payload.new as OrdemServico;
+              // Se a ordem não tiver histórico, adicionar um array vazio
+              if (!ordem.historico) ordem.historico = [];
+              
+              onUpdate(ordem);
+            } catch (error) {
+              console.error('Erro ao processar ordem atualizada:', error);
+            }
+          }
+        );
+
+      // Iniciar a subscrição com tratamento de status
+      const subscription = channel.subscribe((status) => {
+        console.log(`Supabase realtime status: ${status}`);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscrição à tabela ordens_servico ativa!');
+          // Resetar contadores de reconexão em caso de sucesso
+          tentativasReconexao = 0;
+          conectado = true;
+          
+          // Limpar intervalo de reconexão se existir
+          if (intervalReconexao) {
+            clearInterval(intervalReconexao);
+            intervalReconexao = null;
+          }
+          
+          // Armazenar referência ao canal ativo
+          canalAtivo = channel;
+          
+          // Notificar que a conexão foi restaurada (se anteriormente tinha falhado)
+          try {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('realtime-connection-restored'));
+            }
+          } catch (e) {
+            console.error('Erro ao disparar evento de restauração de conexão:', e);
+          }
+        } 
+        else if (status === 'CHANNEL_ERROR') {
+          console.error('Erro na subscrição realtime do Supabase');
+          conectado = false;
+          tentarReconectar();
+        }
+        else if (status === 'CLOSED') {
+          console.error('Conexão realtime fechada');
+          conectado = false;
+          tentarReconectar();
+        }
+        else if (status === 'TIMED_OUT') {
+          console.error('Conexão realtime expirou');
+          conectado = false;
+          tentarReconectar();
+        }
+        else if (status === 'CHANNEL_TIMEOUT') {
+          console.error('Timeout no canal realtime');
+          conectado = false;
+          tentarReconectar();
+        }
+      });
+      
+      return channel;
+    } catch (error) {
+      console.error('Exceção ao configurar subscrição realtime:', error);
+      return null;
+    }
+  };
+  
+  // Função centralizada para tentar reconexão com backoff exponencial
+  const tentarReconectar = () => {
+    // Evitar múltiplas tentativas simultâneas
+    if (intervalReconexao) {
+      return;
+    }
+    
+    // Tentar reconectar se ainda não atingiu o limite de tentativas
+    if (tentativasReconexao < maxTentativas) {
+      tentativasReconexao++;
+      console.log(`Tentando reconectar (${tentativasReconexao}/${maxTentativas})...`);
+      
+      // Programar tentativa de reconexão após um intervalo (com backoff exponencial)
+      const tempoEspera = Math.min(60000, 1000 * Math.pow(1.5, tentativasReconexao));
+      console.log(`Próxima tentativa em ${Math.round(tempoEspera/1000)} segundos`);
+      
+      // Mostrar mensagem para o usuário
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('realtime-reconnecting', { 
+            detail: { 
+              tentativa: tentativasReconexao, 
+              maximo: maxTentativas,
+              tempoEspera: Math.round(tempoEspera/1000)
+            } 
+          }));
+        }
+      } catch (e) {
+        console.error('Erro ao disparar evento de reconexão:', e);
+      }
+      
+      setTimeout(() => {
+        console.log('Executando reconexão agendada...');
+        try {
+          // Remover canal com erro
+          if (canalAtivo) {
+            try {
+              supabase.removeChannel(canalAtivo);
+              canalAtivo = null;
+            } catch (e) {
+              console.log('Erro ao remover canal com erro:', e);
+            }
+          }
+          
+          // Criar novo canal
+          canalAtivo = configurarCanal();
+          
+          // Limpar o intervalo de reconexão
+          if (intervalReconexao) {
+            clearTimeout(intervalReconexao);
+            intervalReconexao = null;
+          }
+        } catch (e) {
+          console.error('Erro na tentativa de reconexão:', e);
+          // Se falhar, limpar o intervalo para permitir novas tentativas
+          intervalReconexao = null;
+        }
+      }, tempoEspera);
+      
+      // Salvar referência para poder cancelar
+      intervalReconexao = setTimeout(() => {}, tempoEspera);
+    }
+    else if (tentativasReconexao >= maxTentativas) {
+      console.error(`Máximo de ${maxTentativas} tentativas de reconexão atingido. Desistindo.`);
+      // Notificar o usuário que o sistema pode não estar recebendo atualizações em tempo real
+      try {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('realtime-connection-failed'));
+        }
+      } catch (e) {
+        console.error('Erro ao disparar evento de falha de conexão:', e);
+      }
+      
+      // Limpar intervalo e definir conectado como false
+      if (intervalReconexao) {
+        clearTimeout(intervalReconexao);
+        intervalReconexao = null;
+      }
+      conectado = false;
+    }
+  };
+  
+  // Iniciar o canal
+  canalAtivo = configurarCanal();
+  
+  // Configurar verificação periódica de conexão
+  const intervalVerificacao = setInterval(() => {
+    if (!canalAtivo && !intervalReconexao) {
+      console.log('Canal não encontrado. Tentando criar novo canal...');
+      tentativasReconexao = 0; // Resetar tentativas para uma verificação programada
+      canalAtivo = configurarCanal();
+    }
+  }, 60000); // Verificar a cada minuto
+  
+  // Ouvir evento de offline/online para reagir a mudanças de conectividade
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      console.log('Aplicação voltou a ficar online. Tentando reconectar Supabase realtime...');
+      if (!conectado && !intervalReconexao) {
+        tentativasReconexao = 0; // Resetar contadores na mudança de conectividade
+        tentarReconectar();
       }
     });
-
-    // Retornar uma função para cancelar a assinatura
-    return () => {
-      console.log('Cancelando subscrição em tempo real');
-      supabase.removeChannel(channel);
-    };
-  } catch (error) {
-    console.error('Exceção ao configurar subscrição realtime:', error);
-    // Retornar uma função vazia para evitar erros
-    return () => {};
   }
+  
+  // Retornar uma função para cancelar a assinatura
+  return () => {
+    console.log('Cancelando subscrição em tempo real');
+    
+    // Limpar intervalos
+    if (intervalReconexao) {
+      clearTimeout(intervalReconexao);
+      intervalReconexao = null;
+    }
+    
+    if (intervalVerificacao) {
+      clearInterval(intervalVerificacao);
+    }
+    
+    // Remover canal
+    if (canalAtivo) {
+      try {
+        supabase.removeChannel(canalAtivo);
+        canalAtivo = null;
+      } catch (e) {
+        console.log('Erro ao remover canal na limpeza:', e);
+      }
+    }
+    
+    // Remover listeners de eventos
+    if (typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('online', () => {});
+      } catch (e) {
+        // Ignorar erros ao remover listeners
+      }
+    }
+  };
 }

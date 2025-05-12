@@ -8,7 +8,7 @@ import { LogOut, User } from "lucide-react"
 import { Sidebar } from "@/components/sidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { toast } from "@/components/ui/use-toast"
-import { GlobalNotifications } from "../../components/global-notifications"
+import { GlobalNotifications } from "@/components/global-notifications"
 
 export default function DashboardLayout({
   children,
