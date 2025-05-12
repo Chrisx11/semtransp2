@@ -167,6 +167,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           requiredPermission: { modulo: "manutencoes", acao: "visualizar" }
         },
         {
+          title: "Tela",
+          href: "/dashboard/manutencoes/tela",
+          icon: AlertCircle,
+          requiredPermission: { modulo: "manutencoes", acao: "visualizar" }
+        },
+        {
           title: "Ordem de Serviço",
           href: "/dashboard/manutencoes/ordem-servico",
           icon: FileText,

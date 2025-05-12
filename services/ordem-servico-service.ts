@@ -402,6 +402,44 @@ export async function addOrdemServicoSupabase(ordem: Omit<OrdemServico, "id" | "
     console.error("Erro detalhado do Supabase:", error)
     throw new Error(error.message || JSON.stringify(error))
   }
+  
+  // Tentar reproduzir som diretamente (isso serve como fallback adicional)
+  try {
+    // Tentar reproduzir um som para notificar da criação
+    const notificationAudio = new Audio('/level-up-191997.mp3')
+    notificationAudio.volume = 1.0
+    notificationAudio.play().catch(() => {
+      // Ignorar erros silenciosamente - o componente GlobalNotifications é a fonte primária de som
+      console.log("Reprodução direta do som falhou, isso é esperado")
+    })
+    
+    // Tentar uma segunda abordagem
+    const audioElement = document.createElement('audio')
+    audioElement.src = '/level-up-191997.mp3'
+    audioElement.volume = 1.0
+    document.body.appendChild(audioElement)
+    audioElement.play().catch(() => {}).finally(() => {
+      setTimeout(() => {
+        try {
+          document.body.removeChild(audioElement)
+        } catch (e) {}
+      }, 2000)
+    })
+  } catch (e) {
+    // Ignorar erros de áudio - isso é apenas um fallback
+  }
+  
+  // Disparar um evento personalizado que o GlobalNotifications pode ouvir
+  try {
+    const eventoNovaOS = new CustomEvent('nova-ordem-servico', { 
+      detail: { ordem: data[0] } 
+    })
+    window.dispatchEvent(eventoNovaOS)
+    console.log("Evento nova-ordem-servico disparado")
+  } catch (e) {
+    console.error("Erro ao disparar evento personalizado:", e)
+  }
+  
   return data[0]
 }
 
@@ -881,5 +919,67 @@ export async function adicionarObservacaoSupabase(ordemId: string, observacao: s
     const errorMessage = error instanceof Error ? error.message : JSON.stringify(error);
     console.error('Erro ao adicionar observação:', errorMessage);
     return false;
+  }
+}
+
+// Função para assinar em tempo real as atualizações e inserções na tabela ordens_servico
+export function subscribeToOrdensServico(
+  onInsert: (ordem: OrdemServico) => void,
+  onUpdate: (ordem: OrdemServico) => void
+) {
+  console.log('Iniciando subscrição em tempo real da tabela ordens_servico')
+  
+  try {
+    const channel = supabase
+      .channel('ordens_servico_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'ordens_servico' },
+        (payload) => {
+          console.log('EVENTO REALTIME: Nova ordem de serviço criada:', payload.new);
+          
+          // Processar ordem para garantir que todos os campos estejam presentes
+          const ordem = payload.new as OrdemServico;
+          // Se a ordem não tiver histórico, adicionar um array vazio
+          if (!ordem.historico) ordem.historico = [];
+          
+          onInsert(ordem);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'ordens_servico' },
+        (payload) => {
+          console.log('EVENTO REALTIME: Ordem de serviço atualizada:', payload.new);
+          
+          // Processar ordem para garantir que todos os campos estejam presentes
+          const ordem = payload.new as OrdemServico;
+          // Se a ordem não tiver histórico, adicionar um array vazio
+          if (!ordem.historico) ordem.historico = [];
+          
+          onUpdate(ordem);
+        }
+      );
+
+    // Iniciar a subscrição
+    const subscription = channel.subscribe((status) => {
+      console.log(`Supabase realtime status: ${status}`);
+      
+      if (status === 'SUBSCRIBED') {
+        console.log('Subscrição à tabela ordens_servico ativa!');
+      } else if (status === 'CHANNEL_ERROR') {
+        console.error('Erro na subscrição realtime do Supabase');
+      }
+    });
+
+    // Retornar uma função para cancelar a assinatura
+    return () => {
+      console.log('Cancelando subscrição em tempo real');
+      supabase.removeChannel(channel);
+    };
+  } catch (error) {
+    console.error('Exceção ao configurar subscrição realtime:', error);
+    // Retornar uma função vazia para evitar erros
+    return () => {};
   }
 }
