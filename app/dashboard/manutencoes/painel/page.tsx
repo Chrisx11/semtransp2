@@ -88,7 +88,7 @@ const MecanicoCard = ({ nome, ordens }: MecanicoCardProps) => {
   // Função para mapear status do banco para o status exibido (versão simplificada)
   const mapStatusLocal = (status: string) => {
     if (status === "Aguardando Fornecedor") return "Ag. Fornecedor"
-    if (status === "Rascunho") return "Em Aberto"
+    if (status === "Rascunho") return "Aguardando Mecânico"
     return status
   }
 
@@ -144,7 +144,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   // Definir classes para cada status
   switch (mappedStatus) {
     case "em aberto":
-    case "rascunho":
+    case "aguardando mecânico":
       iconClasses += " text-[#6B7280]";
       statusClasses = "bg-[#6B7280]/10 text-[#6B7280] border-[#6B7280]/30";
       Icon = FileText;
@@ -245,7 +245,7 @@ const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => (
 // Função utilitária para cor de status (para o gráfico)
 const getStatusBarColor = (status: string) => {
   switch (status) {
-    case "Em Aberto":
+    case "Aguardando Mecânico":
       return "#6B7280"
     case "Em Análise":
       return "#D97706"
@@ -337,7 +337,7 @@ export default function PainelManutencaoPage() {
 
   // Cores para os status
   const statusColors = {
-    "Em Aberto": {
+    "Aguardando Mecânico": {
       bg: "bg-[#6B7280]/10",
       text: "text-[#6B7280]",
       hover: "hover:border-[#6B7280]",
@@ -401,7 +401,7 @@ export default function PainelManutencaoPage() {
 
   // Status para exibir nos cards
   const statusList = [
-    "Em Aberto",
+    "Aguardando Mecânico",
     "Em Análise",
     "Em Aprovação",
     "Aguardando OS",
@@ -410,13 +410,13 @@ export default function PainelManutencaoPage() {
     "Comprar na Rua",
     "Fila de Serviço",
     "Em Serviço",
-    "Finalizado",
+    "Finalizado"
   ]
 
   // Função para mapear status do banco para o status exibido
   const mapStatus = (status: string) => {
     if (status === "Aguardando Fornecedor") return "Ag. Fornecedor"
-    if (status === "Rascunho") return "Em Aberto"
+    if (status === "Rascunho") return "Aguardando Mecânico"
     return status
   }
 

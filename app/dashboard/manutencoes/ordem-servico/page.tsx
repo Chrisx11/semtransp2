@@ -21,6 +21,7 @@ import {
   Trash2,
   RefreshCw,
   Loader2,
+  FileText,
 } from "lucide-react"
 import {
   Pagination,
@@ -89,7 +90,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   let badgeClasses = ""
 
   switch (status) {
-    case "Em Aberto":
+    case "Aguardando Mecânico":
       // Cinza (#6B7280)
       badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80"
       break
@@ -240,6 +241,10 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
           {activeTab === "oficina" && (
             <>
               <div className="mt-2 mb-1 text-sm font-semibold text-muted-foreground">Mudar Status</div>
+              <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("aguardando_mecanico")}>
+                <FileText className="mr-2 h-4 w-4" />
+                <span>Aguardando Mecânico</span>
+              </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("fila_servico")}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Fila de Serviço</span>
@@ -511,7 +516,7 @@ export default function OrdemServicoPage() {
 
     switch (activeTab) {
       case "oficina":
-        statusFiltro = ["Em Aberto", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
+        statusFiltro = ["Aguardando Mecânico", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
         break
       case "almoxarifado":
         statusFiltro = ["Em Análise", "Aguardando OS", "Aguardando Fornecedor", "Comprar na Rua"]
@@ -523,7 +528,7 @@ export default function OrdemServicoPage() {
         statusFiltro = ["Finalizado"]
         break
       default:
-        statusFiltro = ["Em Aberto", "Em Serviço"]
+        statusFiltro = ["Aguardando Mecânico", "Em Serviço"]
     }
 
     // Buscar todas as ordens do Supabase
@@ -714,6 +719,21 @@ export default function OrdemServicoPage() {
       case "retornar_almoxarifado_compras":
         setSelectedOrdemId(id)
         setIsRetornarAlmoxarifadoComprasDialogOpen(true)
+        break
+      case "aguardando_mecanico":
+        try {
+          console.log('[EDITAR] Atualizando status para Aguardando Mecânico, ID:', id)
+          const result = await updateOrdemServicoSupabase(id, { status: "Aguardando Mecânico" })
+          console.log('[EDITAR] Resultado updateOrdemServicoSupabase:', result)
+          carregarOrdensServico()
+        } catch (error) {
+          console.error('[EDITAR] Erro ao atualizar para Aguardando Mecânico:', error)
+          toast({
+            title: "Erro ao atualizar status",
+            description: error instanceof Error ? error.message : JSON.stringify(error),
+            variant: "destructive",
+          })
+        }
         break
       case "fila_servico":
         try {

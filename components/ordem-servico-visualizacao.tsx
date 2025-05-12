@@ -64,6 +64,9 @@ const StatusBadge = ({ status }: { status: string }) => {
     case "Aguardando aprovação":
       variant = "secondary"
       break
+    case "Aguardando Mecânico":
+      variant = "destructive"
+      break
     default:
       variant = "default"
   }

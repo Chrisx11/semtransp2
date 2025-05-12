@@ -117,7 +117,7 @@ export default function PlanejamentoPage() {
   // Função para obter a cor do status
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Em Aberto":
+      case "Aguardando Mecânico":
         return "bg-gray-500 hover:bg-gray-600 text-white"
       case "Nova":
       case "Aguardando OS":

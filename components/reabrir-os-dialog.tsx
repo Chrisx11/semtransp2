@@ -39,8 +39,8 @@ export function ReabrirOSDialog({ open, onOpenChange, ordemId, onSuccess }: Reab
       // Prefixar a observação para deixar claro que é uma reabertura
       const observacaoFormatada = `Reabertura de OS: ${motivo}`
       
-      // Atualizar o status da ordem para o status "Em Aberto"
-      const resultado = await updateOrdemServicoSupabase(ordemId, { status: "Em Aberto" }, observacaoFormatada)
+      // Atualizar o status da ordem para o status "Aguardando Mecânico"
+      const resultado = await updateOrdemServicoSupabase(ordemId, { status: "Aguardando Mecânico" }, observacaoFormatada)
 
       if (!resultado) {
         throw new Error("Não foi possível reabrir a ordem de serviço")
@@ -81,7 +81,7 @@ export function ReabrirOSDialog({ open, onOpenChange, ordemId, onSuccess }: Reab
         </DialogHeader>
 
         <div className="py-4">
-          <p className="mb-4">Esta ação irá reabrir a ordem de serviço e movê-la para a aba Oficina com o status "Em Aberto".</p>
+          <p className="mb-4">Esta ação irá reabrir a ordem de serviço e movê-la para a aba Oficina com o status "Aguardando Mecânico".</p>
 
           <div className="space-y-2">
             <Label htmlFor="motivo" className="text-sm font-medium">
