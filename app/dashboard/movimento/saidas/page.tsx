@@ -190,7 +190,11 @@ export default function SaidasPage() {
     if (searchTerm) {
       const lowerQuery = searchTerm.toLowerCase()
       result = result.filter(
-        (e) => e.produtoNome.toLowerCase().includes(lowerQuery) || e.responsavelNome.toLowerCase().includes(lowerQuery),
+        (e) =>
+          e.produtoNome.toLowerCase().includes(lowerQuery) ||
+          e.responsavelNome.toLowerCase().includes(lowerQuery) ||
+          (e.veiculoPlaca && e.veiculoPlaca.toLowerCase().includes(lowerQuery)) ||
+          (e.veiculoModelo && e.veiculoModelo.toLowerCase().includes(lowerQuery))
       )
     }
 
