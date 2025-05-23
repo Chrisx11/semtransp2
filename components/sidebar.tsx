@@ -30,7 +30,7 @@ import {
   Briefcase,
   Store,
   Wrench,
-  Droplets
+  Droplets,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -128,6 +128,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       title: "Produtos",
       href: "/dashboard/produtos",
       icon: Package,
+      requiredPermission: { modulo: "produtos", acao: "visualizar" }
+    },
+    {
+      title: "Filtros",
+      href: "/dashboard/filtros",
+      icon: Oil,
       requiredPermission: { modulo: "produtos", acao: "visualizar" }
     },
     {
