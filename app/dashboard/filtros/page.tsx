@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { SelecionarProdutoDialog } from "@/components/selecionar-produto-dialog"
-import { FuelIcon as Oil, Car, BadgeCheck, Trash2 } from "lucide-react"
+import { FuelIcon as Oil, Car, BadgeCheck, Trash2, RotateCcw } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 const FILTER_HEADERS = [
   "Filtro de Óleo",
@@ -29,22 +30,57 @@ interface FiltroRegistrado {
   produtoDescricao: string
 }
 
-const FILTROS_STORAGE_KEY = "filtros_registrados"
+// Funções para interagir com o Supabase
+async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroRegistrado[]> {
+  const { data, error } = await supabase
+    .from('filtros_registrados')
+    .select('veiculoid, categoria, produtoid, produtodescricao')
+    .eq('veiculoid', veiculoId);
 
-function getFiltrosRegistrados(): FiltroRegistrado[] {
-  if (typeof window === "undefined") return []
-  const data = localStorage.getItem(FILTROS_STORAGE_KEY)
-  return data ? JSON.parse(data) : []
+  if (error) {
+    console.error("Erro ao buscar filtros do veículo:", error.message, error);
+    return [];
+  }
+  
+  // Mapear os dados para o formato esperado pela interface (camelCase)
+  return data.map(item => ({
+    veiculoId: item.veiculoid,
+    categoria: item.categoria,
+    produtoId: item.produtoid,
+    produtoDescricao: item.produtodescricao,
+  }));
 }
 
-function addFiltroRegistrado(filtro: FiltroRegistrado) {
-  const filtros = getFiltrosRegistrados()
-  filtros.push(filtro)
-  localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify(filtros))
+async function addFiltroRegistradoSupabase(filtro: FiltroRegistrado): Promise<void> {
+  // Mapear os dados para o formato esperado pelo banco de dados (lowercase)
+  const filtroDB = {
+    veiculoid: filtro.veiculoId,
+    categoria: filtro.categoria,
+    produtoid: filtro.produtoId,
+    produtodescricao: filtro.produtoDescricao,
+  };
+  const { error } = await supabase
+    .from('filtros_registrados')
+    .insert([filtroDB]);
+
+  if (error) {
+    console.error("Erro ao registrar filtro:", error.message, error);
+    throw error; // Re-lança o erro para ser tratado por quem chamou
+  }
 }
 
-function getFiltrosDoVeiculo(veiculoId: string): FiltroRegistrado[] {
-  return getFiltrosRegistrados().filter(f => f.veiculoId === veiculoId)
+async function removeFiltroRegistradoSupabase(veiculoId: string, categoria: string, produtoId: string): Promise<void> {
+  const { error } = await supabase
+    .from('filtros_registrados')
+    .delete()
+    .eq('veiculoid', veiculoId)
+    .eq('categoria', categoria)
+    .eq('produtoid', produtoId);
+
+  if (error) {
+    console.error("Erro ao remover filtro:", error.message, error);
+    throw error; // Re-lança o erro para ser tratado por quem chamou
+  }
 }
 
 export default function FiltrosPage() {
@@ -62,6 +98,7 @@ export default function FiltrosPage() {
   const [editMode, setEditMode] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [todosProdutos, setTodosProdutos] = useState<Produto[]>([])
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     getVeiculosSupabase().then(setVeiculos)
@@ -73,7 +110,7 @@ export default function FiltrosPage() {
     setModalOpen(true)
     const produtos = await getProdutosCompativeisComVeiculoSupabase(veiculo.id)
     setProdutosCompativeis(produtos)
-    setFiltrosRegistrados(getFiltrosDoVeiculo(veiculo.id))
+    setFiltrosRegistrados(await getFiltrosDoVeiculoSupabase(veiculo.id))
   }
 
   const handleCloseModal = () => {
@@ -95,30 +132,75 @@ export default function FiltrosPage() {
     setSelectedProduto(null)
   }
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!registerVeiculo || !selectedCategoria || !selectedProduto) return
-    const novoFiltro: FiltroRegistrado = {
+
+    // Buscar todos os produtos para encontrar os similares
+    const todosProdutos = await getProdutosSupabase()
+    // Encontrar o produto selecionado
+    const produtoPrincipal = todosProdutos.find(p => p.id === selectedProduto.id)
+    // Encontrar os similares
+    const similares = produtoPrincipal && produtoPrincipal.produtosSimilares && produtoPrincipal.produtosSimilares.length > 0
+      ? todosProdutos.filter(p => produtoPrincipal.produtosSimilares.includes(p.id))
+      : []
+
+    // Registrar o filtro para o produto principal
+    const novoFiltro = {
       veiculoId: registerVeiculo.id,
       categoria: selectedCategoria,
       produtoId: selectedProduto.id,
       produtoDescricao: selectedProduto.descricao
     }
-    addFiltroRegistrado(novoFiltro)
+    await addFiltroRegistradoSupabase(novoFiltro)
+
+    // Registrar o filtro para cada similar (se ainda não registrado para esse veículo/categoria)
+    for (const similar of similares) {
+      const filtrosExistentes = await getFiltrosDoVeiculoSupabase(registerVeiculo.id);
+      const jaRegistrado = filtrosExistentes.some(f =>
+        f.veiculoId === registerVeiculo.id &&
+        f.categoria === selectedCategoria &&
+        f.produtoId === similar.id
+      );
+      if (!jaRegistrado) {
+        await addFiltroRegistradoSupabase({
+          veiculoId: registerVeiculo.id,
+          categoria: selectedCategoria,
+          produtoId: similar.id,
+          produtoDescricao: similar.descricao
+        });
+      }
+    }
+
     toast({
       title: "Filtro registrado!",
-      description: `O filtro '${selectedCategoria}' foi registrado para o veículo ${registerVeiculo.placa} (${selectedProduto.descricao})`,
+      description: `O filtro '${selectedCategoria}' foi registrado para o veículo ${registerVeiculo.placa} (${selectedProduto.descricao}${similares.length > 0 ? ` e similares: ${similares.map(s => s.descricao).join(", ")}` : ""})`,
       variant: "default"
     })
     handleCloseRegisterModal()
     if (selectedVeiculo && selectedVeiculo.id === registerVeiculo.id) {
-      setFiltrosRegistrados(getFiltrosDoVeiculo(registerVeiculo.id))
+      setFiltrosRegistrados(await getFiltrosDoVeiculoSupabase(registerVeiculo.id))
     }
   }
 
-  function removeFiltroRegistrado(veiculoId: string, categoria: string, produtoId: string) {
-    const filtros = getFiltrosRegistrados().filter(f => !(f.veiculoId === veiculoId && f.categoria === categoria && f.produtoId === produtoId))
-    localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify(filtros))
-    setFiltrosRegistrados(filtros.filter(f => f.veiculoId === veiculoId))
+  async function removeFiltroRegistrado(veiculoId: string, categoria: string, produtoId: string, updateState?: (filtros: FiltroRegistrado[]) => void) {
+    try {
+      await removeFiltroRegistradoSupabase(veiculoId, categoria, produtoId);
+      // Após remover do Supabase, atualizar o estado local buscando novamente
+      if (updateState && veiculoId) {
+         const updatedFiltros = await getFiltrosDoVeiculoSupabase(veiculoId);
+         updateState(updatedFiltros);
+      }
+      toast({
+        title: "Filtro removido!",
+        variant: "default"
+      });
+    } catch (error) {
+      toast({
+        title: "Erro ao remover filtro",
+        description: "Ocorreu um erro ao tentar remover o filtro.",
+        variant: "destructive"
+      });
+    }
   }
 
   const getCellContent = (header: string) => {
@@ -139,7 +221,7 @@ export default function FiltrosPage() {
                 <button
                   type="button"
                   className="ml-1 text-red-500 hover:text-red-700"
-                  onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId)}
+                  onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId, setFiltrosRegistrados)}
                   title="Remover filtro"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -161,9 +243,38 @@ export default function FiltrosPage() {
     )
   })
 
+  // Função para atualizar os dados
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      const [veiculos, produtos] = await Promise.all([
+        getVeiculosSupabase(),
+        getProdutosSupabase()
+      ])
+      setVeiculos(veiculos)
+      setTodosProdutos(produtos)
+      toast({ title: "Dados atualizados!", variant: "default" })
+    } catch (e) {
+      toast({ title: "Erro ao atualizar dados", variant: "destructive" })
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight mb-4">Filtros dos Veículos</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-3xl font-bold tracking-tight">Filtros dos Veículos</h1>
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-2"
+        >
+          <RotateCcw className={isRefreshing ? "animate-spin" : ""} />
+          {isRefreshing ? "Atualizando..." : "Atualizar"}
+        </Button>
+      </div>
       <div className="max-w-md mb-4">
         <input
           type="text"

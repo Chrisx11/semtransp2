@@ -23,6 +23,7 @@ import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil }
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
+import { getProdutosSupabase, type Produto } from "@/services/produto-service"
 
 export default function SaidasPage() {
   // Estado para paginação
@@ -49,6 +50,9 @@ export default function SaidasPage() {
   const [saidas, setSaidas] = useState<Saida[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Estado para todos os produtos (para buscar similares)
+  const [produtos, setProdutos] = useState<Produto[]>([])
+
   const { toast } = useToast()
 
   // Carregar dados do Supabase
@@ -73,6 +77,11 @@ export default function SaidasPage() {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Carregar todos os produtos para exibir similares
+  useEffect(() => {
+    getProdutosSupabase().then(setProdutos)
   }, [])
 
   // Função para alternar a ordenação
@@ -394,42 +403,57 @@ export default function SaidasPage() {
               </TableHeader>
               <TableBody>
                 {paginatedData.length > 0 ? (
-                  paginatedData.map((saida) => (
-                    <TableRow key={saida.id}>
-                      <TableCell className="font-medium">{saida.produtoNome}</TableCell>
-                      <TableCell>{saida.categoria || "-"}</TableCell>
-                      <TableCell>{saida.responsavelNome}</TableCell>
-                      <TableCell>{saida.quantidade}</TableCell>
-                      <TableCell>{formatDate(saida.data)}</TableCell>
-                      <TableCell>
-                        {saida.veiculoPlaca && saida.veiculoModelo
-                          ? `${saida.veiculoPlaca} - ${saida.veiculoModelo}`
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900 dark:hover:text-blue-400 transition-colors"
-                            onClick={() => handleEditClick(saida.id)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400 transition-colors"
-                            onClick={() => handleDeleteClick(saida.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Excluir</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  paginatedData.map((saida) => {
+                    // Buscar o produto correspondente
+                    const produto = produtos.find((p) => p.id === saida.produtoId)
+                    // Buscar similares desse produto
+                    const similares = produto && produto.produtosSimilares && produto.produtosSimilares.length > 0
+                      ? produtos.filter((p) => produto.produtosSimilares.includes(p.id))
+                      : []
+                    return (
+                      <TableRow key={saida.id}>
+                        <TableCell className="font-medium">
+                          {saida.produtoNome}
+                          {similares.length > 0 && (
+                            <div className="mt-1 text-xs text-blue-600 dark:text-blue-300">
+                              Similares: {similares.map((s) => s.descricao).join(", ")}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{saida.categoria || "-"}</TableCell>
+                        <TableCell>{saida.responsavelNome}</TableCell>
+                        <TableCell>{saida.quantidade}</TableCell>
+                        <TableCell>{formatDate(saida.data)}</TableCell>
+                        <TableCell>
+                          {saida.veiculoPlaca && saida.veiculoModelo
+                            ? `${saida.veiculoPlaca} - ${saida.veiculoModelo}`
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900 dark:hover:text-blue-400 transition-colors"
+                              onClick={() => handleEditClick(saida.id)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              <span className="sr-only">Editar</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400 transition-colors"
+                              onClick={() => handleDeleteClick(saida.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Excluir</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 ) : (
                   <EmptyState
                     colSpan={6}
