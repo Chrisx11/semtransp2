@@ -495,6 +495,15 @@ export default function VeiculosPage() {
               <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={handleNew}>
                 <Plus className="mr-2 h-4 w-4" /> Novo Veículo
               </Button>
+              {/* Botão relatório PDF */}
+              <Button
+                className="w-full md:w-auto shadow-md-custom"
+                variant="outline"
+                onClick={() => handleExport("pdf")}
+                title="Exportar relatório em PDF com todos os dados dos veículos"
+              >
+                <FileText className="mr-2 h-4 w-4" /> Relatório em PDF
+              </Button>
             </div>
           </div>
 

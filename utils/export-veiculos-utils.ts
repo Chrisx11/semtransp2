@@ -54,8 +54,8 @@ export const exportToPDF = (data: Veiculo[], filename = "veiculos") => {
   try {
     console.log("Iniciando exportação para PDF...")
 
-    // Criar nova instância do jsPDF
-    const doc = new jsPDF()
+    // Criar nova instância do jsPDF em modo paisagem
+    const doc = new jsPDF({ orientation: "landscape" })
 
     // Adicionar título
     doc.setFontSize(16)
@@ -65,17 +65,44 @@ export const exportToPDF = (data: Veiculo[], filename = "veiculos") => {
     doc.setFontSize(10)
     doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 14, 22)
 
-    // Preparar dados para a tabela
-    const tableColumn = ["Placa", "Modelo", "Marca", "Ano", "Cor", "Tipo", "Secretaria", "Status"]
+    // Cabeçalhos completos
+    const tableColumn = [
+      "Placa",
+      "Modelo",
+      "Marca",
+      "Ano",
+      "Cor",
+      "Tipo",
+      "Chassi",
+      "Renavam",
+      "Combustível",
+      "Medição",
+      "Período Troca Óleo",
+      "Status",
+      "Secretaria",
+      "Km Atual",
+      "Km Próx. Troca",
+      "Criado em",
+      "Atualizado em"
+    ]
     const tableRows = data.map((item) => [
       item.placa,
       item.modelo,
       item.marca,
-      item.ano.toString(),
+      item.ano?.toString() ?? "",
       item.cor,
       item.tipo,
-      item.secretaria,
+      item.chassi,
+      item.renavam,
+      item.combustivel,
+      item.medicao,
+      item.periodoTrocaOleo?.toString() ?? item.periodotrocaoleo?.toString() ?? "",
       item.status,
+      item.secretaria,
+      item.kmAtual?.toString() ?? "",
+      item.kmProxTroca?.toString() ?? "",
+      item.createdAt ? new Date(item.createdAt).toLocaleString() : "",
+      item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "",
     ])
 
     // Gerar tabela automática
@@ -83,10 +110,11 @@ export const exportToPDF = (data: Veiculo[], filename = "veiculos") => {
       head: [tableColumn],
       body: tableRows,
       startY: 25,
-      styles: { fontSize: 10, cellPadding: 3 },
+      styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [51, 51, 51] },
       alternateRowStyles: { fillColor: [245, 245, 245] },
-      margin: { top: 25 },
+      margin: { top: 25, left: 10, right: 10 },
+      tableWidth: 'auto',
     })
 
     // Adicionar rodapé com número de página
@@ -94,9 +122,11 @@ export const exportToPDF = (data: Veiculo[], filename = "veiculos") => {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i)
       doc.setFontSize(8)
-      doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 10, {
-        align: "center",
-      })
+      doc.text(`Página ${i} de ${pageCount}`,
+        doc.internal.pageSize.getWidth() / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: "center" }
+      )
     }
 
     // Salvar o PDF
