@@ -745,6 +745,56 @@ export default function PainelManutencaoPage() {
     setModalPeriodo(true)
   }
 
+  // Função para calcular o tempo médio de finalização das ordens filtradas
+  const tempoMedioInfo = React.useMemo(() => {
+    const ordensFinalizadas = ordensFiltradas.filter((o) =>
+      o.status.toLowerCase() === "finalizado" &&
+      o.historico &&
+      Array.isArray(o.historico) &&
+      o.historico.length > 0 &&
+      o.createdAt
+    )
+    let tempoTotal = 0
+    let ordensComCalculoValido = 0
+    const detalhesCalculo: Array<{
+      numero: string,
+      veiculoInfo: string,
+      inicio: string,
+      fim: string,
+      dias: number
+    }> = []
+    for (const ordem of ordensFinalizadas) {
+      try {
+        const inicio = new Date(ordem.createdAt)
+        if (isNaN(inicio.getTime())) continue
+        const eventoFinalizado = ordem.historico.find(
+          (h) => h.status && h.status.toLowerCase() === "finalizado" && h.data
+        )
+        if (!eventoFinalizado) continue
+        const fim = new Date(eventoFinalizado.data)
+        if (isNaN(fim.getTime())) continue
+        const diff = (fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24)
+        if (diff <= 0) continue
+        tempoTotal += diff
+        ordensComCalculoValido++
+        detalhesCalculo.push({
+          numero: ordem.numero,
+          veiculoInfo: ordem.veiculoInfo,
+          inicio: inicio.toLocaleDateString(),
+          fim: fim.toLocaleDateString(),
+          dias: Number(diff.toFixed(1))
+        })
+      } catch {}
+    }
+    const tempoMedio = ordensComCalculoValido > 0 ? Math.round(tempoTotal / ordensComCalculoValido) : 0
+    return {
+      tempoMedio,
+      ordensFinalizadas: ordensFinalizadas.length,
+      ordensValidas: ordensComCalculoValido,
+      detalhes: detalhesCalculo
+    }
+  }, [ordensFiltradas])
+
   return (
     <div className="space-y-6">
       <div>
@@ -798,7 +848,7 @@ export default function PainelManutencaoPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{estatisticas.tempoMedio} dias</div>
+            <div className="text-2xl font-bold">{tempoMedioInfo.tempoMedio} dias</div>
             <p className="text-xs text-muted-foreground">Para finalização de ordens</p>
             <button 
               onClick={(e) => { 
@@ -1660,7 +1710,7 @@ export default function PainelManutencaoPage() {
             <div>
               <div className="text-lg font-bold leading-tight">Detalhes do Cálculo do Tempo Médio</div>
               <div className="text-xs opacity-80">
-                Tempo médio: {estatisticas.tempoMedio} dias
+                Tempo médio: {tempoMedioInfo.tempoMedio} dias
               </div>
             </div>
           </div>
@@ -1672,15 +1722,15 @@ export default function PainelManutencaoPage() {
                   <ul className="space-y-1 text-sm">
                     <li className="flex justify-between">
                       <span>Total de ordens finalizadas:</span>
-                      <span className="font-medium">{detalhesTempoMedio.ordensFinalizadas}</span>
+                      <span className="font-medium">{tempoMedioInfo.ordensFinalizadas}</span>
                     </li>
                     <li className="flex justify-between">
                       <span>Ordens com dados válidos:</span>
-                      <span className="font-medium">{detalhesTempoMedio.ordensValidas}</span>
+                      <span className="font-medium">{tempoMedioInfo.ordensValidas}</span>
                     </li>
                     <li className="flex justify-between">
                       <span>Tempo médio calculado:</span>
-                      <span className="font-medium">{estatisticas.tempoMedio} dias</span>
+                      <span className="font-medium">{tempoMedioInfo.tempoMedio} dias</span>
                     </li>
                   </ul>
                 </div>
@@ -1695,7 +1745,7 @@ export default function PainelManutencaoPage() {
               </div>
               
               <h3 className="font-medium mt-6">Detalhes por Ordem</h3>
-              {detalhesTempoMedio.detalhes.length > 0 ? (
+              {tempoMedioInfo.detalhes.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full border rounded text-sm">
                     <thead className="bg-muted">
@@ -1708,7 +1758,7 @@ export default function PainelManutencaoPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {detalhesTempoMedio.detalhes.map((detalhe) => (
+                      {tempoMedioInfo.detalhes.map((detalhe) => (
                         <tr key={detalhe.numero} className="border-t">
                           <td className="px-3 py-2">{detalhe.numero}</td>
                           <td className="px-3 py-2">{detalhe.veiculoInfo.split(' - ')[0]}</td>
@@ -1721,7 +1771,7 @@ export default function PainelManutencaoPage() {
                     <tfoot className="bg-muted">
                       <tr>
                         <td colSpan={4} className="px-3 py-2 text-right font-medium">Média:</td>
-                        <td className="px-3 py-2 text-right font-bold">{estatisticas.tempoMedio}</td>
+                        <td className="px-3 py-2 text-right font-bold">{tempoMedioInfo.tempoMedio}</td>
                       </tr>
                     </tfoot>
                   </table>
