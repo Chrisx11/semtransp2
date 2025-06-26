@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 
 import { useEffect, useState, Fragment } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,6 +52,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion"
+import { Input } from "@/components/ui/input"
 
 // Componente para o card de status
 interface StatusCardProps {
@@ -334,6 +335,35 @@ export default function PainelManutencaoPage() {
     ordensValidas: 0,
     detalhes: []
   })
+  // Estado para datas individuais
+  const [dataInicio, setDataInicio] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  })
+  const [dataFim, setDataFim] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+  })
+  const [periodo, setPeriodo] = useState<{from: string, to: string}>(() => ({ from: dataInicio, to: dataFim }))
+  const [modalPeriodo, setModalPeriodo] = useState(false)
+
+  // Função para filtrar ordens pelo período selecionado
+  const ordensFiltradas = React.useMemo(() => {
+    if (!periodo.from || !periodo.to) return ordens
+    const fromTime = new Date(periodo.from).setHours(0,0,0,0)
+    const toTime = new Date(periodo.to).setHours(23,59,59,999)
+    return ordens.filter(o => {
+      const created = new Date(o.createdAt).getTime()
+      return created >= fromTime && created <= toTime
+    })
+  }, [ordens, periodo])
+
+  // Estatísticas filtradas
+  const estatisticasFiltradas = React.useMemo(() => {
+    const total = ordensFiltradas.length
+    const finalizadas = ordensFiltradas.filter((o) => o.status.toLowerCase() === "finalizado").length
+    return { total, finalizadas }
+  }, [ordensFiltradas])
 
   // Cores para os status
   const statusColors = {
@@ -717,25 +747,19 @@ export default function PainelManutencaoPage() {
 
       {/* Resumo de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="transition-transform duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer" onClick={() => setCardExplicacao('total')}>
+        <Card className="transition-transform duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer" onClick={() => setModalPeriodo(true)}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Ordens</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{estatisticas.total}</div>
-            <p className="text-xs text-muted-foreground">{estatisticas.finalizadas} finalizadas</p>
-            <Progress value={conclusionPercentage} className="h-2 mt-2" />
-            <p className="text-xs text-muted-foreground mt-1">{conclusionPercentage}% concluído</p>
-            <button 
-              onClick={(e) => { 
-                e.stopPropagation(); 
-                setModalTotalOrdens(true); 
-              }} 
-              className="text-xs text-blue-500 hover:underline mt-1"
-            >
-              Ver detalhes
-            </button>
+            <div className="text-2xl font-bold">{estatisticasFiltradas.total}</div>
+            <p className="text-xs text-muted-foreground">{estatisticasFiltradas.finalizadas} finalizadas</p>
+            <Progress value={estatisticasFiltradas.total > 0 ? Math.round((estatisticasFiltradas.finalizadas / estatisticasFiltradas.total) * 100) : 0} className="h-2 mt-2" />
+            <p className="text-xs text-muted-foreground mt-1">{estatisticasFiltradas.total > 0 ? Math.round((estatisticasFiltradas.finalizadas / estatisticasFiltradas.total) * 100) : 0}% concluído</p>
+            <div className="mt-2">
+              <span className="text-xs text-muted-foreground">Período: {periodo.from && periodo.to ? `${new Date(periodo.from).toLocaleDateString()} - ${new Date(periodo.to).toLocaleDateString()}` : ""}</span>
+            </div>
           </CardContent>
         </Card>
 
@@ -2064,6 +2088,31 @@ export default function PainelManutencaoPage() {
         .scrollbar-none::-webkit-scrollbar { display: none; }
         .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
+
+      {/* Modal para selecionar período do card Total de Ordens */}
+      <Dialog open={modalPeriodo} onOpenChange={setModalPeriodo}>
+        <DialogContent className="max-w-md">
+          <DialogTitle>Selecionar Período</DialogTitle>
+          <div className="my-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Data de início</label>
+              <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Data de fim</label>
+              <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => setModalPeriodo(false)}>
+              Cancelar
+            </button>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onClick={() => { setPeriodo({ from: dataInicio, to: dataFim }); setDataInicio(dataInicio); setDataFim(dataFim); setModalPeriodo(false); }}>
+              Aplicar
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
