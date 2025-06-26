@@ -335,26 +335,26 @@ export default function PainelManutencaoPage() {
     ordensValidas: 0,
     detalhes: []
   })
-  // Estado para datas individuais
-  const [dataInicio, setDataInicio] = useState(() => {
+  // Estado para datas individuais (usados apenas no modal)
+  const [draftDataInicio, setDraftDataInicio] = useState("")
+  const [draftDataFim, setDraftDataFim] = useState("")
+  // Estado do período realmente aplicado
+  const [periodo, setPeriodo] = useState<{from: string, to: string}>(() => {
     const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
+    return { from, to }
   })
-  const [dataFim, setDataFim] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
-  })
-  const [periodo, setPeriodo] = useState<{from: string, to: string}>(() => ({ from: dataInicio, to: dataFim }))
   const [modalPeriodo, setModalPeriodo] = useState(false)
 
   // Função para filtrar ordens pelo período selecionado
   const ordensFiltradas = React.useMemo(() => {
     if (!periodo.from || !periodo.to) return ordens
-    const fromTime = new Date(periodo.from).setHours(0,0,0,0)
-    const toTime = new Date(periodo.to).setHours(23,59,59,999)
+    const fromTime = new Date(periodo.from + 'T00:00:00')
+    const toTime = new Date(periodo.to + 'T23:59:59')
     return ordens.filter(o => {
       const created = new Date(o.createdAt).getTime()
-      return created >= fromTime && created <= toTime
+      return created >= fromTime.getTime() && created <= toTime.getTime()
     })
   }, [ordens, periodo])
 
@@ -738,6 +738,13 @@ export default function PainelManutencaoPage() {
     }
   }
 
+  // Ao abrir o modal, inicializar os drafts com o valor atual do período
+  const openPeriodoModal = () => {
+    setDraftDataInicio(periodo.from)
+    setDraftDataFim(periodo.to)
+    setModalPeriodo(true)
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -747,7 +754,7 @@ export default function PainelManutencaoPage() {
 
       {/* Resumo de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="transition-transform duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer" onClick={() => setModalPeriodo(true)}>
+        <Card className="transition-transform duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer" onClick={openPeriodoModal}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Ordens</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -758,7 +765,7 @@ export default function PainelManutencaoPage() {
             <Progress value={estatisticasFiltradas.total > 0 ? Math.round((estatisticasFiltradas.finalizadas / estatisticasFiltradas.total) * 100) : 0} className="h-2 mt-2" />
             <p className="text-xs text-muted-foreground mt-1">{estatisticasFiltradas.total > 0 ? Math.round((estatisticasFiltradas.finalizadas / estatisticasFiltradas.total) * 100) : 0}% concluído</p>
             <div className="mt-2">
-              <span className="text-xs text-muted-foreground">Período: {periodo.from && periodo.to ? `${new Date(periodo.from).toLocaleDateString()} - ${new Date(periodo.to).toLocaleDateString()}` : ""}</span>
+              <span className="text-xs text-muted-foreground">Período: {periodo.from && periodo.to ? `${periodo.from.split('-').reverse().join('/')} - ${periodo.to.split('-').reverse().join('/')}` : ""}</span>
             </div>
           </CardContent>
         </Card>
@@ -2096,18 +2103,18 @@ export default function PainelManutencaoPage() {
           <div className="my-4 space-y-4">
             <div>
               <label className="block text-sm font-medium mb-1">Data de início</label>
-              <Input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} />
+              <Input type="date" value={draftDataInicio} onChange={e => setDraftDataInicio(e.target.value)} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Data de fim</label>
-              <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} />
+              <Input type="date" value={draftDataFim} onChange={e => setDraftDataFim(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2">
             <button className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => setModalPeriodo(false)}>
               Cancelar
             </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onClick={() => { setPeriodo({ from: dataInicio, to: dataFim }); setDataInicio(dataInicio); setDataFim(dataFim); setModalPeriodo(false); }}>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" onClick={() => { setPeriodo({ from: draftDataInicio, to: draftDataFim }); setModalPeriodo(false); }}>
               Aplicar
             </button>
           </div>
