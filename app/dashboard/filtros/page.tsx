@@ -20,7 +20,8 @@ const FILTER_HEADERS = [
   "Filtro de Ar 1°",
   "Filtro de Ar 2°",
   "Filtro Separador",
-  "Desumidificador"
+  "Desumidificador",
+  "Filtro de Transmissão"
 ]
 
 interface FiltroRegistrado {
