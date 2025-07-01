@@ -318,7 +318,7 @@ export default function FiltrosPage() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-7xl">
           <DialogHeader>
             <DialogTitle>Filtros do Veículo</DialogTitle>
             <div className="text-muted-foreground text-sm mt-1">
