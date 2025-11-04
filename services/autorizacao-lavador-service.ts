@@ -138,6 +138,14 @@ export async function getAutorizacaoLavadorById(id: string): Promise<Autorizacao
   }
 }
 
+// Ajuste para sempre salvar a data correta (+1 dia para absorver timezone)
+function addOneDay(date: Date | string): Date | string {
+  if (!date) return date;
+  const d = new Date(date);
+  d.setDate(d.getDate() + 1);
+  return d;
+}
+
 // Função para criar uma nova autorização
 export async function createAutorizacaoLavador(
   autorizacao: Omit<AutorizacaoLavador, "id" | "createdAt" | "updatedAt" | "status">
@@ -159,15 +167,17 @@ export async function createAutorizacaoLavador(
     if (!autorizacao.dataPrevista) {
       throw new Error("dataPrevista é obrigatória")
     }
-    
+    // === Ajuste aqui ===
+    const corrDataAut = addOneDay(autorizacao.dataAutorizacao);
+    const corrDataPrev = addOneDay(autorizacao.dataPrevista);
+    // ===================
     // Converter data se for objeto Date
-    const dataAutorizacaoStr = autorizacao.dataAutorizacao instanceof Date 
-      ? autorizacao.dataAutorizacao.toISOString().split('T')[0]
-      : autorizacao.dataAutorizacao
-      
-    const dataPrevistaStr = autorizacao.dataPrevista instanceof Date
-      ? autorizacao.dataPrevista.toISOString().split('T')[0]
-      : autorizacao.dataPrevista
+    const dataAutorizacaoStr = corrDataAut instanceof Date
+      ? corrDataAut.toISOString().split('T')[0]
+      : corrDataAut;
+    const dataPrevistaStr = corrDataPrev instanceof Date
+      ? corrDataPrev.toISOString().split('T')[0]
+      : corrDataPrev;
     
     // Criar objeto de inserção manualmente para garantir que todos os campos estejam presentes
     const dataToInsert: AutorizacaoLavadorDB = {
