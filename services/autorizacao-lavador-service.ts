@@ -14,6 +14,7 @@ interface AutorizacaoLavadorDB {
   autorizado_por_nome: string
   solicitante_id: string
   solicitante_nome: string
+  lavador_id?: string | null
   data_autorizacao: string
   data_prevista: string
   preco?: number | null
@@ -35,6 +36,7 @@ export interface AutorizacaoLavador {
   autorizadoPorNome: string
   solicitanteId: string
   solicitanteNome: string
+  lavadorId?: string
   dataAutorizacao: string
   dataPrevista: string
   preco?: number
@@ -57,6 +59,7 @@ function dbToApp(db: AutorizacaoLavadorDB): AutorizacaoLavador {
     autorizadoPorNome: db.autorizado_por_nome,
     solicitanteId: db.solicitante_id,
     solicitanteNome: db.solicitante_nome,
+    lavadorId: db.lavador_id ?? undefined,
     dataAutorizacao: db.data_autorizacao,
     dataPrevista: db.data_prevista,
     preco: db.preco ?? undefined,
@@ -80,6 +83,7 @@ function appToDB(app: Partial<AutorizacaoLavador>): Partial<AutorizacaoLavadorDB
   if (app.autorizadoPorNome !== undefined) db.autorizado_por_nome = app.autorizadoPorNome
   if (app.solicitanteId !== undefined) db.solicitante_id = app.solicitanteId
   if (app.solicitanteNome !== undefined) db.solicitante_nome = app.solicitanteNome
+  if (app.lavadorId !== undefined) db.lavador_id = app.lavadorId ?? null
   if (app.dataAutorizacao !== undefined) db.data_autorizacao = app.dataAutorizacao
   if (app.dataPrevista !== undefined) db.data_prevista = app.dataPrevista
   if (app.preco !== undefined) db.preco = app.preco ?? null
@@ -176,6 +180,7 @@ export async function createAutorizacaoLavador(
       autorizado_por_nome: autorizacao.autorizadoPorNome || "",
       solicitante_id: autorizacao.solicitanteId,
       solicitante_nome: autorizacao.solicitanteNome || "",
+      lavador_id: autorizacao.lavadorId ?? null,
       data_autorizacao: dataAutorizacaoStr,
       data_prevista: dataPrevistaStr,
       preco: autorizacao.preco ?? null,

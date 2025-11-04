@@ -26,6 +26,8 @@ import {
   updateAutorizacaoLavador,
   type AutorizacaoLavador 
 } from "@/services/autorizacao-lavador-service"
+import { getLavadores, type Lavador } from "@/services/cadastro-lavador-service"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Schema de validação
 const autorizacaoSchema = z.object({
@@ -38,6 +40,7 @@ const autorizacaoSchema = z.object({
   autorizadoPorNome: z.string().optional(),
   solicitanteId: z.string().min(1, "Selecione o solicitante"),
   solicitanteNome: z.string().optional(),
+  lavadorId: z.string().optional(),
   dataAutorizacao: z.date({
     required_error: "Data da autorização é obrigatória",
   }),
@@ -77,6 +80,7 @@ export function AutorizacaoLavadorDialog({
   const [veiculoDialogOpen, setVeiculoDialogOpen] = useState(false)
   const [autorizadoPorDialogOpen, setAutorizadoPorDialogOpen] = useState(false)
   const [solicitanteDialogOpen, setSolicitanteDialogOpen] = useState(false)
+  const [lavadores, setLavadores] = useState<Lavador[]>([])
   const { toast } = useToast()
 
   const isViewing = !!viewingId && !editingId
@@ -94,12 +98,29 @@ export function AutorizacaoLavadorDialog({
       autorizadoPorNome: "",
       solicitanteId: "",
       solicitanteNome: "",
+      lavadorId: "",
       dataAutorizacao: new Date(),
       dataPrevista: new Date(),
       preco: undefined,
       observacoes: "",
     },
   })
+
+  // Carregar lavadores quando o diálogo abrir
+  useEffect(() => {
+    if (open) {
+      loadLavadores()
+    }
+  }, [open])
+
+  const loadLavadores = async () => {
+    try {
+      const data = await getLavadores()
+      setLavadores(data)
+    } catch (error) {
+      console.error("Erro ao carregar lavadores:", error)
+    }
+  }
 
   // Carregar dados quando necessário
   useEffect(() => {
@@ -117,6 +138,7 @@ export function AutorizacaoLavadorDialog({
           autorizadoPorNome: "",
           solicitanteId: "",
           solicitanteNome: "",
+          lavadorId: "",
           dataAutorizacao: new Date(),
           dataPrevista: new Date(),
           preco: undefined,
@@ -142,6 +164,7 @@ export function AutorizacaoLavadorDialog({
           autorizadoPorNome: autorizacao.autorizadoPorNome,
           solicitanteId: autorizacao.solicitanteId,
           solicitanteNome: autorizacao.solicitanteNome,
+          lavadorId: autorizacao.lavadorId || "",
           dataAutorizacao: new Date(autorizacao.dataAutorizacao),
           dataPrevista: new Date(autorizacao.dataPrevista),
           preco: autorizacao.preco,
@@ -181,6 +204,7 @@ export function AutorizacaoLavadorDialog({
           autorizadoPorNome: data.autorizadoPorNome || "",
           solicitanteId: data.solicitanteId,
           solicitanteNome: data.solicitanteNome || "",
+          lavadorId: data.lavadorId,
           dataAutorizacao: data.dataAutorizacao,
           dataPrevista: data.dataPrevista,
           preco: data.preco,
@@ -201,6 +225,7 @@ export function AutorizacaoLavadorDialog({
           autorizadoPorNome: data.autorizadoPorNome || "",
           solicitanteId: data.solicitanteId,
           solicitanteNome: data.solicitanteNome || "",
+          lavadorId: data.lavadorId,
           dataAutorizacao: data.dataAutorizacao,
           dataPrevista: data.dataPrevista,
           preco: data.preco,
@@ -297,6 +322,39 @@ export function AutorizacaoLavadorDialog({
                       Secretaria: {form.watch("veiculoSecretaria")}
                     </p>
                   )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Lavador */}
+            <FormField
+              control={form.control}
+              name="lavadorId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    Lavador (Opcional)
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value || ""}
+                    disabled={isViewing}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um lavador" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {lavadores.map((lavador) => (
+                        <SelectItem key={lavador.id} value={lavador.id}>
+                          {lavador.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

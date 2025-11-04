@@ -230,6 +230,24 @@ export async function gerarCanhotoPDF(autorizacao: AutorizacaoLavador) {
       })
       y += Math.max(fieldSpacing, autorizadoLines.length * lineSpacing) + 1
 
+      // Lavador responsável, se houver
+      if (autorizacao.lavadorId) {
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(labelFontSize)
+        doc.text("Lavador:", leftX, y)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(fontSize)
+        let lavadorLabel = autorizacao.lavadorId
+        if (autorizacao.lavadorNome) {
+          lavadorLabel = autorizacao.lavadorNome
+          if (autorizacao.lavadorTelefone) {
+            lavadorLabel += ` (${autorizacao.lavadorTelefone})`
+          }
+        }
+        doc.text(lavadorLabel, leftX + labelOffset, y)
+        y += fieldSpacing
+      }
+
       if (autorizacao.observacoes) {
         doc.setFont("helvetica", "bold")
         doc.setFontSize(labelFontSize)

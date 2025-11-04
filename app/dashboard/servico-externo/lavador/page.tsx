@@ -26,6 +26,7 @@ import {
   Calendar,
   MoreVertical,
   FileText,
+  Users,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/empty-state"
@@ -47,6 +48,8 @@ import {
   type AutorizacaoLavador 
 } from "@/services/autorizacao-lavador-service"
 import { gerarCanhotoPDF } from "@/utils/canhoto-lavador-utils"
+import { CadastroLavadorDialog } from "@/components/cadastro-lavador-dialog"
+import { getLavadorById } from "@/services/cadastro-lavador-service"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "veiculoPlaca" | "solicitanteNome" | "dataAutorizacao" | "dataPrevista" | "status" | null
@@ -78,6 +81,9 @@ export default function LavadorPage() {
   // Estado para os dados
   const [autorizacoes, setAutorizacoes] = useState<AutorizacaoLavador[]>([])
   const [isLoading, setIsLoading] = useState(true)
+
+  // Estado para o diálogo de lavadores
+  const [lavadoresDialogOpen, setLavadoresDialogOpen] = useState(false)
 
   const { toast } = useToast()
 
@@ -206,18 +212,31 @@ export default function LavadorPage() {
   // Função para gerar canhoto
   const handleGerarCanhoto = async (autorizacao: AutorizacaoLavador) => {
     try {
-      await gerarCanhotoPDF(autorizacao)
+      let lavadorNome = undefined;
+      let lavadorTelefone = undefined;
+      if (autorizacao.lavadorId) {
+        const lavador = await getLavadorById(autorizacao.lavadorId);
+        if (lavador) {
+          lavadorNome = lavador.nome;
+          lavadorTelefone = lavador.telefone;
+        }
+      }
+      await gerarCanhotoPDF({
+        ...autorizacao,
+        lavadorNome,
+        lavadorTelefone,
+      });
       toast({
         title: "Canhoto gerado",
         description: "O PDF do canhoto foi gerado com sucesso.",
-      })
+      });
     } catch (error) {
-      console.error("Erro ao gerar canhoto:", error)
+      console.error("Erro ao gerar canhoto:", error);
       toast({
         title: "Erro",
         description: "Não foi possível gerar o canhoto.",
         variant: "destructive",
-      })
+      });
     }
   }
 
@@ -330,10 +349,15 @@ export default function LavadorPage() {
               </div>
             </div>
 
-            {/* Botão novo registro */}
-            <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={handleNew}>
-              <Plus className="mr-2 h-4 w-4" /> Nova Autorização
-            </Button>
+            {/* Botões */}
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <Button variant="outline" onClick={() => setLavadoresDialogOpen(true)}>
+                <Users className="mr-2 h-4 w-4" /> Lavadores
+              </Button>
+              <Button className="btn-gradient shadow-md-custom" onClick={handleNew}>
+                <Plus className="mr-2 h-4 w-4" /> Nova Autorização
+              </Button>
+            </div>
           </div>
 
           {/* Tabela */}
@@ -564,6 +588,12 @@ export default function LavadorPage() {
         onConfirm={handleDelete}
         title="Excluir autorização"
         description="Tem certeza que deseja excluir esta autorização? Esta ação não pode ser desfeita."
+      />
+
+      {/* Diálogo de cadastro de lavadores */}
+      <CadastroLavadorDialog
+        open={lavadoresDialogOpen}
+        onOpenChange={setLavadoresDialogOpen}
       />
 
       <Toaster />
