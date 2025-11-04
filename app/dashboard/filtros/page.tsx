@@ -37,23 +37,44 @@ interface FiltroRegistrado {
 
 // Funções para interagir com o Supabase
 async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroRegistrado[]> {
-  const { data, error } = await supabase
-    .from('filtros_registrados')
-    .select('veiculoid, categoria, produtoid, produtodescricao')
-    .eq('veiculoid', veiculoId);
+  try {
+    // Normalizar o ID para garantir consistência (remover espaços e converter para string)
+    const normalizedId = String(veiculoId).trim();
+    
+    const { data, error } = await supabase
+      .from('filtros_registrados')
+      .select('veiculoid, categoria, produtoid, produtodescricao')
+      .eq('veiculoid', normalizedId);
 
-  if (error) {
-    console.error("Erro ao buscar filtros do veículo:", error.message, error);
+    if (error) {
+      console.error(`Erro ao buscar filtros do veículo ${normalizedId}:`, error.message, error);
+      return [];
+    }
+    
+    // Verificar se data é null ou undefined
+    if (!data) {
+      console.warn(`Nenhum dado retornado para veículo ${normalizedId}`);
+      return [];
+    }
+    
+    // Debug: log dos dados retornados
+    if (data.length > 0) {
+      console.log(`[getFiltrosDoVeiculoSupabase] Veículo ${normalizedId}: ${data.length} registros encontrados`, data);
+    }
+    
+    // Mapear os dados para o formato esperado pela interface (camelCase)
+    const filtros = data.map(item => ({
+      veiculoId: String(item.veiculoid).trim(),
+      categoria: item.categoria,
+      produtoId: String(item.produtoid).trim(),
+      produtoDescricao: item.produtodescricao,
+    }));
+    
+    return filtros;
+  } catch (err) {
+    console.error(`Erro inesperado ao buscar filtros do veículo ${veiculoId}:`, err);
     return [];
   }
-  
-  // Mapear os dados para o formato esperado pela interface (camelCase)
-  return data.map(item => ({
-    veiculoId: item.veiculoid,
-    categoria: item.categoria,
-    produtoId: item.produtoid,
-    produtoDescricao: item.produtodescricao,
-  }));
 }
 
 async function addFiltroRegistradoSupabase(filtro: FiltroRegistrado): Promise<void> {
@@ -180,6 +201,11 @@ export default function FiltrosPage() {
           }))
         ])
         
+        // Debug: verificar se filtros foram carregados corretamente
+        if (filtros.length > 0) {
+          console.log(`Veículo ${veiculo.placa} (${veiculo.id}): ${filtros.length} filtros encontrados`)
+        }
+        
         contagens[veiculo.id] = filtros.length
         
         // Verificar prontidão usando os filtros já carregados (sem chamada adicional ao banco)
@@ -195,6 +221,11 @@ export default function FiltrosPage() {
       
       // Aguardar todas as promessas em paralelo
       await Promise.all(promises)
+      
+      // Debug: verificar contagens antes de atualizar o estado
+      console.log('[loadData] Contagens finais:', contagens)
+      console.log('[loadData] Total de veículos processados:', Object.keys(contagens).length)
+      
       setFiltrosPorVeiculo(contagens)
       setVeiculosProntosParaTroca(prontos)
       setEstatisticasTrocaOleo(estatisticas)
@@ -458,6 +489,13 @@ export default function FiltrosPage() {
           }))
         ])
         
+        // Debug: verificar se filtros foram carregados corretamente
+        if (filtros.length > 0) {
+          console.log(`[Atualizar] Veículo ${veiculo.placa} (${veiculo.id}): ${filtros.length} filtros encontrados`)
+        } else {
+          console.log(`[Atualizar] Veículo ${veiculo.placa} (${veiculo.id}): Nenhum filtro encontrado`)
+        }
+        
         contagens[veiculo.id] = filtros.length
         prontos[veiculo.id] = verificarProntoParaTroca(filtros, produtos)
         estatisticas[veiculo.id] = {
@@ -468,6 +506,8 @@ export default function FiltrosPage() {
       })
       
       await Promise.all(promises)
+      
+      console.log('[Atualizar] Contagens finais:', contagens)
       
       setFiltrosPorVeiculo(contagens)
       setVeiculosProntosParaTroca(prontos)

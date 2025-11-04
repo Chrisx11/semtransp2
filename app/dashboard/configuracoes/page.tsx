@@ -6,11 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { UserPlus, Edit, Trash2, Eye, CheckCircle, Circle, Save, Loader2 } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+
+import { UserPlus, Edit, Trash2, Loader2, Save } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
@@ -45,36 +46,6 @@ interface User {
   }
 }
 
-// Componente CustomCheckbox para melhorar feedback visual
-const CustomCheckbox = ({ id, checked, onChange, disabled = false }: {
-  id: string;
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-}) => {
-  return (
-    <div className="flex items-center justify-center">
-      <div 
-        className={`h-6 w-6 rounded-full flex items-center justify-center cursor-pointer border ${
-          disabled 
-            ? "border-gray-300 bg-gray-100" 
-            : checked 
-              ? "border-primary bg-primary/10" 
-              : "border-gray-300"
-        }`}
-        onClick={() => {
-          if (!disabled) {
-            onChange()
-          }
-        }}
-      >
-        {checked && <CheckCircle className="h-5 w-5 text-primary" />}
-        {!checked && <Circle className="h-5 w-5 text-gray-300" />}
-      </div>
-    </div>
-  )
-}
-
 export default function ConfiguracoesPage() {
   // Estado para lista de usuários
   const [users, setUsers] = useState<User[]>([])
@@ -88,6 +59,10 @@ export default function ConfiguracoesPage() {
   // Estado para indicar carregamento
   const [isLoading, setIsLoading] = useState(true)
   const [isProcessing, setIsProcessing] = useState(false)
+  
+  // Estados para permissões
+  const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<string | null>(null)
+  const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({})
   
   // Toast para notificações
   const { toast } = useToast()
@@ -107,7 +82,6 @@ export default function ConfiguracoesPage() {
       { id: "trocaPneu", name: "Troca de Pneu", view: false, full: false },
       { id: "historico", name: "Histórico", view: false, full: false },
       { id: "configuracoes", name: "Configurações", view: false, full: false },
-      { id: "fornecedores", name: "Fornecedores", view: false, full: false },
       { id: "borracharia", name: "Borracharia", view: false, full: false },
       { id: "lavador", name: "Serviços de Lavagem", view: false, full: false },
     ],
@@ -714,19 +688,178 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // Força uma atualização do componente
-  const [refreshKey, setRefreshKey] = useState(0);
-  const forceUpdate = () => setRefreshKey(prev => prev + 1);
+  // Lista de páginas do sistema
+  const pages = [
+    { id: "dashboard", name: "Dashboard" },
+    { id: "colaboradores", name: "Colaboradores" },
+    { id: "veiculos", name: "Veículos" },
+    { id: "produtos", name: "Produtos" },
+    { id: "filtros", name: "Filtros" },
+    { id: "entradas", name: "Entradas" },
+    { id: "saidas", name: "Saídas" },
+    { id: "painel", name: "Painel" },
+    { id: "tela", name: "Tela" },
+    { id: "ordemServico", name: "Ordem de Serviço" },
+    { id: "planejamento", name: "Planejamento" },
+    { id: "trocaOleo", name: "Troca de Óleo" },
+    { id: "historico", name: "Histórico" },
+    { id: "custoVeiculo", name: "Custo por Veículo" },
+    { id: "borracharia", name: "Borracharia" },
+    { id: "lavador", name: "Serviços de Lavagem" },
+    { id: "configuracoes", name: "Configurações" },
+  ]
 
-  // Estado para controlar a aba atual
-  const [activeTab, setActiveTab] = useState("users");
-  
+  // Função para carregar permissões de um usuário
+  const loadUserPermissions = async (userId: string) => {
+    try {
+      setIsLoading(true)
+      
+      // Buscar permissões do usuário
+      const { data: modulePermissions, error } = await supabase
+        .from('user_module_permissions')
+        .select('*, module:modules(*)')
+        .eq('user_id', userId)
+      
+      if (error) throw error
+      
+      // Criar objeto de permissões
+      const permissions: Record<string, boolean> = {}
+      
+      // Inicializar todas as páginas como false
+      pages.forEach(page => {
+        permissions[page.id] = false
+      })
+      
+      // Preencher com as permissões existentes
+      if (modulePermissions) {
+        modulePermissions.forEach((perm: any) => {
+          if (perm.module && perm.can_view) {
+            permissions[perm.module.id] = true
+          }
+        })
+      }
+      
+      setUserPermissions(permissions)
+      setSelectedUserForPermissions(userId)
+    } catch (error) {
+      console.error('Erro ao carregar permissões:', error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar permissões",
+        description: "Não foi possível carregar as permissões do usuário."
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Função para alternar permissão de uma página
+  const togglePermission = (pageId: string) => {
+    setUserPermissions(prev => ({
+      ...prev,
+      [pageId]: !prev[pageId]
+    }))
+  }
+
+  // Função para salvar permissões
+  const saveUserPermissions = async () => {
+    if (!selectedUserForPermissions) {
+      toast({
+        variant: "destructive",
+        title: "Usuário não selecionado",
+        description: "Selecione um usuário para gerenciar permissões."
+      })
+      return
+    }
+
+    setIsProcessing(true)
+
+    try {
+      // Primeiro, garantir que todos os módulos existam na tabela modules
+      // Buscar módulos existentes
+      const { data: existingModules } = await supabase
+        .from('modules')
+        .select('id')
+      
+      const existingModuleIds = new Set(existingModules?.map((m: any) => m.id) || [])
+      
+      // Preparar módulos que precisam ser criados
+      const modulesToCreate = pages
+        .filter(page => !existingModuleIds.has(page.id))
+        .map(page => ({
+          id: page.id,
+          name: page.name,
+          description: `Módulo ${page.name}`
+        }))
+
+      // Criar módulos que não existem
+      if (modulesToCreate.length > 0) {
+        const { error: createError } = await supabase
+          .from('modules')
+          .insert(modulesToCreate)
+        
+        if (createError) {
+          console.warn('Aviso ao criar módulos:', createError)
+          // Continuar mesmo se houver erro em alguns módulos
+        }
+      }
+
+      // Remover todas as permissões existentes do usuário
+      const { error: deleteError } = await supabase
+        .from('user_module_permissions')
+        .delete()
+        .eq('user_id', selectedUserForPermissions)
+      
+      if (deleteError) throw deleteError
+      
+      // Preparar permissões para inserção
+      const permissionsToInsert = Object.entries(userPermissions)
+        .filter(([_, hasAccess]) => hasAccess)
+        .map(([moduleId, _]) => ({
+          user_id: selectedUserForPermissions,
+          module_id: moduleId,
+          can_view: true,
+          can_edit: false // Sistema básico apenas com acesso de visualização
+        }))
+      
+      // Inserir novas permissões
+      if (permissionsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_module_permissions')
+          .insert(permissionsToInsert)
+        
+        if (insertError) {
+          console.error('Erro detalhado ao inserir permissões:', insertError)
+          throw insertError
+        }
+      }
+      
+      // Atualizar lista de usuários
+      await fetchUsers()
+      
+      toast({
+        title: "Permissões salvas",
+        description: "As permissões foram atualizadas com sucesso!"
+      })
+    } catch (error: any) {
+      console.error('Erro ao salvar permissões:', error)
+      const errorMessage = error?.message || error?.code || 'Erro desconhecido'
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar permissões",
+        description: `Ocorreu um erro ao salvar as permissões: ${errorMessage}`
+      })
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
   return (
-    <div className="container mx-auto py-10" key={refreshKey}>
+    <div className="container mx-auto py-10">
       <Toaster />
       <h1 className="text-2xl font-bold mb-6">Configurações</h1>
       
-      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="users">
+      <Tabs defaultValue="users" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="users">Usuários</TabsTrigger>
           <TabsTrigger value="permissions">Permissões</TabsTrigger>
@@ -825,32 +958,31 @@ export default function ConfiguracoesPage() {
         <TabsContent value="permissions">
           <Card className="mb-6">
             <CardHeader>
-              <CardTitle>Controle de Acesso</CardTitle>
+              <CardTitle>Gerenciamento de Permissões</CardTitle>
               <CardDescription>
-                Defina quais páginas e funcionalidades cada usuário pode acessar
+                Selecione um usuário e defina quais páginas ele pode acessar
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-              ) : (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-lg font-medium mb-2">Selecione o usuário</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {users.map(user => (
-                        <Card 
-                          key={user.id} 
-                          className={`cursor-pointer hover:border-primary ${currentUser?.id === user.id ? 'border-2 border-primary' : ''}`}
-                          onClick={() => {
-                            prepareManagePermissions(user);
-                            // Mantém a aba ativa como "permissions"
-                            setActiveTab("permissions");
-                          }}
-                        >
-                          <CardContent className="p-4 flex items-center justify-between">
+              <div className="space-y-6">
+                {/* Seleção de usuário */}
+                <div>
+                  <Label className="text-base font-medium mb-3 block">
+                    Selecione o usuário
+                  </Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {users.map(user => (
+                      <Card
+                        key={user.id}
+                        className={`cursor-pointer transition-all ${
+                          selectedUserForPermissions === user.id
+                            ? 'border-2 border-primary bg-primary/5'
+                            : 'hover:border-primary/50'
+                        }`}
+                        onClick={() => loadUserPermissions(user.id)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
                             <div>
                               <p className="font-medium">{user.name}</p>
                               <p className="text-sm text-muted-foreground">{user.username}</p>
@@ -858,175 +990,74 @@ export default function ConfiguracoesPage() {
                             <Badge variant={user.active ? "default" : "secondary"}>
                               {user.active ? "Ativo" : "Inativo"}
                             </Badge>
-                          </CardContent>
-                        </Card>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lista de permissões */}
+                {selectedUserForPermissions && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <Label className="text-base font-medium">
+                        Páginas que o usuário pode acessar
+                      </Label>
+                      <Button
+                        onClick={saveUserPermissions}
+                        disabled={isProcessing}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Salvar Permissões
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                      {pages.map(page => (
+                        <div
+                          key={page.id}
+                          className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md transition-colors"
+                        >
+                          <Checkbox
+                            id={`perm-${page.id}`}
+                            checked={userPermissions[page.id] || false}
+                            onCheckedChange={() => togglePermission(page.id)}
+                          />
+                          <Label
+                            htmlFor={`perm-${page.id}`}
+                            className="flex-1 cursor-pointer font-normal"
+                          >
+                            {page.name}
+                          </Label>
+                        </div>
                       ))}
                     </div>
                   </div>
-                  
-                  {currentUser && (
-                    <div className="border rounded-md p-4">
-                      <h3 className="text-lg font-medium mb-4">Permissões: {currentUser.name}</h3>
-                      
-                      <Tabs defaultValue="modules">
-                        <TabsList className="mb-4">
-                          <TabsTrigger value="modules">Módulos do Sistema</TabsTrigger>
-                          <TabsTrigger value="os">Ordem de Serviço</TabsTrigger>
-                        </TabsList>
-                        
-                        <TabsContent value="modules" className="space-y-4">
-                          <div className="grid gap-4">
-                            <div className="grid grid-cols-12 font-medium pb-2 border-b">
-                              <div className="col-span-6">Módulo</div>
-                              <div className="col-span-3 text-center">Visualizar</div>
-                              <div className="col-span-3 text-center">Acesso Total</div>
-                            </div>
-                            
-                            {permissionData.modules.map(module => (
-                              <div key={module.id} className="grid grid-cols-12 items-center py-2 border-b">
-                                <div className="col-span-6 font-medium">{module.name}</div>
-                                <div className="col-span-3 flex justify-center">
-                                  <CustomCheckbox 
-                                    id={`view-${module.id}`}
-                                    checked={module.view}
-                                    onChange={() => {
-                                      toggleModulePermission(module.id, "view");
-                                      forceUpdate(); // Força atualização após alteração
-                                      // Garantir que a aba ativa permaneça a mesma
-                                      setActiveTab("permissions");
-                                    }}
-                                  />
-                                </div>
-                                <div className="col-span-3 flex justify-center">
-                                  <CustomCheckbox 
-                                    id={`full-${module.id}`}
-                                    checked={module.full}
-                                    onChange={() => {
-                                      toggleModulePermission(module.id, "full");
-                                      forceUpdate(); // Força atualização após alteração
-                                      // Garantir que a aba ativa permaneça a mesma
-                                      setActiveTab("permissions");
-                                    }}
-                                    disabled={!module.view}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </TabsContent>
-                        
-                        <TabsContent value="os" className="space-y-4">
-                          <div>
-                            <div className="grid grid-cols-12 font-medium pb-2 border-b">
-                              <div className="col-span-6">Módulo Ordem de Serviço</div>
-                              <div className="col-span-3 text-center">Visualizar</div>
-                              <div className="col-span-3 text-center">Acesso Total</div>
-                            </div>
-                            
-                            <div className="grid grid-cols-12 items-center py-2 border-b">
-                              <div className="col-span-6 font-medium">{permissionData.ordemServico.name}</div>
-                              <div className="col-span-3 flex justify-center">
-                                <CustomCheckbox 
-                                  id="view-os"
-                                  checked={permissionData.ordemServico.view}
-                                  onChange={() => {
-                                    toggleOSPermission("view");
-                                    forceUpdate(); // Força atualização após alteração
-                                    // Garantir que a aba ativa permaneça a mesma
-                                    setActiveTab("permissions");
-                                  }}
-                                />
-                              </div>
-                              <div className="col-span-3 flex justify-center">
-                                <CustomCheckbox 
-                                  id="full-os"
-                                  checked={permissionData.ordemServico.full}
-                                  onChange={() => {
-                                    toggleOSPermission("full");
-                                    forceUpdate(); // Força atualização após alteração
-                                    // Garantir que a aba ativa permaneça a mesma
-                                    setActiveTab("permissions");
-                                  }}
-                                  disabled={!permissionData.ordemServico.view}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="mt-6">
-                            <div className="font-medium mb-2">Abas de Ordem de Serviço</div>
-                            <p className="text-sm text-muted-foreground mb-4">
-                              Selecione as abas que o usuário poderá acessar.
-                            </p>
-                            
-                            <div className="grid gap-3">
-                              {permissionData.ordemServico.tabs.map(tab => (
-                                <div key={tab.id} className="flex items-center space-x-2">
-                                  <CustomCheckbox 
-                                    id={`tab-${tab.id}`}
-                                    checked={tab.access}
-                                    onChange={() => {
-                                      toggleOSTabPermission(tab.id);
-                                      forceUpdate(); // Força atualização após alteração
-                                      // Garantir que a aba ativa permaneça a mesma
-                                      setActiveTab("permissions");
-                                    }}
-                                    disabled={!permissionData.ordemServico.view}
-                                  />
-                                  <Label 
-                                    htmlFor={`tab-${tab.id}`}
-                                    className={`${!permissionData.ordemServico.view ? "text-muted-foreground" : "cursor-pointer"}`}
-                                    onClick={() => {
-                                      if (!permissionData.ordemServico.view) return;
-                                      toggleOSTabPermission(tab.id);
-                                      forceUpdate(); // Força atualização após alteração
-                                      // Garantir que a aba ativa permaneça a mesma
-                                      setActiveTab("permissions");
-                                    }}
-                                  >
-                                    {tab.name}
-                                  </Label>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                      
-                      <div className="mt-6 flex justify-end">
-                        <Button 
-                          onClick={() => {
-                            savePermissions();
-                            forceUpdate(); // Força atualização após salvar
-                            // Garantir que a aba ativa permaneça a mesma
-                            setActiveTab("permissions");
-                          }}
-                          className="bg-green-600 hover:bg-green-700 text-white"
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Salvando...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="mr-2 h-4 w-4" />
-                              Salvar Permissões
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {!currentUser && (
-                    <div className="text-center p-12 border rounded-md text-muted-foreground">
-                      Selecione um usuário para gerenciar suas permissões
-                    </div>
-                  )}
-                </>
-              )}
+                )}
+
+                {!selectedUserForPermissions && users.length > 0 && (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    Selecione um usuário acima para gerenciar suas permissões
+                  </div>
+                )}
+
+                {users.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    Nenhum usuário encontrado. Crie um usuário primeiro na aba "Usuários".
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -285,6 +285,24 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Verificar permissão para um item do menu
   const temPermissao = (item: MenuItem): boolean => {
+    // Sem requisito de permissão, permite
+    if (!item.requiredPermission) return true;
+    
+    // Se o item tem href, verificamos a permissão para essa rota específica
+    if (item.href) {
+      return verificarPermissao(item.href);
+    }
+    
+    // Se é um submenu, verificamos apenas a permissão para o módulo principal
+    // Os itens dentro do submenu serão verificados individualmente
+    if (item.isSubmenu && item.submenu) {
+      // Se pelo menos um item do submenu tem permissão, o submenu deve ser exibido
+      return item.submenu.some(subItem => temPermissao(subItem));
+    }
+    
+    return false;
+    
+    /* CÓDIGO ORIGINAL - COMENTADO PARA REFATORAÇÃO
     if (!item.requiredPermission) return true; // Sem requisito de permissão, permite
 
     const { modulo, acao, submodulo, pagina } = item.requiredPermission;
@@ -311,6 +329,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }
     
     return false;
+    */
   }
 
   return (

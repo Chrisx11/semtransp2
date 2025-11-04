@@ -32,14 +32,19 @@ export const rotasPermissoes: Record<string, {
   "/dashboard": { modulo: "dashboard", acao: "visualizar" },
   "/dashboard/veiculos": { modulo: "veiculos", acao: "visualizar" },
   "/dashboard/produtos": { modulo: "produtos", acao: "visualizar" },
-  "/dashboard/colaboradores": { modulo: "veiculos", acao: "visualizar" }, // Usando veículos como permissão temporária
+  "/dashboard/colaboradores": { modulo: "colaboradores", acao: "visualizar" },
   "/dashboard/manutencoes/painel": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "painel" },
   "/dashboard/manutencoes/ordem-servico": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "ordem-servico" },
   "/dashboard/manutencoes/planejamento": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "planejamento" },
   "/dashboard/manutencoes/troca-oleo": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "troca-oleo" },
   "/dashboard/manutencoes/historicos": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "historicos" },
-  "/dashboard/movimento/entradas": { modulo: "produtos", acao: "visualizar" },
-  "/dashboard/movimento/saidas": { modulo: "produtos", acao: "visualizar" },
+  "/dashboard/movimento/entradas": { modulo: "entradas", acao: "visualizar" },
+  "/dashboard/movimento/saidas": { modulo: "saidas", acao: "visualizar" },
+  "/dashboard/filtros": { modulo: "filtros", acao: "visualizar" },
+  "/dashboard/manutencoes/tela": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "tela" },
+  "/dashboard/custo-veiculo": { modulo: "custoVeiculo", acao: "visualizar" },
+  "/dashboard/servico-externo/borracharia": { modulo: "borracharia", acao: "visualizar" },
+  "/dashboard/servico-externo/lavador": { modulo: "lavador", acao: "visualizar" },
   "/dashboard/configuracoes": { modulo: "configuracoes", acao: "visualizar" },
 }
 
@@ -344,7 +349,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // Verificar permissão para uma rota específica
+  // Sistema básico de permissões - verifica se o usuário tem acesso ao módulo da rota
   const verificarPermissao = (caminho: string): boolean => {
+    // Se não há usuário, não tem permissão
+    if (!user) return false
+    
+    // Se o usuário tem permissões customizadas, usar essas permissões
+    if (user.permissoes_customizadas) {
+      // Obter configuração da rota
+      let rotaConfig = rotasPermissoes[caminho];
+      if (!rotaConfig) {
+        // Verificar se o caminho começa com alguma das rotas registradas
+        const rotaBase = Object.keys(rotasPermissoes).find(r => 
+          caminho.startsWith(r) && (caminho === r || caminho[r.length] === '/')
+        );
+        if (rotaBase) {
+          rotaConfig = rotasPermissoes[rotaBase];
+        }
+      }
+      
+      // Se não houver configuração para esta rota, permite acesso (compatibilidade)
+      if (!rotaConfig) return true;
+      
+      const { modulo, acao, submodulo, pagina } = rotaConfig;
+      
+      // Caso especial para manutenções (submódulos)
+      if (modulo === "manutencoes" && submodulo && pagina) {
+        // Verificar se tem permissão para o submódulo específico
+        const manutencaoPerms = user.permissoes_customizadas.manutencoes;
+        const submodulos = (manutencaoPerms && Array.isArray(manutencaoPerms.submodulos)) 
+          ? manutencaoPerms.submodulos 
+          : [];
+        
+        if (submodulos.includes("todos")) return true;
+        
+        // Mapear páginas para módulos
+        const pageToModule: Record<string, string> = {
+          "painel": "painel",
+          "tela": "tela",
+          "troca-oleo": "trocaOleo",
+          "planejamento": "planejamento",
+          "historicos": "historico",
+          "ordem-servico": "ordemServico"
+        };
+        
+        const moduleId = pageToModule[pagina] || pagina;
+        
+        // Verificar se tem permissão para o módulo correspondente
+        const moduleIdPerms = user.permissoes_customizadas[moduleId];
+        const moduloPerms = user.permissoes_customizadas[modulo];
+        
+        const hasModulePermission = (Array.isArray(moduleIdPerms) && moduleIdPerms.includes(acao)) || 
+                                   (Array.isArray(moduloPerms) && moduloPerms.includes(acao));
+        
+        return hasModulePermission || submodulos.includes(pagina);
+      }
+      
+      // Caso especial para ordem de serviço
+      if (modulo === "ordemServico") {
+        const osPerms = user.permissoes_customizadas.ordemServico;
+        if (osPerms && Array.isArray(osPerms.acoes)) {
+          return osPerms.acoes.includes(acao);
+        }
+        return false;
+      }
+      
+      // Para outros módulos, verificar se tem permissão
+      const moduloPerms = user.permissoes_customizadas[modulo];
+      
+      // Verificar se é um array e se contém a ação
+      if (Array.isArray(moduloPerms)) {
+        return moduloPerms.includes(acao);
+      }
+      
+      // Se não for array, pode ser undefined ou null, então não tem permissão
+      return false;
+    }
+    
+    // Se não tem permissões customizadas, nega acesso
+    return false;
+    
+    /* CÓDIGO ORIGINAL - COMENTADO PARA REFATORAÇÃO
     // Se não há usuário, não tem permissão
     if (!user) return false
     
@@ -473,6 +558,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const temPermissao = Array.isArray(permissoes[modulo]) && permissoes[modulo].includes(acao);
     console.log(`Verificando permissão para módulo ${modulo} e ação ${acao}: ${temPermissao}`);
     return temPermissao;
+    */
   };
 
   // Função para fazer login
@@ -541,109 +627,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Erro ao carregar permissões" }
       }
       
-      // Formatar as permissões no formato esperado pelo sistema
-      const formattedPermissions = {
-        dashboard: modulePermissions
-          .filter(p => p.module.id === 'dashboard')
-          .map(p => p.can_view ? 'visualizar' : []),
-        veiculos: modulePermissions
-          .filter(p => p.module.id === 'veiculos')
-          .map(p => {
-            const perms = [];
-            if (p.can_view) perms.push('visualizar');
-            if (p.can_edit) perms.push('criar', 'editar', 'excluir');
-            return perms;
-          }).flat(),
-        produtos: modulePermissions
-          .filter(p => p.module.id === 'produtos')
-          .map(p => {
-            const perms = [];
-            if (p.can_view) perms.push('visualizar');
-            if (p.can_edit) perms.push('criar', 'editar', 'excluir');
-            return perms;
-          }).flat(),
-        ordemServico: {
-          acoes: (() => {
-            const osModule = modulePermissions.find(p => p.module.id === 'ordemServico');
-            const perms = [];
-            if (osModule?.can_view) perms.push('visualizar');
-            if (osModule?.can_edit) perms.push('criar', 'editar', 'excluir');
-            return perms;
-          })(),
+      // Formatar as permissões no formato esperado pelo sistema básico
+      // Criar objeto para armazenar todas as permissões por módulo
+      const formattedPermissions: any = {};
+      
+      // Lista de todos os módulos possíveis
+      const allModules = [
+        'dashboard', 'colaboradores', 'veiculos', 'produtos', 'filtros', 'entradas', 'saidas',
+        'painel', 'tela', 'planejamento', 'trocaOleo', 'historico', 'custoVeiculo',
+        'configuracoes', 'borracharia', 'lavador', 'ordemServico'
+      ];
+      
+      // Para cada módulo, verificar se o usuário tem permissão
+      allModules.forEach(moduleId => {
+        const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId);
+        if (modulePerm?.can_view) {
+          formattedPermissions[moduleId] = ['visualizar'];
+          if (modulePerm.can_edit) {
+            formattedPermissions[moduleId].push('criar', 'editar', 'excluir');
+          }
+        }
+      });
+      
+      // Adicionar estrutura especial para ordem de serviço
+      const osModule = modulePermissions.find((p: any) => p.module?.id === 'ordemServico');
+      if (osModule) {
+        formattedPermissions.ordemServico = {
+          acoes: osModule.can_view ? ['visualizar'] : [],
           submodulos: osTabPermissions
-            .filter(p => p.has_access)
-            .map(p => p.os_tab.id as SubmoduloOrdemServico)
-        },
-        manutencoes: {
-          acoes: (() => {
-            // Verificar se tem permissão de visualização para qualquer módulo de manutenção
-            const trocaOleoModule = modulePermissions.find(p => p.module.id === 'trocaOleo');
-            const painelModule = modulePermissions.find(p => p.module.id === 'painel');
-            const historicoModule = modulePermissions.find(p => p.module.id === 'historico');
-            const planejamentoModule = modulePermissions.find(p => p.module.id === 'planejamento');
-            
-            const perms = [];
-            
-            // Se tem permissão para visualizar qualquer submódulo, adiciona visualização para o módulo pai
-            if (trocaOleoModule?.can_view || painelModule?.can_view || historicoModule?.can_view || planejamentoModule?.can_view) {
-              perms.push('visualizar');
-            }
-            
-            // Se tem permissão para editar qualquer submódulo, adiciona essas permissões
-            if (trocaOleoModule?.can_edit || painelModule?.can_edit || historicoModule?.can_edit || planejamentoModule?.can_edit) {
-              perms.push('criar', 'editar', 'excluir');
-            }
-            
-            return perms;
-          })(),
-          submodulos: (() => {
-            const submodulos: SubmoduloManutencao[] = [];
-            
-            // Verificar cada submódulo e adicionar se tiver permissão
-            const trocaOleoModule = modulePermissions.find(p => p.module.id === 'trocaOleo');
-            const painelModule = modulePermissions.find(p => p.module.id === 'painel');
-            const historicoModule = modulePermissions.find(p => p.module.id === 'historico');
-            const planejamentoModule = modulePermissions.find(p => p.module.id === 'planejamento');
-            
-            // Adicionar acesso à ordem de serviço se tiver permissão para esse módulo
-            const osModule = modulePermissions.find(p => p.module.id === 'ordemServico');
-            if (osModule?.can_view) {
-              submodulos.push('ordem-servico');
-            }
-            
-            // Adicionar outros submodulos
-            if (painelModule?.can_view) submodulos.push('painel');
-            if (trocaOleoModule?.can_view) submodulos.push('troca-oleo');
-            if (historicoModule?.can_view) submodulos.push('historicos');
-            if (planejamentoModule?.can_view) submodulos.push('planejamento');
-            
-            // Log especial para debug do planejamento
-            console.log("Verificando permissão para planejamento:", planejamentoModule);
-            console.log("planejamento permissão:", planejamentoModule?.can_view);
-            
-            // Se tiver acesso a todos os submodulos, adiciona "todos"
-            if (
-              trocaOleoModule?.can_view && 
-              painelModule?.can_view && 
-              historicoModule?.can_view && 
-              osModule?.can_view
-            ) {
-              submodulos.push('todos');
-            }
-            
-            return submodulos;
-          })()
-        },
-        relatorios: ["visualizar"],
-        configuracoes: modulePermissions
-          .filter(p => p.module.id === 'configuracoes')
-          .map(p => {
-            const perms = [];
-            if (p.can_view) perms.push('visualizar');
-            if (p.can_edit) perms.push('criar', 'editar', 'excluir');
-            return perms;
-          }).flat(),
+            .filter((p: any) => p.has_access)
+            .map((p: any) => p.os_tab?.id)
+            .filter(Boolean)
+        };
+        if (osModule.can_edit) {
+          formattedPermissions.ordemServico.acoes.push('criar', 'editar', 'excluir');
+        }
+      }
+      
+      // Adicionar estrutura especial para manutenções
+      const manutencaoModules = {
+        'painel': 'painel',
+        'tela': 'tela',
+        'trocaOleo': 'troca-oleo',
+        'planejamento': 'planejamento',
+        'historico': 'historicos',
+        'ordemServico': 'ordem-servico'
       };
+      
+      const manutencaoSubmodulos: string[] = [];
+      let hasManutencaoView = false;
+      
+      Object.entries(manutencaoModules).forEach(([moduleId, submodulo]) => {
+        const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId);
+        if (modulePerm?.can_view) {
+          hasManutencaoView = true;
+          manutencaoSubmodulos.push(submodulo);
+        }
+      });
+      
+      if (hasManutencaoView || manutencaoSubmodulos.length > 0) {
+        formattedPermissions.manutencoes = {
+          acoes: hasManutencaoView ? ['visualizar'] : [],
+          submodulos: manutencaoSubmodulos
+        };
+      }
+      
+      // Sempre adicionar relatorios e configuracoes (mesmo que vazio)
+      if (!formattedPermissions.relatorios) {
+        formattedPermissions.relatorios = [];
+      }
 
       // Mapear dados do usuário
       const authUser: AuthUser = {
@@ -658,8 +710,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Log para debug das permissões
       console.log("Permissões mapeadas para o usuário:", formattedPermissions);
-      console.log("Verificar permissões para troca-oleo:", 
-        formattedPermissions.manutencoes.submodulos.includes("troca-oleo"));
+      if (formattedPermissions.manutencoes && Array.isArray(formattedPermissions.manutencoes.submodulos)) {
+        console.log("Verificar permissões para troca-oleo:", 
+          formattedPermissions.manutencoes.submodulos.includes("troca-oleo"));
+      }
 
       // Salvar usuário no estado e localStorage
       setUser(authUser)

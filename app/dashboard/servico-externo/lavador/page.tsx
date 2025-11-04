@@ -459,19 +459,16 @@ export default function LavadorPage() {
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow>
-                    <TableCell colSpan={8}>
-                      <EmptyState
-                        title={searchTerm || statusFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma autorização cadastrada"}
-                        description={
-                          searchTerm || statusFilter !== "all"
-                            ? "Tente usar termos diferentes na busca ou remover os filtros"
-                            : "Adicione uma nova autorização para começar"
-                        }
-                        icon={<FileCheck className="h-10 w-10 text-muted-foreground/50" />}
-                      />
-                    </TableCell>
-                  </TableRow>
+                  <EmptyState
+                    colSpan={8}
+                    title={searchTerm || statusFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma autorização cadastrada"}
+                    description={
+                      searchTerm || statusFilter !== "all"
+                        ? "Tente usar termos diferentes na busca ou remover os filtros"
+                        : "Adicione uma nova autorização para começar"
+                    }
+                    icon={<FileCheck className="h-10 w-10 text-muted-foreground/50" />}
+                  />
                 )}
               </TableBody>
             </Table>
