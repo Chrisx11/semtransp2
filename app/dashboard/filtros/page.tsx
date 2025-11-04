@@ -118,9 +118,8 @@ export default function FiltrosPage() {
   }
 
   // Função para verificar se um veículo está pronto para troca de óleo
-  const verificarProntoParaTroca = async (veiculoId: string, todosProdutos: Produto[]): Promise<boolean> => {
-    const filtros = await getFiltrosDoVeiculoSupabase(veiculoId)
-    
+  // Recebe os filtros já carregados para evitar chamadas duplicadas ao banco
+  const verificarProntoParaTroca = (filtros: FiltroRegistrado[], todosProdutos: Produto[]): boolean => {
     // Se não tem nenhum filtro registrado, não está pronto
     if (filtros.length === 0) {
       return false
@@ -129,30 +128,29 @@ export default function FiltrosPage() {
     // Agrupar filtros por categoria
     const categoriasComFiltros = new Set(filtros.map(f => f.categoria))
     
+    // Criar um mapa de produtos para acesso O(1) em vez de O(n)
+    const produtosMap = new Map(todosProdutos.map(p => [p.id, p]))
+    
     // Verificar se todas as categorias que têm filtros registrados têm pelo menos um com estoque
     for (const categoria of categoriasComFiltros) {
       const filtrosCategoria = filtros.filter(f => f.categoria === categoria)
       
       // Verificar se pelo menos um filtro desta categoria tem estoque
       const temEstoque = filtrosCategoria.some(filtro => {
-        const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+        const produto = produtosMap.get(filtro.produtoId)
         if (!produto) {
-          console.warn(`Produto não encontrado: ${filtro.produtoId} para filtro ${filtro.produtoDescricao}`)
           return false
         }
         // Verificar estoque - pode ser número ou string
         const estoque = typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque
-        const temEstoqueDisponivel = estoque > 0
-        return temEstoqueDisponivel
+        return estoque > 0
       })
       
       if (!temEstoque) {
-        console.log(`Veículo ${veiculoId} - Categoria ${categoria} não tem estoque`)
         return false // Nenhum filtro desta categoria tem estoque
       }
     }
     
-    console.log(`Veículo ${veiculoId} está PRONTO para troca de óleo!`)
     return true // Todas as categorias que têm filtros registrados têm pelo menos um com estoque
   }
 
@@ -165,46 +163,38 @@ export default function FiltrosPage() {
       setVeiculos(veiculosData)
       setTodosProdutos(produtosData)
       
-      // Carregar contagem de filtros e verificar prontidão para cada veículo
+      // Carregar contagem de filtros e verificar prontidão para cada veículo (em paralelo)
       const contagens: Record<string, number> = {}
       const prontos: Record<string, boolean> = {}
       const estatisticas: Record<string, { kmAtual: number; kmProxTroca: number; progresso: number }> = {}
       
-      for (const veiculo of veiculosData) {
-        const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
-        contagens[veiculo.id] = filtros.length
-        
-        if (filtros.length > 0) {
-          const pronto = await verificarProntoParaTroca(veiculo.id, produtosData)
-          prontos[veiculo.id] = pronto
-          console.log(`Verificação para veículo ${veiculo.placa}: ${pronto ? 'PRONTO' : 'NÃO PRONTO'}`)
-        } else {
-          prontos[veiculo.id] = false
-        }
-        
-        // Carregar estatísticas de troca de óleo
-        try {
-          const stats = await getEstatisticasTrocasOleo(veiculo.id)
-          estatisticas[veiculo.id] = {
-            kmAtual: stats.kmAtual || 0,
-            kmProxTroca: stats.kmProxTroca || 0,
-            progresso: stats.progresso || 0
-          }
-          if (stats.kmAtual > 0) {
-            console.log(`Veículo ${veiculo.placa}: kmAtual=${stats.kmAtual}, kmProxTroca=${stats.kmProxTroca}, progresso=${stats.progresso}`)
-          }
-        } catch (error) {
-          console.error(`Erro ao carregar estatísticas para veículo ${veiculo.placa}:`, error)
-          estatisticas[veiculo.id] = {
+      // Executar todas as chamadas em paralelo para melhor performance
+      const promises = veiculosData.map(async (veiculo) => {
+        // Carregar filtros e estatísticas em paralelo
+        const [filtros, stats] = await Promise.all([
+          getFiltrosDoVeiculoSupabase(veiculo.id),
+          getEstatisticasTrocasOleo(veiculo.id).catch(() => ({
             kmAtual: 0,
             kmProxTroca: 0,
             progresso: 0
-          }
+          }))
+        ])
+        
+        contagens[veiculo.id] = filtros.length
+        
+        // Verificar prontidão usando os filtros já carregados (sem chamada adicional ao banco)
+        prontos[veiculo.id] = verificarProntoParaTroca(filtros, produtosData)
+        
+        // Armazenar estatísticas
+        estatisticas[veiculo.id] = {
+          kmAtual: stats.kmAtual || 0,
+          kmProxTroca: stats.kmProxTroca || 0,
+          progresso: stats.progresso || 0
         }
-      }
+      })
       
-      console.log('Estado de prontidão:', prontos)
-      console.log('Estatísticas de troca de óleo:', estatisticas)
+      // Aguardar todas as promessas em paralelo
+      await Promise.all(promises)
       setFiltrosPorVeiculo(contagens)
       setVeiculosProntosParaTroca(prontos)
       setEstatisticasTrocaOleo(estatisticas)
@@ -452,24 +442,32 @@ export default function FiltrosPage() {
       setVeiculos(veiculos)
       setTodosProdutos(produtos)
       
-      // Atualizar contagem de filtros e verificar prontidão
+      // Atualizar contagem de filtros e verificar prontidão (em paralelo)
       const contagens: Record<string, number> = {}
       const prontos: Record<string, boolean> = {}
       const estatisticas: Record<string, { kmAtual: number; kmProxTroca: number; progresso: number }> = {}
       
-      for (const veiculo of veiculos) {
-        const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
-        contagens[veiculo.id] = filtros.length
-        prontos[veiculo.id] = await verificarProntoParaTroca(veiculo.id, produtos)
+      // Executar todas as chamadas em paralelo
+      const promises = veiculos.map(async (veiculo) => {
+        const [filtros, stats] = await Promise.all([
+          getFiltrosDoVeiculoSupabase(veiculo.id),
+          getEstatisticasTrocasOleo(veiculo.id).catch(() => ({
+            kmAtual: 0,
+            kmProxTroca: 0,
+            progresso: 0
+          }))
+        ])
         
-        // Atualizar estatísticas de troca de óleo
-        const stats = await getEstatisticasTrocasOleo(veiculo.id)
+        contagens[veiculo.id] = filtros.length
+        prontos[veiculo.id] = verificarProntoParaTroca(filtros, produtos)
         estatisticas[veiculo.id] = {
-          kmAtual: stats.kmAtual,
-          kmProxTroca: stats.kmProxTroca,
-          progresso: stats.progresso
+          kmAtual: stats.kmAtual || 0,
+          kmProxTroca: stats.kmProxTroca || 0,
+          progresso: stats.progresso || 0
         }
-      }
+      })
+      
+      await Promise.all(promises)
       
       setFiltrosPorVeiculo(contagens)
       setVeiculosProntosParaTroca(prontos)
