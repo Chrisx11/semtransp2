@@ -151,18 +151,15 @@ export default function DashboardPage() {
         
       setProximasTrocas(proximasTrocasData)
       
-      // Históricos
-      let historicos: Historico[] = []
-      for (const v of veiculosAtivos) {
+      // Históricos - carregar em paralelo para melhor performance
+      const historicosPromises = veiculosAtivos.map(async (v) => {
         try {
           // Usar o serviço da nova tabela trocas_oleo
           const trocasData = await getTrocasOleo(v.id)
-          console.log(`Trocas encontradas para veículo ${v.placa}:`, trocasData)
           
           // Mapear para o formato esperado pelo componente
-          const historicoFormatado = trocasData.map(item => {
+          return trocasData.map(item => {
             const dataProcessada = item.data_troca ? new Date(item.data_troca) : new Date()
-            console.log(`Processando troca de ID ${item.id}, data original: ${item.data_troca}, data processada: ${dataProcessada.toISOString()}`)
             
             return {
               id: item.id,
@@ -175,16 +172,15 @@ export default function DashboardPage() {
               veiculoId: item.veiculo_id
             }
           })
-          
-          console.log(`Histórico formatado para veículo ${v.placa}:`, historicoFormatado)
-          historicos = historicos.concat(historicoFormatado)
         } catch (err) {
           console.error(`Erro ao buscar histórico do veículo ${v.id}:`, err)
+          return []
         }
-      }
+      })
       
-      // Após o processamento de todos os veículos, vamos verificar o total
-      console.log(`Total de registros históricos: ${historicos.length}`)
+      // Aguardar todas as chamadas em paralelo
+      const historicosArrays = await Promise.all(historicosPromises)
+      const historicos = historicosArrays.flat()
       
       // Veículos em atraso - MOVIDO PARA DEPOIS DA INICIALIZAÇÃO DE HISTORICOS
       const atrasados = veiculosAtivos
@@ -212,8 +208,6 @@ export default function DashboardPage() {
         .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
         .slice(0, 5)
       
-      console.log("Últimas trocas filtradas:", ultimasTrocasData)
-      
       setUltimasTrocas(ultimasTrocasData)
       
       // Trocas por mês - últimos 6 meses, incluindo meses sem trocas
@@ -222,17 +216,18 @@ export default function DashboardPage() {
       // Armazenar todas as trocas para navegação
       setTodasTrocas(trocas)
       
-      console.log("Todos os históricos:", historicos)
-      console.log("Trocas de óleo filtradas:", trocas)
-      
       // Calcular trocas por mês inicial (sem offset)
       const trocasPorMesData = calcularTrocasPorMes(trocas, 0)
       setTrocasPorMes(trocasPorMesData)
       
-      // Simulação de produtos com baixo estoque
-      const produtosData = await getProdutosSupabase()
+      // Carregar produtos, saídas e entradas em paralelo
+      const [produtosData, saidasData, entradasData] = await Promise.all([
+        getProdutosSupabase(),
+        getSaidasSupabase().catch(() => []),
+        getEntradasSupabase().catch(() => [])
+      ])
       
-      // Agora usamos dados reais do Supabase
+      // Produtos com baixo estoque
       const baixoEstoque = produtosData
         .filter(p => p.estoque <= 5) // Consideramos produtos com estoque <=5 como baixo estoque
         .map(p => ({
@@ -248,7 +243,8 @@ export default function DashboardPage() {
       
       // Produtos mais usados - usar dados reais das saídas
       try {
-        const saidasData = await getSaidasSupabase()
+        // Criar mapa de produtos para acesso rápido
+        const produtosMap = new Map(produtosData.map(p => [p.id, p]))
         
         // Agrupar saídas por produto e calcular quantidade total
         const produtosUsados: Record<string, { id: string, nome: string, quantidade: number, unidade: string }> = {}
@@ -260,11 +256,12 @@ export default function DashboardPage() {
             produtosUsados[saida.produtoId].quantidade += saida.quantidade
           } else {
             // Adicionar novo produto
+            const produto = produtosMap.get(saida.produtoId)
             produtosUsados[saida.produtoId] = {
               id: saida.produtoId,
               nome: saida.produtoNome,
               quantidade: saida.quantidade,
-              unidade: produtosData.find(p => p.id === saida.produtoId)?.unidade || 'un'
+              unidade: produto?.unidade || 'un'
             }
           }
         })
@@ -300,29 +297,18 @@ export default function DashboardPage() {
         setProdutosMaisUsados(maisUsados)
       }
       
-      // Carregar dados de saídas e entradas
-      try {
-        // Buscar últimas saídas
-        const saidasData = await getSaidasSupabase()
-        const ultimasSaidasData = saidasData
-          .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-          .slice(0, 5) // Pegar as 5 mais recentes
-        
-        setUltimasSaidas(ultimasSaidasData)
-        
-        // Buscar últimas entradas
-        const entradasData = await getEntradasSupabase()
-        const ultimasEntradasData = entradasData
-          .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
-          .slice(0, 5) // Pegar as 5 mais recentes
-        
-        setUltimasEntradas(ultimasEntradasData)
-      } catch (err) {
-        console.error("Erro ao carregar movimentações de produtos:", err)
-        // Definir arrays vazios em caso de erro
-        setUltimasSaidas([])
-        setUltimasEntradas([])
-      }
+      // Últimas saídas e entradas
+      const ultimasSaidasData = saidasData
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        .slice(0, 5) // Pegar as 5 mais recentes
+      
+      setUltimasSaidas(ultimasSaidasData)
+      
+      const ultimasEntradasData = entradasData
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+        .slice(0, 5) // Pegar as 5 mais recentes
+      
+      setUltimasEntradas(ultimasEntradasData)
       
       // Buscar veículos em dia com base na última troca de óleo
       const veiculosEmDiaList = veiculosData
