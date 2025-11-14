@@ -140,7 +140,7 @@ function DashboardMobileView() {
             <CardContent className="p-5 flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Atalho rápido</p>
-                <h2 className="text-lg font-semibold">Troca de Óleo</h2>
+                <h2 className="text-lg font-semibold">Atualizar Quilometragem</h2>
                 <p className="text-xs text-muted-foreground">Registrar ou acompanhar trocas</p>
               </div>
               <div className="p-3 bg-primary/10 rounded-full text-primary">
