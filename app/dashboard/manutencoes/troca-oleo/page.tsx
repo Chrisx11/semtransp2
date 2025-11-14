@@ -70,10 +70,11 @@ export default function TrocaOleoPage() {
   // Estados para ordenação
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
-  // Estados para verificação de senha de administrador (mobile)
+  // Estados para verificação de senha de administrador
   const [senhaDialogOpen, setSenhaDialogOpen] = useState(false)
   const [senhaInput, setSenhaInput] = useState("")
   const [senhaErro, setSenhaErro] = useState(false)
+  const [veiculoAguardandoSenha, setVeiculoAguardandoSenha] = useState<VeiculoComDados | null>(null)
   const { toast } = useToast()
   
   useEffect(() => {
@@ -255,12 +256,7 @@ export default function TrocaOleoPage() {
   async function registrarTrocaOleoAction() {
     if (!veiculoSelecionado || !kmAtual || !kmProxTroca) return
     
-    // Verificar senha de administrador apenas na versão mobile
-    if (isMobile) {
-      setSenhaDialogOpen(true)
-      return
-    }
-    
+    // Senha já foi verificada antes de abrir o diálogo, então pode executar diretamente
     await executarRegistroTrocaOleo()
   }
 
@@ -467,6 +463,12 @@ export default function TrocaOleoPage() {
   }
 
   function abrirDialogTrocaOleo(veiculo: VeiculoComDados) {
+    // Pedir senha antes de abrir o diálogo
+    setVeiculoAguardandoSenha(veiculo)
+    setSenhaDialogOpen(true)
+  }
+  
+  function abrirDialogTrocaOleoAposSenha(veiculo: VeiculoComDados) {
     setVeiculoSelecionado(veiculo)
     
     const kmAtualInicial = veiculo.kmAtual.toString()
@@ -658,7 +660,12 @@ export default function TrocaOleoPage() {
       setSenhaErro(false)
       setSenhaDialogOpen(false)
       setSenhaInput("")
-      executarRegistroTrocaOleo()
+      
+      // Se há um veículo aguardando senha, abrir o diálogo de troca de óleo
+      if (veiculoAguardandoSenha) {
+        abrirDialogTrocaOleoAposSenha(veiculoAguardandoSenha)
+        setVeiculoAguardandoSenha(null)
+      }
     } else {
       setSenhaErro(true)
       toast({
@@ -1156,12 +1163,13 @@ export default function TrocaOleoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de verificação de senha de administrador (apenas mobile) */}
+      {/* Dialog de verificação de senha de administrador */}
       <Dialog open={senhaDialogOpen} onOpenChange={(open) => {
         setSenhaDialogOpen(open)
         if (!open) {
           setSenhaInput("")
           setSenhaErro(false)
+          setVeiculoAguardandoSenha(null)
         }
       }}>
         <DialogContent className="max-w-md">

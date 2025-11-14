@@ -47,24 +47,34 @@ export async function getTrocasOleo(veiculoId: string): Promise<TrocaOleo[]> {
 
 // Buscar última troca de óleo de um veículo
 export async function getUltimaTrocaOleo(veiculoId: string): Promise<TrocaOleo | null> {
-  const { data, error } = await supabase
-    .from("trocas_oleo")
-    .select("*")
-    .eq("veiculo_id", veiculoId)
-    .eq("tipo_servico", "Troca de Óleo")
-    .order("data_troca", { ascending: false })
-    .limit(1)
-    .single()
-  
-  if (error) {
-    if (error.code === "PGRST116" || (error as any).status === 406) { // No rows returned
+  try {
+    // Buscar todos os registros do veículo e filtrar no código para evitar problemas de encoding
+    const { data, error } = await supabase
+      .from("trocas_oleo")
+      .select("*")
+      .eq("veiculo_id", veiculoId)
+      .order("data_troca", { ascending: false })
+    
+    if (error) {
+      console.error("Erro ao buscar trocas de óleo:", error)
       return null
     }
+    
+    if (!data || data.length === 0) {
+      return null
+    }
+    
+    // Filtrar no código para encontrar a última troca de óleo
+    const trocasOleo = data.filter(registro => 
+      registro.tipo_servico === "Troca de Óleo" || 
+      registro.tipo_servico?.toLowerCase().includes("troca") && registro.tipo_servico?.toLowerCase().includes("óleo")
+    )
+    
+    return trocasOleo.length > 0 ? trocasOleo[0] : null
+  } catch (error) {
     console.error("Erro ao buscar última troca de óleo:", error)
-    throw error
+    return null
   }
-  
-  return data
 }
 
 // Buscar último registro (troca ou atualização) de um veículo
