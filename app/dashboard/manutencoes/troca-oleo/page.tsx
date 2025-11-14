@@ -70,6 +70,10 @@ export default function TrocaOleoPage() {
   // Estados para ordenação
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  // Estados para verificação de senha de administrador (mobile)
+  const [senhaDialogOpen, setSenhaDialogOpen] = useState(false)
+  const [senhaInput, setSenhaInput] = useState("")
+  const [senhaErro, setSenhaErro] = useState(false)
   const { toast } = useToast()
   
   useEffect(() => {
@@ -249,6 +253,18 @@ export default function TrocaOleoPage() {
   }
   
   async function registrarTrocaOleoAction() {
+    if (!veiculoSelecionado || !kmAtual || !kmProxTroca) return
+    
+    // Verificar senha de administrador apenas na versão mobile
+    if (isMobile) {
+      setSenhaDialogOpen(true)
+      return
+    }
+    
+    await executarRegistroTrocaOleo()
+  }
+
+  async function executarRegistroTrocaOleo() {
     if (!veiculoSelecionado || !kmAtual || !kmProxTroca) return
     
     if (!validarData(dataInput)) {
@@ -633,6 +649,24 @@ export default function TrocaOleoPage() {
     const [dia, mes, ano] = dateStr.split('/')
     // Criar a data com o fuso horário de Brasília (UTC-3)
     return `${ano}-${mes}-${dia}T00:00:00-03:00`
+  }
+
+  const handleVerificarSenha = () => {
+    const SENHA_ADMIN = "009977"
+    
+    if (senhaInput === SENHA_ADMIN) {
+      setSenhaErro(false)
+      setSenhaDialogOpen(false)
+      setSenhaInput("")
+      executarRegistroTrocaOleo()
+    } else {
+      setSenhaErro(true)
+      toast({
+        title: "Senha incorreta",
+        description: "A senha de administrador está incorreta.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -1117,6 +1151,67 @@ export default function TrocaOleoPage() {
               disabled={loading}
             >
               {loading ? "Excluindo..." : "Excluir"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de verificação de senha de administrador (apenas mobile) */}
+      <Dialog open={senhaDialogOpen} onOpenChange={(open) => {
+        setSenhaDialogOpen(open)
+        if (!open) {
+          setSenhaInput("")
+          setSenhaErro(false)
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Senha de Administrador</DialogTitle>
+            <DialogDescription>
+              Por favor, insira a senha de administrador para registrar a troca de óleo.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Senha</label>
+              <Input
+                type="password"
+                value={senhaInput}
+                onChange={(e) => {
+                  setSenhaInput(e.target.value)
+                  setSenhaErro(false)
+                }}
+                placeholder="Digite a senha"
+                className={senhaErro ? "border-destructive" : ""}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleVerificarSenha()
+                  }
+                }}
+              />
+              {senhaErro && (
+                <p className="text-sm text-destructive">Senha incorreta. Tente novamente.</p>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSenhaDialogOpen(false)
+                setSenhaInput("")
+                setSenhaErro(false)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleVerificarSenha}
+              disabled={!senhaInput}
+            >
+              Verificar
             </Button>
           </DialogFooter>
         </DialogContent>
