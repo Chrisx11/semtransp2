@@ -545,11 +545,12 @@ export default function ColaboradoresPage() {
     setCurrentPage(1)
   }, [searchTerm, secretariaFilter])
 
-  // Renderizar versão mobile
-  if (isMobile) {
-    return (
-      <>
-        <ColaboradoresMobileView
+  return (
+    <>
+      <Toaster />
+      {isMobile ? (
+        <>
+          <ColaboradoresMobileView
           colaboradores={colaboradores}
           isLoading={isLoading}
           searchTerm={searchTerm}
@@ -583,12 +584,8 @@ export default function ColaboradoresPage() {
           title="Excluir colaborador"
           description="Tem certeza que deseja excluir este colaborador? Esta ação não pode ser desfeita."
         />
-        <Toaster />
-      </>
-    )
-  }
-
-  return (
+        </>
+      ) : (
     <div className="space-y-6">
       <Card className="shadow-md-custom">
         <CardContent className="p-6">
@@ -879,7 +876,8 @@ export default function ColaboradoresPage() {
         description="Tem certeza que deseja excluir este colaborador? Esta ação não pode ser desfeita."
       />
 
-      <Toaster />
-    </div>
+      </div>
+      )}
+    </>
   )
 }

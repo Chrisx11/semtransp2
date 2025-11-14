@@ -709,11 +709,12 @@ export default function ProdutosPage() {
     setCurrentPage(1)
   }, [searchTerm, categoriaFilter])
 
-  // Renderizar versão mobile
-  if (isMobile) {
-    return (
-      <>
-        <ProdutosMobileView
+  return (
+    <>
+      <Toaster />
+      {isMobile ? (
+        <>
+          <ProdutosMobileView
           produtos={produtos}
           isLoading={isLoading}
           searchTerm={searchTerm}
@@ -797,12 +798,8 @@ export default function ProdutosPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <Toaster />
-      </>
-    )
-  }
-
-  return (
+        </>
+      ) : (
     <div className="space-y-6">
       <Card className="shadow-md-custom">
         <CardContent className="p-6">
@@ -1157,7 +1154,8 @@ export default function ProdutosPage() {
         </DialogContent>
       </Dialog>
 
-      <Toaster />
-    </div>
+      </div>
+      )}
+    </>
   )
 }

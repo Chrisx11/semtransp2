@@ -3,9 +3,15 @@ import * as React from "react"
 const MOBILE_BREAKPOINT = 768
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState<boolean>(false)
+  // Inicializar com verificação imediata se estiver no cliente
+  const [isMobile, setIsMobile] = React.useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < MOBILE_BREAKPOINT
+    }
+    return false
+  })
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     // Verificar se está no cliente
     if (typeof window === "undefined") return
 
@@ -13,7 +19,7 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
 
-    // Verificar imediatamente
+    // Verificar imediatamente (já foi verificado no useState, mas garantimos aqui também)
     checkMobile()
 
     // Criar media query listener

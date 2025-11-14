@@ -746,79 +746,76 @@ export default function VeiculosPage() {
       .reduce((acc, s) => acc + ((s.valorUnitario ?? 0) * s.quantidade), 0)
   }
 
-  // Renderizar versão mobile
-  if (isMobile) {
-    return (
-      <>
-        <VeiculosMobileView
-          veiculos={veiculos}
-          isLoading={isLoading}
-          isSaidasLoading={isSaidasLoading}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          secretariaFilter={secretariaFilter}
-          setSecretariaFilter={setSecretariaFilter}
-          filteredData={filteredData}
-          processedData={processedData}
-          paginatedData={paginatedData}
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          itemsPerPage={itemsPerPage}
-          setItemsPerPage={setItemsPerPage}
-          totalPages={totalPages}
-          pageNumbers={pageNumbers}
-          handleNew={handleNew}
-          handleEdit={handleEdit}
-          handleView={handleView}
-          handleDeleteClick={handleDeleteClick}
-          secretarias={secretarias}
-          getDespesaMensal={getDespesaMensal}
-          setVeiculoTrocaOleo={setVeiculoTrocaOleo}
-          setTrocaOleoOpen={setTrocaOleoOpen}
-        />
-        <VeiculoForm
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          editingId={isViewing ? viewingId : editingId}
-          onSuccess={loadData}
-          isViewing={isViewing}
-        />
-        <DeleteConfirmation
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          onConfirm={handleDelete}
-          title="Excluir veículo"
-          description="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
-        />
-        {veiculoTrocaOleo && (
-          <TrocaOleoDialog
-            isOpen={trocaOleoOpen}
-            onClose={() => setTrocaOleoOpen(false)}
-            veiculo={veiculoTrocaOleo}
-            onSuccess={() => {
-              setTrocaOleoOpen(false)
-              setVeiculoTrocaOleo(null)
-              loadData()
+  return (
+    <>
+      <Toaster />
+      {isMobile ? (
+        <>
+          <VeiculosMobileView
+            veiculos={veiculos}
+            isLoading={isLoading}
+            isSaidasLoading={isSaidasLoading}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            secretariaFilter={secretariaFilter}
+            setSecretariaFilter={setSecretariaFilter}
+            filteredData={filteredData}
+            processedData={processedData}
+            paginatedData={paginatedData}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            itemsPerPage={itemsPerPage}
+            setItemsPerPage={setItemsPerPage}
+            totalPages={totalPages}
+            pageNumbers={pageNumbers}
+            handleNew={handleNew}
+            handleEdit={handleEdit}
+            handleView={handleView}
+            handleDeleteClick={handleDeleteClick}
+            secretarias={secretarias}
+            getDespesaMensal={getDespesaMensal}
+            setVeiculoTrocaOleo={setVeiculoTrocaOleo}
+            setTrocaOleoOpen={setTrocaOleoOpen}
+          />
+          <VeiculoForm
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            editingId={isViewing ? viewingId : editingId}
+            onSuccess={loadData}
+            isViewing={isViewing}
+          />
+          <DeleteConfirmation
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={handleDelete}
+            title="Excluir veículo"
+            description="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
+          />
+          {veiculoTrocaOleo && (
+            <TrocaOleoDialog
+              isOpen={trocaOleoOpen}
+              onClose={() => setTrocaOleoOpen(false)}
+              veiculo={veiculoTrocaOleo}
+              onSuccess={() => {
+                setTrocaOleoOpen(false)
+                setVeiculoTrocaOleo(null)
+                loadData()
+              }}
+            />
+          )}
+          <RelatorioAvancadoVeiculosDialog
+            open={relatorioAvancadoOpen}
+            onOpenChange={setRelatorioAvancadoOpen}
+            veiculos={veiculos}
+            onExport={() => {
+              toast({
+                title: "Exportação concluída",
+                description: "O relatório avançado foi gerado com sucesso.",
+              })
             }}
           />
-        )}
-        <RelatorioAvancadoVeiculosDialog
-          open={relatorioAvancadoOpen}
-          onOpenChange={setRelatorioAvancadoOpen}
-          veiculos={veiculos}
-          onExport={() => {
-            toast({
-              title: "Exportação concluída",
-              description: "O relatório avançado foi gerado com sucesso.",
-            })
-          }}
-        />
-        <Toaster />
-      </>
-    )
-  }
-
-  return (
+        </>
+      ) : (
     <div className="space-y-6">
       <Card className="shadow-md-custom">
         <CardContent className="p-6">
@@ -1189,7 +1186,8 @@ export default function VeiculosPage() {
         }}
       />
 
-      <Toaster />
-    </div>
+      </div>
+      )}
+    </>
   )
 }
