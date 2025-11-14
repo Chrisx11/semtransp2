@@ -43,7 +43,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getColaboradores, deleteColaborador, type Colaborador } from "@/services/colaborador-service"
 import { exportToCSV, exportToPDF, formatPhoneForDisplay } from "@/utils/export-utils"
 import { ColaboradorCard } from "@/components/colaborador-card"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Badge } from "@/components/ui/badge"
 
 type SortDirection = "asc" | "desc" | null

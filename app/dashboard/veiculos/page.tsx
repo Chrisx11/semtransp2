@@ -51,7 +51,7 @@ import { TrocaOleoDialog } from "@/components/troca-oleo-dialog"
 import { getSaidasSupabase, type Saida } from "@/services/saida-service"
 import { startOfMonth, endOfMonth } from "date-fns"
 import { RelatorioAvancadoVeiculosDialog } from "@/components/relatorio-avancado-veiculos-dialog"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "placa" | "modelo" | "marca" | "ano" | "cor" | "tipo" | "secretaria" | "status" | "despesaMensal" | null

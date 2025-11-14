@@ -49,7 +49,7 @@ import { Label } from "@/components/ui/label"
 import { exportToCSV, exportToPDF, exportToXLSX } from "@/utils/export-produtos-utils"
 import { ProdutoCard } from "@/components/produto-card"
 import { ProdutoVisualizacao } from "@/components/produto-visualizacao"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { useIsMobile } from "@/components/ui/use-mobile"
 import { Badge } from "@/components/ui/badge"
 
 type SortDirection = "asc" | "desc" | null
