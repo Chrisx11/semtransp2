@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SEMTRANSP - Offline</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #0f172a;
+        color: #f8fafc;
+        text-align: center;
+        padding: 2rem;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.85);
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 340px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.35);
+      }
+      h1 {
+        font-size: 1.6rem;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        margin: 0.5rem 0 1.5rem;
+        line-height: 1.5;
+        color: rgba(248, 250, 252, 0.75);
+      }
+      button {
+        border: none;
+        background: #2563eb;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 999px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(37, 99, 235, 0.35);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Sem conexão</h1>
+      <p>
+        Parece que você está offline no momento. Verifique sua conexão com a
+        internet e tente novamente para continuar utilizando o SEMTRANSP.
+      </p>
+      <button onclick="window.location.reload()">Tentar novamente</button>
+    </div>
+  </body>
+</html>
+

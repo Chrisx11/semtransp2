@@ -1,0 +1,23 @@
+{
+  "name": "SEMTRANSP",
+  "short_name": "SEMTRANSP",
+  "description": "Sistema de Gestão de Manutenção e Custos da SEMTRANSP",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
+

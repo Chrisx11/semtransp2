@@ -1,0 +1,501 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Paleta para o tema claro - refinada para maior contraste e harmonia */
+    --background: 220 33% 98%;
+    --foreground: 224 71% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    /* Cor primária mais vibrante */
+    --primary: 227 57% 38%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 16% 92%;
+    --secondary-foreground: 224 71% 4%;
+
+    --muted: 220 16% 90%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 220 26% 90%;
+    --accent-foreground: 224 71% 4%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 86%;
+    --input: 220 13% 86%;
+    --ring: 227 57% 38%;
+
+    /* Variáveis de cores refinadas para maior harmonia */
+    --primary-light: 227 57% 48%;
+    --primary-dark: 227 57% 28%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --surface-1: 0 0% 100%;
+    --surface-2: 220 33% 97%;
+    --surface-3: 220 33% 94%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    /* Paleta para o tema escuro - refinada para maior legibilidade e contraste */
+    --background: 224 71% 4%;
+    --foreground: 220 33% 98%;
+
+    --card: 224 71% 7%;
+    --card-foreground: 220 33% 98%;
+
+    --popover: 224 71% 7%;
+    --popover-foreground: 220 33% 98%;
+
+    /* Cor primária mais vibrante também no modo escuro */
+    --primary: 227 57% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 28% 17%;
+    --secondary-foreground: 220 33% 98%;
+
+    --muted: 215 28% 17%;
+    --muted-foreground: 220 16% 70%;
+
+    --accent: 215 28% 17%;
+    --accent-foreground: 220 33% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
+    --ring: 227 57% 62%;
+
+    /* Variáveis de cores para o tema escuro - ajustadas para maior contraste */
+    --primary-light: 227 57% 72%;
+    --primary-dark: 227 57% 52%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
+    --surface-1: 224 71% 7%;
+    --surface-2: 224 71% 9%;
+    --surface-3: 224 71% 12%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+    /* Ocultar barra de scroll */
+    -ms-overflow-style: none; /* IE e Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  
+  html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari e Opera */
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    line-height: 1.625;
+    font-feature-settings: "kern", "liga", "calt";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Ocultar barra de scroll */
+    -ms-overflow-style: none; /* IE e Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  
+  body::-webkit-scrollbar {
+    display: none; /* Chrome, Safari e Opera */
+  }
+  
+  h1 {
+    @apply text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+  
+  h2 {
+    @apply text-2xl md:text-3xl font-semibold tracking-tight;
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+  }
+  
+  h3 {
+    @apply text-xl md:text-2xl font-semibold tracking-tight;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+  
+  h4 {
+    @apply text-lg md:text-xl font-semibold tracking-tight;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  
+  h5, h6 {
+    @apply text-base md:text-lg font-medium tracking-tight;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+  
+  p {
+    @apply text-base md:text-lg leading-relaxed;
+  }
+  
+  a {
+    @apply transition-colors duration-200;
+  }
+  
+  ::selection {
+    @apply bg-primary/20 text-foreground;
+  }
+}
+
+@layer components {
+  /* Sombras refinadas para profundidade mais pronunciada */
+  .shadow-sm-custom {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-custom {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+
+  .shadow-md-custom {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .shadow-lg-custom {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .shadow-xl-custom {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  
+  .shadow-2xl-custom {
+    box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Gradientes modernos suavizados */
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
+    transition: background 0.3s ease;
+  }
+
+  .gradient-primary:hover {
+    background: linear-gradient(135deg, hsl(var(--primary-light)) 0%, hsl(var(--primary)) 100%);
+  }
+
+  .gradient-surface {
+    background: linear-gradient(135deg, hsl(var(--surface-1)) 0%, hsl(var(--surface-2)) 100%);
+  }
+
+  .gradient-sidebar {
+    background: linear-gradient(180deg, hsl(224, 71%, 9%) 0%, hsl(224, 71%, 6%) 100%);
+  }
+
+  .gradient-sidebar-accent {
+    background: linear-gradient(180deg, hsl(227, 57%, 66%) 0%, hsl(227, 57%, 58%) 100%);
+  }
+
+  /* Transições e animações aprimoradas */
+  .hover-lift {
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+                box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, box-shadow;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+  
+  /* Transição suave para mudanças de página */
+  .page-transition {
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Animação de entrada suave */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Cards com sombra e hover aprimorados */
+  .card-interactive {
+    @apply bg-card text-card-foreground rounded-xl border shadow-sm transition-all duration-300;
+    transform: translateZ(0); /* Otimização para performance */
+  }
+
+  .card-interactive:hover {
+    @apply shadow-md border-primary/30;
+    transform: translateY(-2px) translateZ(0);
+  }
+
+  /* Card com glassmorphism */
+  .card-glass {
+    @apply bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-xl border border-white/20 dark:border-white/10 shadow-lg-custom;
+  }
+
+  /* Botões com gradiente e efeito de pulso */
+  .btn-gradient {
+    @apply relative overflow-hidden transition-all duration-300 shadow-md-custom;
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary-dark)) 100%);
+    transform: translateZ(0);
+  }
+
+  .btn-gradient:hover {
+    background: linear-gradient(135deg, hsl(var(--primary-light)) 0%, hsl(var(--primary)) 100%);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px) translateZ(0);
+  }
+
+  .btn-gradient:active {
+    transform: translateY(0) scale(0.98) translateZ(0);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Botão com efeito ripple */
+  .btn-ripple {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+  
+  .btn-ripple:active::after {
+    width: 300px;
+    height: 300px;
+  }
+
+  /* Efeito de foco com anel suave */
+  .focus-ring {
+    @apply outline-none transition-all duration-200;
+  }
+
+  .focus-ring:focus-visible {
+    @apply ring-2 ring-primary/50 ring-offset-2 ring-offset-background;
+  }
+
+  /* Status badges mais modernos */
+  .status-badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-all duration-200 shadow-sm;
+  }
+
+  .status-badge-success {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border border-green-200 dark:border-green-800;
+  }
+
+  .status-badge-warning {
+    @apply bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 border border-amber-200 dark:border-amber-800;
+  }
+
+  .status-badge-info {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-800;
+  }
+
+  .status-badge-error {
+    @apply bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 border border-red-200 dark:border-red-800;
+  }
+  
+  /* Badge com ícone */
+  .status-badge svg {
+    @apply mr-1.5 h-3.5 w-3.5;
+  }
+
+  /* Adição de efeito glass para elementos tipo cartões */
+  .glass-card {
+    @apply bg-white/70 dark:bg-white/10 backdrop-blur-md rounded-lg border border-white/20 dark:border-white/5;
+  }
+
+  /* Efeitos para imagens */
+  .img-hover-zoom {
+    @apply overflow-hidden rounded-lg;
+  }
+  
+  .img-hover-zoom img {
+    @apply transition-transform duration-500;
+  }
+  
+  .img-hover-zoom:hover img {
+    transform: scale(1.05);
+  }
+
+  /* Separadores estilizados */
+  .fancy-divider {
+    @apply w-full h-px my-6 bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+  
+  /* Melhores transições para links */
+  .nav-link {
+    @apply relative inline-block text-foreground/80 hover:text-foreground transition-colors duration-200;
+  }
+  
+  .nav-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300;
+  }
+  
+  .nav-link:hover::after {
+    @apply w-full;
+  }
+  
+  .nav-link.active::after {
+    @apply w-full;
+  }
+  
+  /* Tabelas com zebra striping */
+  .table-zebra tbody tr:nth-child(even) {
+    @apply bg-muted/30;
+  }
+  
+  .table-zebra tbody tr:hover {
+    @apply bg-muted/50 transition-colors duration-150;
+  }
+  
+  /* Input melhorado */
+  .input-enhanced {
+    @apply transition-all duration-200;
+  }
+  
+  .input-enhanced:focus {
+    @apply ring-2 ring-primary/20 border-primary shadow-sm;
+  }
+  
+  /* Skeleton loader */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+  
+  .skeleton {
+    @apply bg-muted animate-pulse;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted)) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite linear;
+  }
+  
+  /* Loading spinner melhorado */
+  .spinner {
+    @apply inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+  
+  /* Empty state melhorado */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 px-4 text-center;
+  }
+  
+  .empty-state-icon {
+    @apply mb-4 h-12 w-12 text-muted-foreground/50;
+  }
+  
+  .empty-state-title {
+    @apply text-lg font-semibold text-foreground mb-2;
+  }
+  
+  .empty-state-description {
+    @apply text-sm text-muted-foreground max-w-sm;
+  }
+  
+  /* Ocultar barras de scroll em elementos com overflow */
+  div[style*="overflow"],
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  .overflow-scroll,
+  .overflow-y-scroll,
+  .overflow-x-scroll {
+    -ms-overflow-style: none; /* IE e Edge */
+    scrollbar-width: none; /* Firefox */
+  }
+  
+  div[style*="overflow"]::-webkit-scrollbar,
+  .overflow-auto::-webkit-scrollbar,
+  .overflow-y-auto::-webkit-scrollbar,
+  .overflow-x-auto::-webkit-scrollbar,
+  .overflow-scroll::-webkit-scrollbar,
+  .overflow-y-scroll::-webkit-scrollbar,
+  .overflow-x-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari e Opera */
+  }
+}
