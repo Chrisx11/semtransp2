@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import React, { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
 import { Car, Calendar, Palette, Building, Search, Pencil, Trash, Plus, Disc, History, Wrench, Package, FileText, Droplet, Gauge, AlertCircle, Loader2, Clock, CheckCircle2 } from 'lucide-react'
+import { useIsMobile } from '@/components/ui/use-mobile'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -89,9 +91,9 @@ export default function HistoricosPage() {
   const [periodoTrocaOleo, setPeriodoTrocaOleo] = useState<{inicio: string, fim: string}>({inicio: '', fim: ''})
   const [periodoAtualizacaoKm, setPeriodoAtualizacaoKm] = useState<{inicio: string, fim: string}>({inicio: '', fim: ''})
   const [periodoTrocaPneu, setPeriodoTrocaPneu] = useState<{inicio: string, fim: string}>({inicio: '', fim: ''})
-  const [manutAntigas, setManutAntigas] = useState<{id: string, data: string, titulo: string, pecas: string}[]>([])
+  const [manutAntigas, setManutAntigas] = useState<{id: string, data: string, data_servico?: string, titulo: string, pecas: string}[]>([])
   const [modalManutAntigaOpen, setModalManutAntigaOpen] = useState(false)
-  const [editManutAntiga, setEditManutAntiga] = useState<{id: string, data: string, titulo: string, pecas: string} | null>(null)
+  const [editManutAntiga, setEditManutAntiga] = useState<{id: string, data: string, data_servico?: string, titulo: string, pecas: string} | null>(null)
   const [formManutAntiga, setFormManutAntiga] = useState<{data: string, titulo: string, pecas: string}>({data: '', titulo: '', pecas: ''})
   const [observacoes, setObservacoes] = useState<any[]>([])
   const [modalObsOpen, setModalObsOpen] = useState(false)
@@ -357,7 +359,7 @@ export default function HistoricosPage() {
     setFormManutAntiga({data: '', titulo: '', pecas: ''})
     setModalManutAntigaOpen(true)
   }
-  function handleOpenEditManutAntiga(m: {id: string, data: string, titulo: string, pecas: string}) {
+  function handleOpenEditManutAntiga(m: {id: string, data: string, data_servico?: string, titulo: string, pecas: string}) {
     setEditManutAntiga(m)
     setFormManutAntiga({data: m.data, titulo: m.titulo, pecas: m.pecas})
     setModalManutAntigaOpen(true)
@@ -512,8 +514,597 @@ export default function HistoricosPage() {
     }
   }
 
+  const isMobile = useIsMobile()
+
+  // Função auxiliar para renderizar conteúdo dos slides
+  function renderSlideContent(slideIndex: number) {
+    if (slideIndex === 0) {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4 w-full">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchPeca}
+                onChange={e => setSearchPeca(e.target.value)}
+                placeholder="Pesquisar peça, categoria, unidade, localização..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+          </div>
+          {pecasCompativeisFiltradas.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma peça compatível encontrada para este veículo.</div>
+          ) : (
+            <Accordion type="multiple" className="w-full">
+              {categorias.map((cat) => (
+                <AccordionItem key={cat} value={cat}>
+                  <AccordionTrigger className="text-sm">{cat}</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs border rounded-md overflow-hidden">
+                        <thead>
+                          <tr className="bg-muted">
+                            <th className="p-2 text-left">Descrição</th>
+                            <th className="p-2 text-left">Unidade</th>
+                            <th className="p-2 text-left">Estoque</th>
+                            <th className="p-2 text-left">Localização</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pecasPorCategoria[cat].map((item) => (
+                            <tr key={item.id} className="border-b last:border-0">
+                              <td className="p-2">{item.descricao}</td>
+                              <td className="p-2">{item.unidade}</td>
+                              <td className="p-2">{item.estoque}</td>
+                              <td className="p-2">{localizacaoNomeParaSetor[item.localizacao] || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 1) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-4 w-full">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchPecaUtilizada}
+                onChange={e => setSearchPecaUtilizada(e.target.value)}
+                placeholder="Pesquisar produto, categoria, unidade, quantidade, data..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+          </div>
+          {pecasUtilizadas.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma peça utilizada encontrada para este veículo.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border rounded-md overflow-hidden">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">Produto</th>
+                    <th className="p-2 text-left">Categoria</th>
+                    <th className="p-2 text-left">Unidade</th>
+                    <th className="p-2 text-left">Quantidade</th>
+                    <th className="p-2 text-left">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pecasUtilizadasFiltradas.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="p-2">{item.produtoNome || '-'}</td>
+                      <td className="p-2">{item.categoria || '-'}</td>
+                      <td className="p-2">{getUnidadeProduto(item.produtoId)}</td>
+                      <td className="p-2">{item.quantidade ?? '-'}</td>
+                      <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 2) {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-4 w-full">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchOrdemServico}
+                onChange={e => setSearchOrdemServico(e.target.value)}
+                placeholder="Pesquisar número, data, status, prioridade, defeitos, mecânico..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+          </div>
+          {ordensServico.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma ordem de serviço encontrada para este veículo.</div>
+          ) : (
+            <Accordion type="multiple" className="w-full">
+              {ordensServicoFiltradas.map((item) => (
+                <AccordionItem key={item.id} value={item.id}>
+                  <AccordionTrigger>
+                    <div className="flex flex-col items-start gap-1 w-full text-left">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-sm">OS {item.numero}</span>
+                        <Badge variant={item.status === "Ativo" ? "default" : "destructive"} className="text-xs">{item.status}</Badge>
+                        <span className="text-xs">{item.prioridade}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{item.mecanicoInfo}</span>
+                        <span>{item.data ? new Date(item.data).toLocaleDateString() : '-'}</span>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 p-2">
+                      <Tabs defaultValue="status" className="w-full">
+                        <TabsList className="w-full mb-2">
+                          <TabsTrigger value="status" className="flex-1 text-xs">Status</TabsTrigger>
+                          <TabsTrigger value="detalhes" className="flex-1 text-xs">Detalhes</TabsTrigger>
+                          <TabsTrigger value="historico" className="flex-1 text-xs">Histórico</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="status">
+                          <div className="space-y-2 text-sm">
+                            <div><b>Status:</b> {item.status}</div>
+                            <div><b>Prioridade:</b> {item.prioridade}</div>
+                            <div><b>Mecânico:</b> {item.mecanicoInfo}</div>
+                            <div><b>Data:</b> {item.data ? new Date(item.data).toLocaleDateString() : '-'}</div>
+                            <div><b>Veículo:</b> {item.veiculoInfo || '-'}</div>
+                            <div><b>Solicitante:</b> {item.solicitanteInfo || '-'}</div>
+                            <div><b>Km Atual:</b> {item.kmAtual ?? '-'}</div>
+                            {item.observacoesAlmoxarifado && <div><b>Obs. Almoxarifado:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs mt-1">{item.observacoesAlmoxarifado}</div></div>}
+                            {item.observacoesCompras && <div><b>Obs. Compras:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs mt-1">{item.observacoesCompras}</div></div>}
+                            {item.observacoesRetorno && <div><b>Obs. Retorno:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs mt-1">{item.observacoesRetorno}</div></div>}
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="detalhes">
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1 text-sm"><b>Defeitos relatados:</b></div>
+                              <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs">{item.defeitosRelatados || '-'}</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1 text-sm"><b>Peças/Serviços:</b></div>
+                              <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs">{item.pecasServicos || '-'}</div>
+                            </div>
+                          </div>
+                        </TabsContent>
+                        <TabsContent value="historico">
+                          {item.historico && item.historico.length > 0 ? (
+                            <div className="space-y-2">
+                              {item.historico.map((h: any, idx: number) => (
+                                <div key={idx} className="bg-muted rounded p-2 text-xs">
+                                  <div><b>Data:</b> {h.data ? new Date(h.data).toLocaleDateString() : '-'}</div>
+                                  <div><b>De:</b> {h.de || '-'}</div>
+                                  <div><b>Para:</b> {h.para || '-'}</div>
+                                  <div><b>Observação:</b> {h.observacao || '-'}</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-muted-foreground text-center py-4 text-sm">Nenhum histórico disponível para esta ordem.</div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 3) {
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchTrocaOleo}
+                onChange={e => setSearchTrocaOleo(e.target.value)}
+                placeholder="Pesquisar..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={periodoTrocaOleo.inicio}
+                onChange={e => setPeriodoTrocaOleo(p => ({...p, inicio: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data inicial"
+              />
+              <span className="text-muted-foreground text-xs">até</span>
+              <input
+                type="date"
+                value={periodoTrocaOleo.fim}
+                onChange={e => setPeriodoTrocaOleo(p => ({...p, fim: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data final"
+              />
+            </div>
+          </div>
+          {historicoTrocaOleo.filter((h) => h.tipo === 'Troca de Óleo').length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhum registro de troca de óleo encontrado para este veículo.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border rounded-md overflow-hidden">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">Data</th>
+                    <th className="p-2 text-left">Km Anterior</th>
+                    <th className="p-2 text-left">Km Atual</th>
+                    <th className="p-2 text-left">Km Próx. Troca</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trocaOleoFiltrada.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
+                      <td className="p-2">{item.kmAnterior ?? '-'}</td>
+                      <td className="p-2">{item.kmAtual ?? '-'}</td>
+                      <td className="p-2">{item.kmProxTroca ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 4) {
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchTrocaPneu}
+                onChange={e => setSearchTrocaPneu(e.target.value)}
+                placeholder="Pesquisar..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={periodoTrocaPneu.inicio}
+                onChange={e => setPeriodoTrocaPneu(p => ({...p, inicio: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data inicial"
+              />
+              <span className="text-muted-foreground text-xs">até</span>
+              <input
+                type="date"
+                value={periodoTrocaPneu.fim}
+                onChange={e => setPeriodoTrocaPneu(p => ({...p, fim: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data final"
+              />
+            </div>
+          </div>
+          {historicoTrocaPneu.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhum registro de troca de pneu encontrado para este veículo.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border rounded-md overflow-hidden">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">Data</th>
+                    <th className="p-2 text-left">Km</th>
+                    <th className="p-2 text-left">Tipo de Pneu</th>
+                    <th className="p-2 text-left">Posições</th>
+                    <th className="p-2 text-left">Serviços</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trocaPneuFiltrada.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
+                      <td className="p-2">{item.kmAtual ?? '-'}</td>
+                      <td className="p-2">{item.tipoPneu ?? '-'}</td>
+                      <td className="p-2">{item.posicoes && item.posicoes.length > 0 
+                        ? item.posicoes.join(', ') 
+                        : "Todas"}
+                      </td>
+                      <td className="p-2">
+                        {[
+                          item.alinhamento ? 'Alinhamento' : null,
+                          item.balanceamento ? 'Balanceamento' : null
+                        ].filter(Boolean).join(', ') || '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 5) {
+      return (
+        <div className="space-y-2">
+          <div className="flex flex-col gap-2 mb-4">
+            <div className="relative w-full">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                <Search className="h-5 w-5" />
+              </span>
+              <input
+                type="text"
+                value={searchAtualizacaoKm}
+                onChange={e => setSearchAtualizacaoKm(e.target.value)}
+                placeholder="Pesquisar..."
+                className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={periodoAtualizacaoKm.inicio}
+                onChange={e => setPeriodoAtualizacaoKm(p => ({...p, inicio: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data inicial"
+              />
+              <span className="text-muted-foreground text-xs">até</span>
+              <input
+                type="date"
+                value={periodoAtualizacaoKm.fim}
+                onChange={e => setPeriodoAtualizacaoKm(p => ({...p, fim: e.target.value}))}
+                className="border rounded px-2 py-2 text-xs flex-1"
+                title="Data final"
+              />
+            </div>
+          </div>
+          {historicoTrocaOleo.filter((h: any) => h.tipo === 'Atualização de Km').length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhum registro de atualização de km encontrado para este veículo.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border rounded-md overflow-hidden">
+                <thead>
+                  <tr className="bg-muted">
+                    <th className="p-2 text-left">Data</th>
+                    <th className="p-2 text-left">Km Anterior</th>
+                    <th className="p-2 text-left">Km Atual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {atualizacaoKmFiltrada.map((item: any) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
+                      <td className="p-2">{item.kmAnterior ?? '-'}</td>
+                      <td className="p-2">{item.kmAtual ?? '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 6) {
+      return (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className={cn("font-bold flex items-center gap-2", isMobile ? "text-base" : "text-xl")}>
+                <Wrench className={cn(isMobile ? "h-4 w-4" : "h-5 w-5")} />
+                Manutenções Antigas
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {manutAntigas.length} {manutAntigas.length === 1 ? 'manutenção cadastrada' : 'manutenções cadastradas'}
+              </p>
+            </div>
+            <Button onClick={handleOpenAddManutAntiga} size={isMobile ? "sm" : "default"} className="flex items-center gap-2">
+              <Plus className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /> {isMobile ? "" : "Adicionar"}
+            </Button>
+          </div>
+          {manutAntigas.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma manutenção antiga cadastrada.</div>
+          ) : (
+            <Accordion type="multiple" className="w-full">
+              {manutAntigas.map(m => (
+                <AccordionItem key={m.id} value={m.id}>
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <span className={cn("font-semibold", isMobile ? "text-sm" : "text-base")}>{m.titulo}{(m.data_servico || m.data) ? ` - ${new Date(m.data_servico || m.data).toLocaleDateString()}` : ''}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="flex justify-end gap-2 mb-2">
+                      <button onClick={() => handleOpenEditManutAntiga(m)} className="p-1 rounded hover:bg-muted" title="Editar"><Pencil className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
+                      <button onClick={() => handleDeleteManutAntiga(m.id)} className="p-1 rounded hover:bg-muted text-destructive" title="Excluir"><Trash className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
+                    </div>
+                    <Tabs defaultValue="info" className="w-full">
+                      <TabsList className="w-full mb-2">
+                        <TabsTrigger value="info" className="flex-1 text-xs">Informações</TabsTrigger>
+                        <TabsTrigger value="pecas" className="flex-1 text-xs">Peças</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="info">
+                        <div className="space-y-2 text-sm">
+                          <div><b>Data do Serviço:</b> {(m.data_servico || m.data) ? new Date(m.data_servico || m.data).toLocaleDateString() : '-'}</div>
+                          <div><b>Título:</b> {m.titulo}</div>
+                          <div><b>Veículo:</b> {selectedVeiculo ? `${selectedVeiculo.placa || ''} ${selectedVeiculo.modelo || ''}` : '-'}</div>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="pecas">
+                        <div className="space-y-2">
+                          <div className="text-sm"><b>Peças/Serviços:</b></div>
+                          <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-xs">{m.pecas}</div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </div>
+      )
+    } else if (slideIndex === 7) {
+      return (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h2 className={cn("font-bold flex items-center gap-2", isMobile ? "text-base" : "text-xl")}>
+                <AlertCircle className={cn(isMobile ? "h-4 w-4" : "h-5 w-5")} />
+                Observações
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                {observacoes.length} {observacoes.length === 1 ? 'observação cadastrada' : 'observações cadastradas'}
+              </p>
+            </div>
+            <Button onClick={handleOpenAddObs} size={isMobile ? "sm" : "default"} className="flex items-center gap-2">
+              <Plus className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /> {isMobile ? "" : "Adicionar"}
+            </Button>
+          </div>
+          {observacoes.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma observação cadastrada.</div>
+          ) : (
+            <div className="space-y-3">
+              {observacoes.map(obs => (
+                <Card key={obs.id}>
+                  <CardContent className="p-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="text-xs text-muted-foreground">
+                        {obs.data_observacao ? new Date(obs.data_observacao).toLocaleDateString() : '-'}
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleOpenEditObs(obs)} className="p-1 rounded hover:bg-muted" title="Editar"><Pencil className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
+                        <button onClick={() => handleDeleteObs(obs.id)} className="p-1 rounded hover:bg-muted text-destructive" title="Excluir"><Trash className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
+                      </div>
+                    </div>
+                    <p className="text-sm whitespace-pre-line break-words">{obs.observacao}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+    return null
+  }
+
+  // Componente Mobile View
+  function HistoricosMobileView() {
+    return (
+      <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
+        <div className="space-y-1 px-1">
+          <h1 className="text-xl font-bold text-primary">Históricos</h1>
+          <p className="text-xs text-muted-foreground">Visualize o histórico completo dos veículos</p>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Pesquisar veículo, placa, secretaria..."
+            className="pl-10"
+          />
+        </div>
+
+        {filteredVeiculos.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            <Search className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+            <p>
+              {search ? `Nenhum veículo encontrado para "${search}"` : "Nenhum veículo encontrado"}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filteredVeiculos.map((veiculo: any) => (
+              <Card 
+                key={veiculo.id} 
+                className="border-l-4"
+                style={{ borderLeftColor: getSecretariaColor(veiculo.secretaria) }}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-base">{veiculo.placa}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {veiculo.marca} {veiculo.modelo}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {veiculo.ano && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {veiculo.ano}
+                          </Badge>
+                        )}
+                        {veiculo.cor && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {veiculo.cor}
+                          </Badge>
+                        )}
+                        {veiculo.secretaria && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            {veiculo.secretaria}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                      <Badge variant={veiculo.status === "Ativo" ? "default" : "destructive"} className="text-xs">
+                        {veiculo.status}
+                      </Badge>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="text-xs px-3 py-1.5 h-8"
+                        onClick={() => {
+                          setSelectedVeiculo(veiculo)
+                          setActiveSlide(0)
+                          setModalOpen(true)
+                        }}
+                      >
+                        <History className="h-3.5 w-3.5 mr-1.5" />
+                        Histórico
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <React.Fragment>
+      {isMobile ? (
+        <HistoricosMobileView />
+      ) : (
       <div className="space-y-6">
         <Card className="shadow-md-custom">
           <CardContent className="p-6">
@@ -592,33 +1183,96 @@ export default function HistoricosPage() {
           </CardContent>
         </Card>
       </div>
+      )}
       
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-6xl w-full max-h-[90vh] flex flex-col p-0 gap-0">
-          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <DialogContent className={cn(
+          "w-full max-h-[90vh] flex flex-col p-0 gap-0",
+          isMobile ? "max-w-full h-[90vh]" : "max-w-6xl"
+        )}>
+          <DialogHeader className={cn(
+            "border-b bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
+            isMobile ? "px-3 py-3" : "px-6 py-4"
+          )}>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <History className="h-5 w-5 text-primary" />
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className={cn("bg-primary/10 rounded-lg flex-shrink-0", isMobile ? "p-1.5" : "p-2")}>
+                  <History className={cn("text-primary", isMobile ? "h-4 w-4" : "h-5 w-5")} />
                 </div>
-                <div>
-                  <DialogTitle className="text-xl font-bold">
+                <div className="min-w-0 flex-1">
+                  <DialogTitle className={cn("font-bold", isMobile ? "text-base" : "text-xl")}>
                     Histórico do Veículo
                   </DialogTitle>
-                  <p className="text-sm text-muted-foreground mt-1">
+                  <p className={cn("text-muted-foreground mt-0.5 truncate", isMobile ? "text-xs" : "text-sm")}>
                     {selectedVeiculo?.placa} • {selectedVeiculo?.marca} {selectedVeiculo?.modelo}
                     {selectedVeiculo?.ano && ` • ${selectedVeiculo.ano}`}
                   </p>
                 </div>
               </div>
               {isLoadingData && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Carregando...</span>
+                <div className={cn("flex items-center gap-2 text-muted-foreground flex-shrink-0", isMobile ? "text-xs" : "text-sm")}>
+                  <Loader2 className={cn("animate-spin", isMobile ? "h-3 w-3" : "h-4 w-4")} />
+                  {!isMobile && <span>Carregando...</span>}
                 </div>
               )}
             </div>
           </DialogHeader>
+          {isMobile ? (
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <Tabs value={activeSlide.toString()} onValueChange={(v) => setActiveSlide(parseInt(v))} className="flex-1 flex flex-col min-h-0">
+                <div className="border-b px-2 overflow-x-auto">
+                  <TabsList className="w-full justify-start h-auto p-1">
+                    {slides.map((slide, idx) => {
+                      const Icon = slide.icon;
+                      let count = 0;
+                      if (idx === 0) count = pecasCompativeis.length;
+                      else if (idx === 1) count = pecasUtilizadas.length;
+                      else if (idx === 2) count = ordensServico.length;
+                      else if (idx === 3) count = historicoTrocaOleo.filter(h => h.tipo === 'Troca de Óleo').length;
+                      else if (idx === 4) count = historicoTrocaPneu.length;
+                      else if (idx === 5) count = historicoTrocaOleo.filter((h: any) => h.tipo === 'Atualização de Km').length;
+                      else if (idx === 6) count = manutAntigas.length;
+                      else if (idx === 7) count = observacoes.length;
+                      
+                      return (
+                        <TabsTrigger 
+                          key={slide.key} 
+                          value={idx.toString()}
+                          className="text-xs px-2 py-1.5 flex items-center gap-1"
+                        >
+                          <Icon className="h-3 w-3" />
+                          <span className="hidden sm:inline">{slide.label}</span>
+                          {count > 0 && (
+                            <Badge variant="secondary" className="ml-1 text-[10px] px-1 py-0">
+                              {count}
+                            </Badge>
+                          )}
+                        </TabsTrigger>
+                      );
+                    })}
+                  </TabsList>
+                </div>
+                <div className="flex-1 overflow-y-auto p-3">
+                  {isLoadingData ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+                        <p className="text-muted-foreground text-sm">Carregando dados...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-full">
+                      {slides.map((slide, idx) => (
+                        <TabsContent key={slide.key} value={idx.toString()} className="mt-0">
+                          {renderSlideContent(idx)}
+                        </TabsContent>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Tabs>
+            </div>
+          ) : (
           <div className="flex flex-1 min-h-0 overflow-hidden">
             <aside className="w-64 border-r bg-muted/30 p-4 flex flex-col gap-2 overflow-y-auto">
               {slides.map((slide, idx) => {
@@ -667,564 +1321,97 @@ export default function HistoricosPage() {
                   </div>
                 ) : (
                   <div className="w-full">
-                {activeSlide === 0 ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 mb-4 w-full">
-                      <div className="relative w-full">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchPeca}
-                          onChange={e => setSearchPeca(e.target.value)}
-                          placeholder="Pesquisar peça, categoria, unidade, localização..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                    </div>
-                    {pecasCompativeisFiltradas.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhuma peça compatível encontrada para este veículo.</div>
-                    ) : (
-                      <Accordion type="multiple" className="w-full">
-                        {categorias.map((cat) => (
-                          <AccordionItem key={cat} value={cat}>
-                            <AccordionTrigger>{cat}</AccordionTrigger>
-                            <AccordionContent>
-                              <table className="w-full text-sm border rounded-md overflow-hidden">
-                                <thead>
-                                  <tr className="bg-muted">
-                                    <th className="p-2 text-left">Descrição</th>
-                                    <th className="p-2 text-left">Unidade</th>
-                                    <th className="p-2 text-left">Estoque</th>
-                                    <th className="p-2 text-left">Localização</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {pecasPorCategoria[cat].map((item) => (
-                                    <tr key={item.id} className="border-b last:border-0">
-                                      <td className="p-2">{item.descricao}</td>
-                                      <td className="p-2">{item.unidade}</td>
-                                      <td className="p-2">{item.estoque}</td>
-                                      <td className="p-2">{localizacaoNomeParaSetor[item.localizacao] || '-'}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    )}
+                    {renderSlideContent(activeSlide)}
                   </div>
-                ) : activeSlide === 1 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4 w-full">
-                      <div className="relative w-full">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchPecaUtilizada}
-                          onChange={e => setSearchPecaUtilizada(e.target.value)}
-                          placeholder="Pesquisar produto, categoria, unidade, quantidade, data..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                    </div>
-                    {pecasUtilizadas.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhuma peça utilizada encontrada para este veículo.</div>
-                    ) : (
-                      <table className="w-full text-sm border rounded-md overflow-hidden">
-                        <thead>
-                          <tr className="bg-muted">
-                            <th className="p-2 text-left">Produto</th>
-                            <th className="p-2 text-left">Categoria</th>
-                            <th className="p-2 text-left">Unidade</th>
-                            <th className="p-2 text-left">Quantidade</th>
-                            <th className="p-2 text-left">Data</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pecasUtilizadasFiltradas.map((item) => (
-                            <tr key={item.id} className="border-b last:border-0">
-                              <td className="p-2">{item.produtoNome || '-'}</td>
-                              <td className="p-2">{item.categoria || '-'}</td>
-                              <td className="p-2">{getUnidadeProduto(item.produtoId)}</td>
-                              <td className="p-2">{item.quantidade ?? '-'}</td>
-                              <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                ) : activeSlide === 2 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4 w-full">
-                      <div className="relative w-full">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchOrdemServico}
-                          onChange={e => setSearchOrdemServico(e.target.value)}
-                          placeholder="Pesquisar número, data, status, prioridade, defeitos, mecânico..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                    </div>
-                    {ordensServico.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhuma ordem de serviço encontrada para este veículo.</div>
-                    ) : (
-                      <Accordion type="multiple" className="w-full">
-                        {ordensServicoFiltradas.map((item) => (
-                          <AccordionItem key={item.id} value={item.id}>
-                            <AccordionTrigger>
-                              <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full gap-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-base">OS {item.numero}</span>
-                                  <span className="ml-2"><Badge variant={item.status === "Ativo" ? "default" : "destructive"} className="text-xs">{item.status}</Badge></span>
-                                  <span className="ml-2">{item.prioridade}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs">
-                                  <span className="font-medium">{item.mecanicoInfo}</span>
-                                  <span className="font-medium">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</span>
-                                </div>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 p-2">
-                                <Tabs defaultValue="status" className="w-full">
-                                  <TabsList className="w-full mb-2">
-                                    <TabsTrigger value="status" className="flex-1">Status</TabsTrigger>
-                                    <TabsTrigger value="detalhes" className="flex-1">Detalhes</TabsTrigger>
-                                    <TabsTrigger value="historico" className="flex-1">Histórico</TabsTrigger>
-                                  </TabsList>
-                                  <TabsContent value="status">
-                                    <div className="flex flex-col md:flex-row md:gap-8">
-                                      <div className="flex-1 space-y-2">
-                                        <div><b>Status:</b> {item.status}</div>
-                                        <div><b>Prioridade:</b> {item.prioridade}</div>
-                                        <div><b>Mecânico:</b> {item.mecanicoInfo}</div>
-                                        <div><b>Data:</b> {item.data ? new Date(item.data).toLocaleDateString() : '-'}</div>
-                                        <div><b>Veículo:</b> {item.veiculoInfo || '-'}</div>
-                                        <div><b>Solicitante:</b> {item.solicitanteInfo || '-'}</div>
-                                        <div><b>Km Atual:</b> {item.kmAtual ?? '-'}</div>
-                                      </div>
-                                      <div className="flex-1 space-y-2">
-                                        {item.observacoesAlmoxarifado && <div><b>Obs. Almoxarifado:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{item.observacoesAlmoxarifado}</div></div>}
-                                        {item.observacoesCompras && <div><b>Obs. Compras:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{item.observacoesCompras}</div></div>}
-                                        {item.observacoesRetorno && <div><b>Obs. Retorno:</b> <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{item.observacoesRetorno}</div></div>}
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-                                  <TabsContent value="detalhes">
-                                    <div className="space-y-4">
-                                      <div>
-                                        <div className="flex items-center gap-2 mb-1"><b>Defeitos relatados:</b></div>
-                                        <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{item.defeitosRelatados || '-'}</div>
-                                      </div>
-                                      <div>
-                                        <div className="flex items-center gap-2 mb-1"><b>Peças/Serviços:</b></div>
-                                        <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{item.pecasServicos || '-'}</div>
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-                                  <TabsContent value="historico">
-                                    {item.historico && item.historico.length > 0 ? (
-                                      <div className="space-y-2">
-                                        {item.historico.map((h: any, idx: number) => (
-                                          <div key={idx} className="bg-muted rounded p-2 text-sm">
-                                            <div><b>Data:</b> {h.data ? new Date(h.data).toLocaleDateString() : '-'}</div>
-                                            <div><b>De:</b> {h.de || '-'}</div>
-                                            <div><b>Para:</b> {h.para || '-'}</div>
-                                            <div><b>Observação:</b> {h.observacao || '-'}</div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    ) : (
-                                      <div className="text-muted-foreground text-center py-4">Nenhum histórico disponível para esta ordem.</div>
-                                    )}
-                                  </TabsContent>
-                                </Tabs>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    )}
-                  </div>
-                ) : activeSlide === 3 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="relative w-64">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchTrocaOleo}
-                          onChange={e => setSearchTrocaOleo(e.target.value)}
-                          placeholder="Pesquisar..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                      <input
-                        type="date"
-                        value={periodoTrocaOleo.inicio}
-                        onChange={e => setPeriodoTrocaOleo(p => ({...p, inicio: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data inicial"
-                      />
-                      <span className="text-muted-foreground">até</span>
-                      <input
-                        type="date"
-                        value={periodoTrocaOleo.fim}
-                        onChange={e => setPeriodoTrocaOleo(p => ({...p, fim: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data final"
-                      />
-                    </div>
-                    {historicoTrocaOleo.filter((h) => h.tipo === 'Troca de Óleo').length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhum registro de troca de óleo encontrado para este veículo.</div>
-                    ) : (
-                      <table className="w-full text-sm border rounded-md overflow-hidden">
-                        <thead>
-                          <tr className="bg-muted">
-                            <th className="p-2 text-left">Data</th>
-                            <th className="p-2 text-left">Km Anterior</th>
-                            <th className="p-2 text-left">Km Atual</th>
-                            <th className="p-2 text-left">Km Próx. Troca</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trocaOleoFiltrada.map((item) => (
-                            <tr key={item.id} className="border-b last:border-0">
-                              <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
-                              <td className="p-2">{item.kmAnterior ?? '-'}</td>
-                              <td className="p-2">{item.kmAtual ?? '-'}</td>
-                              <td className="p-2">{item.kmProxTroca ?? '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                ) : activeSlide === 4 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="relative w-64">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchTrocaPneu}
-                          onChange={e => setSearchTrocaPneu(e.target.value)}
-                          placeholder="Pesquisar..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                      <input
-                        type="date"
-                        value={periodoTrocaPneu.inicio}
-                        onChange={e => setPeriodoTrocaPneu(p => ({...p, inicio: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data inicial"
-                      />
-                      <span className="text-muted-foreground">até</span>
-                      <input
-                        type="date"
-                        value={periodoTrocaPneu.fim}
-                        onChange={e => setPeriodoTrocaPneu(p => ({...p, fim: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data final"
-                      />
-                    </div>
-                    {historicoTrocaPneu.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhum registro de troca de pneu encontrado para este veículo.</div>
-                    ) : (
-                      <table className="w-full text-sm border rounded-md overflow-hidden">
-                        <thead>
-                          <tr className="bg-muted">
-                            <th className="p-2 text-left">Data</th>
-                            <th className="p-2 text-left">Km</th>
-                            <th className="p-2 text-left">Tipo de Pneu</th>
-                            <th className="p-2 text-left">Posições</th>
-                            <th className="p-2 text-left">Serviços</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trocaPneuFiltrada.map((item) => (
-                            <tr key={item.id} className="border-b last:border-0">
-                              <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
-                              <td className="p-2">{item.kmAtual ?? '-'}</td>
-                              <td className="p-2">{item.tipoPneu ?? '-'}</td>
-                              <td className="p-2">{item.posicoes && item.posicoes.length > 0 
-                                ? item.posicoes.join(', ') 
-                                : "Todas"}
-                              </td>
-                              <td className="p-2">
-                                {[
-                                  item.alinhamento ? 'Alinhamento' : null,
-                                  item.balanceamento ? 'Balanceamento' : null
-                                ].filter(Boolean).join(', ') || '-'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                ) : activeSlide === 5 ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="relative w-64">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                          <Search className="h-5 w-5" />
-                        </span>
-                        <input
-                          type="text"
-                          value={searchAtualizacaoKm}
-                          onChange={e => setSearchAtualizacaoKm(e.target.value)}
-                          placeholder="Pesquisar..."
-                          className="pl-10 pr-3 py-2 rounded-md border border-input bg-background w-full focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
-                      <input
-                        type="date"
-                        value={periodoAtualizacaoKm.inicio}
-                        onChange={e => setPeriodoAtualizacaoKm(p => ({...p, inicio: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data inicial"
-                      />
-                      <span className="text-muted-foreground">até</span>
-                      <input
-                        type="date"
-                        value={periodoAtualizacaoKm.fim}
-                        onChange={e => setPeriodoAtualizacaoKm(p => ({...p, fim: e.target.value}))}
-                        className="border rounded px-2 py-2 text-sm"
-                        title="Data final"
-                      />
-                    </div>
-                    {historicoTrocaOleo.filter((h: any) => h.tipo === 'Atualização de Km').length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhum registro de atualização de km encontrado para este veículo.</div>
-                    ) : (
-                      <table className="w-full text-sm border rounded-md overflow-hidden">
-                        <thead>
-                          <tr className="bg-muted">
-                            <th className="p-2 text-left">Data</th>
-                            <th className="p-2 text-left">Km Anterior</th>
-                            <th className="p-2 text-left">Km Atual</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {atualizacaoKmFiltrada.map((item: any) => (
-                            <tr key={item.id} className="border-b last:border-0">
-                              <td className="p-2">{item.data ? new Date(item.data).toLocaleDateString() : '-'}</td>
-                              <td className="p-2">{item.kmAnterior ?? '-'}</td>
-                              <td className="p-2">{item.kmAtual ?? '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                ) : activeSlide === 6 ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                          <Wrench className="h-5 w-5" />
-                          Manutenções Antigas
-                        </h2>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {manutAntigas.length} {manutAntigas.length === 1 ? 'manutenção cadastrada' : 'manutenções cadastradas'}
-                        </p>
-                      </div>
-                      <Button onClick={handleOpenAddManutAntiga} className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Adicionar
-                      </Button>
-                    </div>
-                    {manutAntigas.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhuma manutenção antiga cadastrada.</div>
-                    ) : (
-                      <Accordion type="multiple" className="w-full">
-                        {manutAntigas.map(m => (
-                          <AccordionItem key={m.id} value={m.id}>
-                            <AccordionTrigger>
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-base">{m.titulo}{(m.data_servico || m.data) ? ` - ${new Date(m.data_servico || m.data).toLocaleDateString()}` : ''}</span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="flex justify-end gap-2 mb-2">
-                                <button onClick={() => handleOpenEditManutAntiga(m)} className="p-1 rounded hover:bg-muted" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                <button onClick={() => handleDeleteManutAntiga(m.id)} className="p-1 rounded hover:bg-muted text-destructive" title="Excluir"><Trash className="w-4 h-4" /></button>
-                              </div>
-                              <Tabs defaultValue="info" className="w-full">
-                                <TabsList className="w-full mb-2">
-                                  <TabsTrigger value="info" className="flex-1">Informações</TabsTrigger>
-                                  <TabsTrigger value="pecas" className="flex-1">Peças</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="info">
-                                  <div className="space-y-2">
-                                    <div><b>Data do Serviço:</b> {(m.data_servico || m.data) ? new Date(m.data_servico || m.data).toLocaleDateString() : '-'}</div>
-                                    <div><b>Título:</b> {m.titulo}</div>
-                                    <div><b>Veículo:</b> {selectedVeiculo ? `${selectedVeiculo.placa || ''} ${selectedVeiculo.modelo || ''}` : '-'}</div>
-                                  </div>
-                                </TabsContent>
-                                <TabsContent value="pecas">
-                                  <div className="space-y-2">
-                                    <div><b>Peças/Serviços:</b></div>
-                                    <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{m.pecas}</div>
-                                  </div>
-                                </TabsContent>
-                              </Tabs>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    )}
-                    <UIDialog open={modalManutAntigaOpen} onOpenChange={setModalManutAntigaOpen}>
-                      <UIDialogContent className="max-w-md w-full">
-                        <UIDialogHeader>
-                          <UIDialogTitle>{editManutAntiga ? 'Editar' : 'Adicionar'} Manutenção Antiga</UIDialogTitle>
-                        </UIDialogHeader>
-                        <form onSubmit={e => {e.preventDefault(); handleSaveManutAntiga();}} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="data-servico">Data do Serviço</Label>
-                            <Input 
-                              id="data-servico"
-                              type="date" 
-                              value={formManutAntiga.data} 
-                              onChange={e => setFormManutAntiga(f => ({...f, data: e.target.value}))} 
-                              required 
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="titulo">Título</Label>
-                            <Input 
-                              id="titulo"
-                              type="text" 
-                              value={formManutAntiga.titulo} 
-                              onChange={e => setFormManutAntiga(f => ({...f, titulo: e.target.value}))} 
-                              required 
-                              placeholder="Ex: Troca de embreagem, revisão geral..." 
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="pecas">Peças/Serviços</Label>
-                            <Textarea 
-                              id="pecas"
-                              value={formManutAntiga.pecas} 
-                              onChange={e => setFormManutAntiga(f => ({...f, pecas: e.target.value}))} 
-                              required 
-                              placeholder="Descreva as peças e serviços realizados..." 
-                              className="min-h-[100px]"
-                            />
-                          </div>
-                          <div className="flex justify-end gap-2 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setModalManutAntigaOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Salvar</Button>
-                          </div>
-                        </form>
-                      </UIDialogContent>
-                    </UIDialog>
-                  </div>
-                ) : activeSlide === 7 ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <h2 className="text-xl font-bold flex items-center gap-2">
-                          <AlertCircle className="h-5 w-5" />
-                          Observações
-                        </h2>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {observacoes.length} {observacoes.length === 1 ? 'observação cadastrada' : 'observações cadastradas'}
-                        </p>
-                      </div>
-                      <Button onClick={handleOpenAddObs} className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Adicionar
-                      </Button>
-                    </div>
-                    {observacoes.length === 0 ? (
-                      <div className="text-muted-foreground text-center py-8">Nenhuma observação cadastrada.</div>
-                    ) : (
-                      <Accordion type="multiple" className="w-full">
-                        {observacoes.map(o => (
-                          <AccordionItem key={o.id} value={o.id}>
-                            <AccordionTrigger>
-                              <span className="font-semibold text-base">{o.observacao.slice(0, 32)}{o.observacao.length > 32 ? '...' : ''}{o.data_observacao ? ` - ${new Date(o.data_observacao).toLocaleDateString()}` : ''}</span>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="flex justify-end gap-2 mb-2">
-                                <button onClick={() => handleOpenEditObs(o)} className="p-1 rounded hover:bg-muted" title="Editar"><Pencil className="w-4 h-4" /></button>
-                                <button onClick={() => handleDeleteObs(o.id)} className="p-1 rounded hover:bg-muted text-destructive" title="Excluir"><Trash className="w-4 h-4" /></button>
-                              </div>
-                              <Tabs defaultValue="info" className="w-full">
-                                <TabsList className="w-full mb-2">
-                                  <TabsTrigger value="info" className="flex-1">Informações</TabsTrigger>
-                                </TabsList>
-                                <TabsContent value="info">
-                                  <div className="space-y-2">
-                                    <div><b>Data:</b> {o.data_observacao ? new Date(o.data_observacao).toLocaleDateString() : '-'}</div>
-                                    <div><b>Observação:</b></div>
-                                    <div className="bg-muted rounded p-2 whitespace-pre-line break-words text-sm">{o.observacao}</div>
-                                  </div>
-                                </TabsContent>
-                              </Tabs>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    )}
-                    <UIDialog open={modalObsOpen} onOpenChange={setModalObsOpen}>
-                      <UIDialogContent className="max-w-md w-full">
-                        <UIDialogHeader>
-                          <UIDialogTitle>{editObs ? 'Editar' : 'Adicionar'} Observação</UIDialogTitle>
-                        </UIDialogHeader>
-                        <form onSubmit={e => {e.preventDefault(); handleSaveObs();}} className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="data-obs">Data</Label>
-                            <Input 
-                              id="data-obs"
-                              type="date" 
-                              value={formObs.data_observacao} 
-                              onChange={e => setFormObs(f => ({...f, data_observacao: e.target.value}))} 
-                              required 
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="observacao">Observação</Label>
-                            <Textarea 
-                              id="observacao"
-                              value={formObs.observacao} 
-                              onChange={e => setFormObs(f => ({...f, observacao: e.target.value}))} 
-                              required 
-                              placeholder="Descreva a observação..." 
-                              className="min-h-[100px]"
-                            />
-                          </div>
-                          <div className="flex justify-end gap-2 pt-4">
-                            <Button type="button" variant="outline" onClick={() => setModalObsOpen(false)}>Cancelar</Button>
-                            <Button type="submit">Salvar</Button>
-                          </div>
-                        </form>
-                      </UIDialogContent>
-                    </UIDialog>
-                  </div>
-                ) : null}
-                </div>
-              )}
-            </div>
-          </section>
-        </div>
-      </DialogContent>
+                )}
+              </div>
+            </section>
+          </div>
+          )}
+        </DialogContent>
       </Dialog>
+      
+      {/* Diálogos de Manutenções Antigas e Observações - compartilhados entre mobile e desktop */}
+      <UIDialog open={modalManutAntigaOpen} onOpenChange={setModalManutAntigaOpen}>
+        <UIDialogContent className="max-w-md w-full">
+          <UIDialogHeader>
+            <UIDialogTitle>{editManutAntiga ? 'Editar' : 'Adicionar'} Manutenção Antiga</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={e => {e.preventDefault(); handleSaveManutAntiga();}} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="data-servico">Data do Serviço</Label>
+              <Input 
+                id="data-servico"
+                type="date" 
+                value={formManutAntiga.data} 
+                onChange={e => setFormManutAntiga(f => ({...f, data: e.target.value}))} 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="titulo">Título</Label>
+              <Input 
+                id="titulo"
+                type="text" 
+                value={formManutAntiga.titulo} 
+                onChange={e => setFormManutAntiga(f => ({...f, titulo: e.target.value}))} 
+                required 
+                placeholder="Ex: Troca de embreagem, revisão geral..." 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="pecas">Peças/Serviços</Label>
+              <Textarea 
+                id="pecas"
+                value={formManutAntiga.pecas} 
+                onChange={e => setFormManutAntiga(f => ({...f, pecas: e.target.value}))} 
+                required 
+                placeholder="Descreva as peças e serviços realizados..." 
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setModalManutAntigaOpen(false)}>Cancelar</Button>
+              <Button type="submit">Salvar</Button>
+            </div>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
+      
+      <UIDialog open={modalObsOpen} onOpenChange={setModalObsOpen}>
+        <UIDialogContent className="max-w-md w-full">
+          <UIDialogHeader>
+            <UIDialogTitle>{editObs ? 'Editar' : 'Adicionar'} Observação</UIDialogTitle>
+          </UIDialogHeader>
+          <form onSubmit={e => {e.preventDefault(); handleSaveObs();}} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="data-obs">Data</Label>
+              <Input 
+                id="data-obs"
+                type="date" 
+                value={formObs.data_observacao} 
+                onChange={e => setFormObs(f => ({...f, data_observacao: e.target.value}))} 
+                required 
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="observacao">Observação</Label>
+              <Textarea 
+                id="observacao"
+                value={formObs.observacao} 
+                onChange={e => setFormObs(f => ({...f, observacao: e.target.value}))} 
+                required 
+                placeholder="Descreva a observação..." 
+                className="min-h-[100px]"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={() => setModalObsOpen(false)}>Cancelar</Button>
+              <Button type="submit">Salvar</Button>
+            </div>
+          </form>
+        </UIDialogContent>
+      </UIDialog>
     </React.Fragment>
   )
 }

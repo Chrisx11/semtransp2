@@ -11,8 +11,184 @@ import { toast } from "sonner"
 import { Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+
+// Componente Mobile View
+function PlanejamentoMobileView({
+  mecanicos,
+  loading,
+  error,
+  getStatusColor,
+  onRefresh,
+}: {
+  mecanicos: any[]
+  loading: boolean
+  error: string | null
+  getStatusColor: (status: string) => string
+  onRefresh: () => void
+}) {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12 p-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center p-4">
+        <div className="h-16 w-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <RefreshCw className="h-8 w-8 text-red-500" />
+        </div>
+        <h3 className="text-lg font-medium mb-2">Erro ao carregar dados</h3>
+        <p className="text-muted-foreground text-sm mb-6">
+          Não foi possível carregar os dados do planejamento.
+        </p>
+        <Button onClick={onRefresh} size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Tentar novamente
+        </Button>
+      </div>
+    )
+  }
+
+  if (mecanicos.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center p-4">
+        <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <Loader2 className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-medium mb-2">Nenhuma ordem encontrada</h3>
+        <p className="text-muted-foreground text-sm">
+          Não há ordens de serviço disponíveis para planejamento.
+        </p>
+      </div>
+    )
+  }
+
+  // Ordenar mecânicos por número de ordens
+  const mecanicosOrdenados = [...mecanicos].sort((a, b) => {
+    const ordensA = a.ordens.filter((o: any) => o.status !== 'Finalizado' && o.status !== 'Concluída').length
+    const ordensB = b.ordens.filter((o: any) => o.status !== 'Finalizado' && o.status !== 'Concluída').length
+    return ordensB - ordensA
+  })
+
+  return (
+    <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
+      <div className="space-y-1 px-1">
+        <h1 className="text-xl font-bold text-primary">Planejamento</h1>
+        <p className="text-xs text-muted-foreground">Ordens organizadas por mecânico</p>
+      </div>
+
+      <Accordion type="single" collapsible className="w-full space-y-2">
+        {mecanicosOrdenados.map((mecanico) => {
+          const ordensFiltradas = mecanico.ordens.filter((ordem: any) => 
+            ordem.status !== 'Finalizado' && ordem.status !== 'Concluída'
+          )
+          
+          const ordensOrdenadas = [...ordensFiltradas].sort((a: any, b: any) => {
+            if (a.ordem_execucao && b.ordem_execucao) {
+              return a.ordem_execucao - b.ordem_execucao
+            }
+            if (a.ordem_execucao) return -1
+            if (b.ordem_execucao) return 1
+            const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
+            const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
+            return numA - numB
+          })
+
+          return (
+            <AccordionItem key={mecanico.id} value={mecanico.id} className="border rounded-lg px-2 bg-card max-w-full">
+              <AccordionTrigger className="hover:no-underline py-3">
+                <div className="flex items-center justify-between w-full pr-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-primary">
+                        {mecanico.nome.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-sm truncate">{mecanico.nome}</span>
+                  </div>
+                  <Badge variant="secondary" className="ml-2 flex-shrink-0 text-xs px-1.5 py-0">
+                    {ordensOrdenadas.length}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-1.5 pt-1.5 pb-2">
+                  {ordensOrdenadas.length > 0 ? (
+                    ordensOrdenadas.map((ordem: any) => {
+                      const placa = typeof ordem.veiculoInfo === 'string' 
+                        ? ordem.veiculoInfo.split(' - ')[0] 
+                        : 'Placa'
+                      
+                      const dataFormatada = new Date(ordem.data).toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: '2-digit'
+                      })
+
+                      return (
+                        <Card key={ordem.id} className="border border-primary/20 shadow-sm max-w-full">
+                          <CardContent className="p-2">
+                            <div className="flex items-start gap-2">
+                              <div className={cn("w-1 h-full rounded-full flex-shrink-0", getStatusColor(ordem.status))} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1.5 mb-1">
+                                  <div className="flex items-center gap-1 min-w-0">
+                                    <span className="font-bold text-sm truncate">{placa}</span>
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 flex-shrink-0">
+                                      #{ordem.numero.replace('OS-', '')}
+                                    </Badge>
+                                  </div>
+                                  {ordem.ordem_execucao && (
+                                    <Badge className="bg-primary text-white text-[10px] w-4 h-4 p-0 flex items-center justify-center flex-shrink-0">
+                                      {ordem.ordem_execucao}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground line-clamp-2 mb-1">
+                                  {ordem.defeitosRelatados || "Sem descrição"}
+                                </div>
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="text-xs text-muted-foreground">{dataFormatada}</span>
+                                  <Badge 
+                                    className={cn(
+                                      "text-[10px] px-1 py-0",
+                                      getStatusColor(ordem.status),
+                                      "text-white"
+                                    )}
+                                  >
+                                    {ordem.status}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })
+                  ) : (
+                    <div className="text-center text-muted-foreground text-xs py-4">
+                      Nenhuma ordem pendente
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )
+        })}
+      </Accordion>
+    </div>
+  )
+}
 
 export default function PlanejamentoPage() {
+  const isMobile = useIsMobile()
   const [mecanicos, setMecanicos] = useState<any[]>([])
   const [mecanicoIds, setMecanicoIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -455,6 +631,19 @@ export default function PlanejamentoPage() {
   // Manipulador de arrastar sobre
   const handleDragOver = (event: DragOverEvent) => {
     // Não precisa fazer nada especial aqui por enquanto
+  }
+
+  // Renderizar versão mobile
+  if (isMobile) {
+    return (
+      <PlanejamentoMobileView
+        mecanicos={mecanicos}
+        loading={loading}
+        error={error}
+        getStatusColor={getStatusColor}
+        onRefresh={carregarDados}
+      />
+    )
   }
 
   return (

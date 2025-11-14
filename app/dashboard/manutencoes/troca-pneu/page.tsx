@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { supabase } from "@/lib/supabase"
 import { Search, Plus, Disc, Car, Save, RefreshCw, Loader2, FileDown, AlertCircle, CheckCircle2, MoreVertical, Eye, ChevronDown, ChevronUp, Gauge, Wrench, Info, Sparkles, X, Pencil, Trash2, History, Calendar } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { cn } from "@/lib/utils"
 
 // Importar jspdf e autotable
 import jsPDF from 'jspdf'
@@ -2260,10 +2262,252 @@ export default function TrocaPneuPage() {
     return veiculo ? `${veiculo.placa} - ${veiculo.modelo} ${veiculo.marca}` : "Selecione um veículo"
   }
 
+  const isMobile = useIsMobile()
+
+  // Componente Mobile View
+  function TrocaPneuMobileView() {
+    const getProgressColor = (progresso: number) => {
+      if (progresso >= 85) return "bg-red-500"
+      if (progresso >= 51) return "bg-yellow-500"
+      return "bg-green-500"
+    }
+    
+    const getStatusIcon = (progresso: number) => {
+      if (progresso >= 85) return <AlertCircle className="h-3 w-3 text-red-500" />
+      if (progresso >= 51) return <AlertCircle className="h-3 w-3 text-yellow-500" />
+      return <CheckCircle2 className="h-3 w-3 text-green-500" />
+    }
+
+    return (
+      <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
+        <div className="space-y-1 px-1">
+          <h1 className="text-xl font-bold text-primary">Troca de Pneu</h1>
+          <p className="text-xs text-muted-foreground">Acompanhamento de manutenções</p>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por placa, modelo ou marca..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : veiculosFiltrados.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">
+            Nenhum veículo encontrado
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {veiculosFiltrados.map((veiculo) => {
+              const progresso = progressoPorVeiculo[veiculo.id] || {
+                rodizio: { progresso: 0, kmRestante: 0, kmTotal: 0, proximaManutencao: 0 },
+                alinhamento: { progresso: 0, kmRestante: 0, kmTotal: 0, proximaManutencao: 0 },
+                balanceamento: { progresso: 0, kmRestante: 0, kmTotal: 0, proximaManutencao: 0 }
+              }
+
+              return (
+                <Card key={veiculo.id} className="border-l-4 border-l-primary">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-base">{veiculo.placa}</CardTitle>
+                        <CardDescription className="text-xs">
+                          {veiculo.marca} {veiculo.modelo}
+                        </CardDescription>
+                        <CardDescription className="text-xs font-medium">
+                          KM: {
+                            veiculo.kmAtual !== null && veiculo.kmAtual !== undefined && veiculo.kmAtual !== 0
+                              ? veiculo.kmAtual.toLocaleString('pt-BR') 
+                              : veiculo.kmAtual === 0
+                                ? "0"
+                                : "N/A"
+                          }
+                        </CardDescription>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => abrirVisualizacao(veiculo)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={async () => {
+                            const trocasVeiculo = trocasPneu
+                              .filter(t => t.veiculo_id === veiculo.id)
+                              .sort((a, b) => new Date(b.data_troca).getTime() - new Date(a.data_troca).getTime())
+                            
+                            if (trocasVeiculo.length > 0) {
+                              carregarTrocaParaEdicao(trocasVeiculo[0])
+                            } else {
+                              toast({
+                                variant: "destructive",
+                                title: "Nenhuma troca encontrada",
+                                description: "Este veículo ainda não possui trocas de pneu registradas."
+                              })
+                            }
+                          }}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar Última Troca
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => abrirHistorico(veiculo)}>
+                            <History className="mr-2 h-4 w-4" />
+                            Histórico
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      className="text-xs px-3 py-1.5 h-8 w-full mt-2"
+                      onClick={() => abrirModalTrocaPneu(veiculo)}
+                    >
+                      <Plus className="mr-1.5 h-3.5 w-3.5" />
+                      Nova Troca
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-0">
+                    {/* Rodízio de Pneus */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Disc className="h-3 w-3 text-muted-foreground" />
+                          <Label className="text-xs font-medium">Rodízio</Label>
+                          {getStatusIcon(progresso.rodizio.progresso)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {progresso.rodizio.progresso >= 100 ? (
+                            <span className="text-red-500 font-semibold">Vencido!</span>
+                          ) : progresso.rodizio.progresso >= 85 ? (
+                            <span className="text-red-500 font-semibold">Atenção!</span>
+                          ) : progresso.rodizio.kmRestante > 0 ? (
+                            `${progresso.rodizio.kmRestante.toLocaleString('pt-BR')} km`
+                          ) : (
+                            "Sem histórico"
+                          )}
+                        </div>
+                      </div>
+                      <Progress 
+                        value={Math.min(100, progresso.rodizio.progresso)} 
+                        className="h-2"
+                        indicatorClassName={getProgressColor(progresso.rodizio.progresso)}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {progresso.rodizio.ultimaManutencao ? (
+                          <>
+                            Último: {progresso.rodizio.ultimaManutencao.data_troca 
+                              ? new Date(progresso.rodizio.ultimaManutencao.data_troca).toLocaleDateString('pt-BR') 
+                              : ''} • {progresso.rodizio.ultimaManutencao.km.toLocaleString('pt-BR')} km
+                          </>
+                        ) : (
+                          "Sem histórico"
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Alinhamento */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Car className="h-3 w-3 text-muted-foreground" />
+                          <Label className="text-xs font-medium">Alinhamento</Label>
+                          {getStatusIcon(progresso.alinhamento.progresso)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {progresso.alinhamento.progresso >= 100 ? (
+                            <span className="text-red-500 font-semibold">Vencido!</span>
+                          ) : progresso.alinhamento.progresso >= 85 ? (
+                            <span className="text-red-500 font-semibold">Atenção!</span>
+                          ) : progresso.alinhamento.kmRestante > 0 ? (
+                            `${progresso.alinhamento.kmRestante.toLocaleString('pt-BR')} km`
+                          ) : (
+                            "Sem histórico"
+                          )}
+                        </div>
+                      </div>
+                      <Progress 
+                        value={Math.min(100, progresso.alinhamento.progresso)} 
+                        className="h-2"
+                        indicatorClassName={getProgressColor(progresso.alinhamento.progresso)}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {progresso.alinhamento.ultimaManutencao ? (
+                          <>
+                            Último: {progresso.alinhamento.ultimaManutencao.data_troca 
+                              ? new Date(progresso.alinhamento.ultimaManutencao.data_troca).toLocaleDateString('pt-BR') 
+                              : ''} • {progresso.alinhamento.ultimaManutencao.km.toLocaleString('pt-BR')} km
+                          </>
+                        ) : (
+                          "Sem histórico"
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Balanceamento */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Disc className="h-3 w-3 text-muted-foreground" />
+                          <Label className="text-xs font-medium">Balanceamento</Label>
+                          {getStatusIcon(progresso.balanceamento.progresso)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {progresso.balanceamento.progresso >= 100 ? (
+                            <span className="text-red-500 font-semibold">Vencido!</span>
+                          ) : progresso.balanceamento.progresso >= 85 ? (
+                            <span className="text-red-500 font-semibold">Atenção!</span>
+                          ) : progresso.balanceamento.kmRestante > 0 ? (
+                            `${progresso.balanceamento.kmRestante.toLocaleString('pt-BR')} km`
+                          ) : (
+                            "Sem histórico"
+                          )}
+                        </div>
+                      </div>
+                      <Progress 
+                        value={Math.min(100, progresso.balanceamento.progresso)} 
+                        className="h-2"
+                        indicatorClassName={getProgressColor(progresso.balanceamento.progresso)}
+                      />
+                      <div className="text-xs text-muted-foreground">
+                        {progresso.balanceamento.ultimaManutencao ? (
+                          <>
+                            Último: {progresso.balanceamento.ultimaManutencao.data_troca 
+                              ? new Date(progresso.balanceamento.ultimaManutencao.data_troca).toLocaleDateString('pt-BR') 
+                              : ''} • {progresso.balanceamento.ultimaManutencao.km.toLocaleString('pt-BR')} km
+                          </>
+                        ) : (
+                          "Sem histórico"
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Retornar a interface da página
   return (
     <>
       <Toaster />
+      {isMobile ? (
+        <TrocaPneuMobileView />
+      ) : (
       <div className="space-y-6">
         <Card className="shadow-md-custom">
           <CardContent className="p-6">
@@ -2678,6 +2922,7 @@ export default function TrocaPneuPage() {
           </CardContent>
         </Card>
       </div>
+      )}
       
       {/* Dialog de Nova Troca de Pneu */}
       <Dialog open={dialogTrocaPneuOpen} onOpenChange={setDialogTrocaPneuOpen}>

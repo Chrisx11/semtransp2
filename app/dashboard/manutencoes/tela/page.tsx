@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge"
 import { getOrdensServicoSupabase, type OrdemServico } from "@/services/ordem-servico-service"
 import { cn } from "@/lib/utils"
 import { Wrench, Clock, FileText, AlertCircle, Package, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 // Componente para exibir a prioridade com a cor apropriada
-const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => {
+const PrioridadeBadge = ({ prioridade, isMobile = false }: { prioridade: string; isMobile?: boolean }) => {
   let badgeClasses = ""
   switch (prioridade) {
     case "Baixa":
@@ -26,11 +28,12 @@ const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => {
     default:
       badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80" // Cinza
   }
-  return <Badge className={cn("font-medium text-sm px-2 py-0.5", badgeClasses)} variant="outline">{prioridade}</Badge>
+  const sizeClasses = isMobile ? "text-[10px] px-1 py-0" : "text-sm px-2 py-0.5"
+  return <Badge className={cn("font-medium", sizeClasses, badgeClasses)} variant="outline">{prioridade}</Badge>
 }
 
 // Componente para exibir o status com a cor apropriada
-const StatusBadge = ({ status }: { status: string }) => {
+const StatusBadge = ({ status, isMobile = false }: { status: string; isMobile?: boolean }) => {
   // Definir as classes de cores personalizadas para cada status
   let badgeClasses = ""
 
@@ -85,8 +88,9 @@ const StatusBadge = ({ status }: { status: string }) => {
       badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80"
   }
 
+  const sizeClasses = isMobile ? "text-[10px] px-1 py-0" : "text-sm px-2 py-0.5"
   return (
-    <Badge className={cn("font-medium text-sm px-2 py-0.5", badgeClasses)} variant="outline">
+    <Badge className={cn("font-medium", sizeClasses, badgeClasses)} variant="outline">
       {status}
     </Badge>
   )
@@ -166,7 +170,132 @@ const OrdemCard = ({ ordem }: OrdemCardProps) => {
   )
 }
 
+// Componente Mobile View
+function TelaMobileView({ 
+  mecanicosComOrdens, 
+  loading 
+}: { 
+  mecanicosComOrdens: { [key: string]: OrdemServico[] }
+  loading: boolean 
+}) {
+  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
+    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
+    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
+    return nomeA.localeCompare(nomeB)
+  })
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] p-4">
+        <div className="text-center">
+          <Wrench className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-muted-foreground">Carregando ordens de serviço...</h2>
+        </div>
+      </div>
+    )
+  }
+
+  if (sortedMecanicos.length === 0) {
+    return (
+      <div className="text-center p-6 bg-muted/50 rounded-lg m-4">
+        <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" />
+        <h2 className="text-xl font-bold">Nenhuma ordem de serviço em andamento</h2>
+        <p className="text-sm text-muted-foreground mt-2">Todas as ordens foram finalizadas</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
+      <div className="space-y-1 px-1">
+        <h1 className="text-xl font-bold text-primary">Tela de Manutenções</h1>
+        <p className="text-xs text-muted-foreground">Ordens agrupadas por mecânico</p>
+      </div>
+
+      <Accordion type="single" collapsible className="w-full space-y-2">
+        {sortedMecanicos.map((mecanicoId) => {
+          const ordensOriginais = mecanicosComOrdens[mecanicoId]
+          const nomeMecanicoOriginal = ordensOriginais[0]?.mecanicoInfo || "Sem mecânico atribuído"
+          const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
+          
+          const ordens = ordensOriginais
+            .filter(ordem =>
+              ordem.status === "Em Serviço" ||
+              ordem.status === "Fila de Serviço" ||
+              ordem.status === "Aguardando Mecânico"
+            )
+            .sort((a, b) => {
+              if (a.ordem_execucao && b.ordem_execucao) {
+                return a.ordem_execucao - b.ordem_execucao
+              }
+              if (a.ordem_execucao) return -1
+              if (b.ordem_execucao) return 1
+              const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
+              const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
+              return numA - numB
+            })
+
+          return (
+            <AccordionItem key={mecanicoId} value={mecanicoId} className="border rounded-lg px-2 bg-card max-w-full">
+              <AccordionTrigger className="hover:no-underline py-3">
+                <div className="flex items-center justify-between w-full pr-1 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <span className="font-semibold text-sm truncate">{nomeMecanico}</span>
+                  </div>
+                  <Badge variant="secondary" className="ml-2 flex-shrink-0 text-xs px-1.5 py-0">
+                    {ordens.length}
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-1.5 pt-1.5 pb-2">
+                  {ordens.map(ordem => {
+                    const formatarData = (dataString: string) => {
+                      if (!dataString) return "—"
+                      try {
+                        const [ano, mes, dia] = dataString.split('-')
+                        if (ano && mes && dia) {
+                          return `${dia}/${mes}/${ano}`
+                        }
+                        return dataString
+                      } catch {
+                        return dataString
+                      }
+                    }
+
+                    return (
+                      <Card key={ordem.id} className="border border-primary/20 shadow-sm max-w-full">
+                        <CardContent className="p-2">
+                          <div className="flex flex-col gap-1.5 mb-1.5">
+                            <div className="flex items-center justify-between gap-1.5 min-w-0">
+                              <span className="font-bold text-sm truncate">{ordem.numero}</span>
+                              <div className="flex gap-0.5 flex-shrink-0">
+                                <StatusBadge status={ordem.status} isMobile={true} />
+                                <PrioridadeBadge prioridade={ordem.prioridade} isMobile={true} />
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">{ordem.veiculoInfo}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatarData(ordem.data)}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )
+        })}
+      </Accordion>
+    </div>
+  )
+}
+
 export default function TelaManutencoesPage() {
+  const isMobile = useIsMobile()
   const [mecanicosComOrdens, setMecanicosComOrdens] = useState<{ [key: string]: OrdemServico[] }>({})
   const [loading, setLoading] = useState(true)
 
@@ -226,6 +355,10 @@ export default function TelaManutencoesPage() {
     const timerDados = setInterval(() => { fetchData() }, 10000)
     return () => { clearInterval(timerDados) }
   }, [])
+
+  if (isMobile) {
+    return <TelaMobileView mecanicosComOrdens={mecanicosComOrdens} loading={loading} />
+  }
 
   if (loading) {
     return (

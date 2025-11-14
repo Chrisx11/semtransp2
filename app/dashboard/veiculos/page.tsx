@@ -51,6 +51,7 @@ import { TrocaOleoDialog } from "@/components/troca-oleo-dialog"
 import { getSaidasSupabase, type Saida } from "@/services/saida-service"
 import { startOfMonth, endOfMonth } from "date-fns"
 import { RelatorioAvancadoVeiculosDialog } from "@/components/relatorio-avancado-veiculos-dialog"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "placa" | "modelo" | "marca" | "ano" | "cor" | "tipo" | "secretaria" | "status" | "despesaMensal" | null
@@ -75,7 +76,266 @@ const secretarias = [
   "Progem",
 ]
 
+// Componente Mobile View
+function VeiculosMobileView({
+  veiculos,
+  isLoading,
+  isSaidasLoading,
+  searchTerm,
+  setSearchTerm,
+  secretariaFilter,
+  setSecretariaFilter,
+  filteredData,
+  processedData,
+  paginatedData,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalPages,
+  pageNumbers,
+  handleNew,
+  handleEdit,
+  handleView,
+  handleDeleteClick,
+  secretarias,
+  getDespesaMensal,
+  setVeiculoTrocaOleo,
+  setTrocaOleoOpen,
+}: {
+  veiculos: Veiculo[]
+  isLoading: boolean
+  isSaidasLoading: boolean
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  secretariaFilter: string
+  setSecretariaFilter: (value: string) => void
+  filteredData: Veiculo[]
+  processedData: Veiculo[]
+  paginatedData: Veiculo[]
+  currentPage: number
+  setCurrentPage: (page: number) => void
+  itemsPerPage: string
+  setItemsPerPage: (value: string) => void
+  totalPages: number
+  pageNumbers: number[]
+  handleNew: () => void
+  handleEdit: (id: string) => void
+  handleView: (id: string) => void
+  handleDeleteClick: (id: string) => void
+  secretarias: string[]
+  getDespesaMensal: (id: string) => number
+  setVeiculoTrocaOleo: (veiculo: any) => void
+  setTrocaOleoOpen: (open: boolean) => void
+}) {
+  return (
+    <div className="w-full max-w-full overflow-x-hidden px-6 py-1.5">
+      <div className="space-y-0.5 mb-2">
+        <h1 className="text-base font-bold text-primary text-center">Veículos</h1>
+        <p className="text-[9px] text-muted-foreground text-center">Gerencie os veículos</p>
+      </div>
+
+      <div className="flex flex-col gap-1.5 mb-2">
+        <div className="relative w-full">
+          <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar..."
+            className="pl-8 h-9 text-sm w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <div className="flex items-center min-w-0">
+              <Filter className="mr-1 h-3 w-3 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar secretaria" className="truncate" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as secretarias</SelectItem>
+            {secretarias.map((secretaria) => (
+              <SelectItem key={secretaria} value={secretaria}>
+                {secretaria}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button className="w-full btn-gradient h-9 text-sm" onClick={handleNew}>
+          <Plus className="mr-1 h-3 w-3" /> Novo Veículo
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p className="text-sm text-muted-foreground">Carregando veículos...</p>
+          </div>
+        </div>
+      ) : paginatedData.length > 0 ? (
+        <div className="space-y-1 w-full">
+          {paginatedData.map((veiculo) => (
+            <Card key={veiculo.id} className="border-l-4 border-l-primary w-full">
+              <CardContent className="p-2">
+                <div className="flex items-start justify-between gap-1.5 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden pr-1">
+                    <div className="font-bold text-sm truncate">{veiculo.placa}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {veiculo.marca} {veiculo.modelo} - {veiculo.ano}
+                    </div>
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[50px]">
+                        <span className="truncate block">{veiculo.tipo}</span>
+                      </Badge>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[70px]">
+                        <span className="truncate block">{veiculo.secretaria}</span>
+                      </Badge>
+                      <Badge variant={veiculo.status === "Ativo" ? "default" : "destructive"} className="text-[9px] h-4 px-1">
+                        {veiculo.status}
+                      </Badge>
+                      {!isSaidasLoading && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 font-bold text-blue-900 max-w-[70px]">
+                          <span className="truncate block">R$ {getDespesaMensal(veiculo.id).toFixed(2)}</span>
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Abrir menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => handleView(veiculo.id)}
+                        className="text-blue-600 dark:text-blue-400 focus:text-blue-600 dark:focus:text-blue-400"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEdit(veiculo.id)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setVeiculoTrocaOleo(veiculo)
+                          setTrocaOleoOpen(true)
+                        }}
+                      >
+                        <span className="mr-2">🛢️</span>
+                        Registrar Troca de Óleo
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(veiculo.id)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          <Car className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+          <p>
+            {searchTerm || secretariaFilter ? "Nenhum resultado encontrado" : "Nenhum veículo cadastrado"}
+          </p>
+        </div>
+      )}
+
+      {processedData.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-2 w-full">
+          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 w-full justify-center max-w-full">
+              <Select
+                value={itemsPerPage}
+                onValueChange={(value) => {
+                  setItemsPerPage(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger className="w-[60px] h-8 text-xs flex-shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-center text-xs truncate min-w-0">
+                {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
+                {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
+              </span>
+            </div>
+          </div>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage > 1) setCurrentPage(currentPage - 1)
+                  }}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {pageNumbers.map((pageNumber, index) => (
+                <PaginationItem key={index}>
+                  {pageNumber < 0 ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === pageNumber}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setCurrentPage(pageNumber)
+                      }}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                  }}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function VeiculosPage() {
+  const isMobile = useIsMobile()
   // Estado para modo de visualização
   const [viewMode, setViewMode] = useState<ViewMode>("table")
 
@@ -484,6 +744,78 @@ export default function VeiculosPage() {
     return saidas
       .filter(s => s.veiculoId === id && s.data && new Date(s.data) >= inicioMes && new Date(s.data) <= fimMes)
       .reduce((acc, s) => acc + ((s.valorUnitario ?? 0) * s.quantidade), 0)
+  }
+
+  // Renderizar versão mobile
+  if (isMobile) {
+    return (
+      <>
+        <VeiculosMobileView
+          veiculos={veiculos}
+          isLoading={isLoading}
+          isSaidasLoading={isSaidasLoading}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          secretariaFilter={secretariaFilter}
+          setSecretariaFilter={setSecretariaFilter}
+          filteredData={filteredData}
+          processedData={processedData}
+          paginatedData={paginatedData}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalPages={totalPages}
+          pageNumbers={pageNumbers}
+          handleNew={handleNew}
+          handleEdit={handleEdit}
+          handleView={handleView}
+          handleDeleteClick={handleDeleteClick}
+          secretarias={secretarias}
+          getDespesaMensal={getDespesaMensal}
+          setVeiculoTrocaOleo={setVeiculoTrocaOleo}
+          setTrocaOleoOpen={setTrocaOleoOpen}
+        />
+        <VeiculoForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          editingId={isViewing ? viewingId : editingId}
+          onSuccess={loadData}
+          isViewing={isViewing}
+        />
+        <DeleteConfirmation
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleDelete}
+          title="Excluir veículo"
+          description="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
+        />
+        {veiculoTrocaOleo && (
+          <TrocaOleoDialog
+            isOpen={trocaOleoOpen}
+            onClose={() => setTrocaOleoOpen(false)}
+            veiculo={veiculoTrocaOleo}
+            onSuccess={() => {
+              setTrocaOleoOpen(false)
+              setVeiculoTrocaOleo(null)
+              loadData()
+            }}
+          />
+        )}
+        <RelatorioAvancadoVeiculosDialog
+          open={relatorioAvancadoOpen}
+          onOpenChange={setRelatorioAvancadoOpen}
+          veiculos={veiculos}
+          onExport={() => {
+            toast({
+              title: "Exportação concluída",
+              description: "O relatório avançado foi gerado com sucesso.",
+            })
+          }}
+        />
+        <Toaster />
+      </>
+    )
   }
 
   return (

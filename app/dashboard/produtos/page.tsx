@@ -49,12 +49,251 @@ import { Label } from "@/components/ui/label"
 import { exportToCSV, exportToPDF, exportToXLSX } from "@/utils/export-produtos-utils"
 import { ProdutoCard } from "@/components/produto-card"
 import { ProdutoVisualizacao } from "@/components/produto-visualizacao"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Badge } from "@/components/ui/badge"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "descricao" | "categoria" | "unidade" | "localizacao" | "estoque" | null
 type ViewMode = "table" | "cards"
 
+// Componente Mobile View
+function ProdutosMobileView({
+  produtos,
+  isLoading,
+  searchTerm,
+  setSearchTerm,
+  categoriaFilter,
+  setCategoriaFilter,
+  filteredData,
+  processedData,
+  paginatedData,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalPages,
+  pageNumbers,
+  handleNew,
+  handleEdit,
+  handleView,
+  handleDeleteClick,
+  handleAjustarEstoque,
+  categorias,
+}: {
+  produtos: Produto[]
+  isLoading: boolean
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  categoriaFilter: string
+  setCategoriaFilter: (value: string) => void
+  filteredData: Produto[]
+  processedData: Produto[]
+  paginatedData: Produto[]
+  currentPage: number
+  setCurrentPage: (page: number) => void
+  itemsPerPage: string
+  setItemsPerPage: (value: string) => void
+  totalPages: number
+  pageNumbers: number[]
+  handleNew: () => void
+  handleEdit: (id: string) => void
+  handleView: (produto: Produto) => void
+  handleDeleteClick: (id: string) => void
+  handleAjustarEstoque: (produto: Produto) => void
+  categorias: string[]
+}) {
+  return (
+    <div className="w-full max-w-full overflow-x-hidden px-6 py-1.5">
+      <div className="space-y-0.5 mb-2">
+        <h1 className="text-base font-bold text-primary text-center">Produtos</h1>
+        <p className="text-[9px] text-muted-foreground text-center">Gerencie os produtos</p>
+      </div>
+
+      <div className="flex flex-col gap-1.5 mb-2">
+        <div className="relative w-full">
+          <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar..."
+            className="pl-8 h-9 text-sm w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <div className="flex items-center min-w-0">
+              <Filter className="mr-1 h-3 w-3 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar categoria" className="truncate" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as categorias</SelectItem>
+            {categorias.map((categoria) => (
+              <SelectItem key={categoria} value={categoria}>
+                {categoria}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button className="w-full btn-gradient h-9 text-sm" onClick={handleNew}>
+          <Plus className="mr-1 h-3 w-3" /> Novo Produto
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p className="text-sm text-muted-foreground">Carregando produtos...</p>
+          </div>
+        </div>
+      ) : paginatedData.length > 0 ? (
+        <div className="space-y-1 w-full">
+          {paginatedData.map((produto) => (
+            <Card key={produto.id} className="border-l-4 border-l-primary w-full">
+              <CardContent className="p-2">
+                <div className="flex items-start justify-between gap-1.5 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden pr-1">
+                    <div className="font-bold text-sm truncate">{produto.descricao}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {produto.categoria} • {produto.unidade}
+                    </div>
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[60px]">
+                        <span className="truncate block">{produto.localizacao}</span>
+                      </Badge>
+                      <Badge variant={produto.estoque > 0 ? "default" : "destructive"} className="text-[9px] h-4 px-1">
+                        Est: {produto.estoque}
+                      </Badge>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Abrir menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleView(produto)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Visualizar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEdit(produto.id)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAjustarEstoque(produto)}>
+                        <PackageCheck className="mr-2 h-4 w-4" />
+                        Ajustar Estoque
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(produto.id)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          <Package className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+          <p>
+            {searchTerm || categoriaFilter ? "Nenhum resultado encontrado" : "Nenhum produto cadastrado"}
+          </p>
+        </div>
+      )}
+
+      {processedData.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-2 w-full">
+          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 w-full justify-center max-w-full">
+              <Select
+                value={itemsPerPage}
+                onValueChange={(value) => {
+                  setItemsPerPage(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger className="w-[60px] h-8 text-xs flex-shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-center text-xs truncate min-w-0">
+                {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
+                {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
+              </span>
+            </div>
+          </div>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage > 1) setCurrentPage(currentPage - 1)
+                  }}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {pageNumbers.map((pageNumber, index) => (
+                <PaginationItem key={index}>
+                  {pageNumber < 0 ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === pageNumber}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setCurrentPage(pageNumber)
+                      }}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                  }}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProdutosPage() {
+  const isMobile = useIsMobile()
   // Estado para modo de visualização
   const [viewMode, setViewMode] = useState<ViewMode>("table")
 
@@ -469,6 +708,99 @@ export default function ProdutosPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, categoriaFilter])
+
+  // Renderizar versão mobile
+  if (isMobile) {
+    return (
+      <>
+        <ProdutosMobileView
+          produtos={produtos}
+          isLoading={isLoading}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          categoriaFilter={categoriaFilter}
+          setCategoriaFilter={setCategoriaFilter}
+          filteredData={filteredData}
+          processedData={processedData}
+          paginatedData={paginatedData}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalPages={totalPages}
+          pageNumbers={pageNumbers}
+          handleNew={handleNew}
+          handleEdit={handleEdit}
+          handleView={handleView}
+          handleDeleteClick={handleDeleteClick}
+          handleAjustarEstoque={handleAjustarEstoque}
+          categorias={categorias}
+        />
+        <ProdutoForm open={formOpen} onOpenChange={setFormOpen} editingId={editingId} onSuccess={loadData} />
+        <ProdutoVisualizacao open={viewOpen} onOpenChange={setViewOpen} produto={viewingProduto} onSuccess={loadData} />
+        <DeleteConfirmation
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleDelete}
+          title="Excluir produto"
+          description="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+        />
+        <Dialog open={ajustarEstoqueOpen} onOpenChange={setAjustarEstoqueOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Ajustar Estoque</DialogTitle>
+              <DialogDescription>
+                Ajuste o estoque do produto {produtoAjustando?.descricao}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="estoque-atual">Estoque Atual</Label>
+                <Input
+                  id="estoque-atual"
+                  type="number"
+                  value={produtoAjustando?.estoque || 0}
+                  disabled
+                  className="bg-muted"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="novo-estoque">Novo Estoque</Label>
+                <Input
+                  id="novo-estoque"
+                  type="number"
+                  min="0"
+                  value={novoEstoque}
+                  onChange={(e) => setNovoEstoque(e.target.value)}
+                  placeholder="Digite o novo estoque"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAjustarEstoqueOpen(false)
+                  setProdutoAjustando(null)
+                  setNovoEstoque("")
+                }}
+                disabled={isAdjusting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleAjustarEstoqueSubmit}
+                disabled={isAdjusting}
+              >
+                {isAdjusting ? "Ajustando..." : "Ajustar Estoque"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Toaster />
+      </>
+    )
+  }
 
   return (
     <div className="space-y-6">

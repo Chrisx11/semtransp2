@@ -43,6 +43,8 @@ import { useToast } from "@/hooks/use-toast"
 import { getColaboradores, deleteColaborador, type Colaborador } from "@/services/colaborador-service"
 import { exportToCSV, exportToPDF, formatPhoneForDisplay } from "@/utils/export-utils"
 import { ColaboradorCard } from "@/components/colaborador-card"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { Badge } from "@/components/ui/badge"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "nome" | "funcao" | "telefone" | "secretaria" | null
@@ -67,7 +69,229 @@ const secretarias = [
   "Progem",
 ]
 
+// Componente Mobile View
+function ColaboradoresMobileView({
+  colaboradores,
+  isLoading,
+  searchTerm,
+  setSearchTerm,
+  secretariaFilter,
+  setSecretariaFilter,
+  filteredData,
+  sortedData,
+  paginatedData,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalPages,
+  pageNumbers,
+  handleNew,
+  handleEdit,
+  handleDeleteClick,
+  secretarias,
+}: {
+  colaboradores: Colaborador[]
+  isLoading: boolean
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  secretariaFilter: string
+  setSecretariaFilter: (value: string) => void
+  filteredData: Colaborador[]
+  sortedData: Colaborador[]
+  paginatedData: Colaborador[]
+  currentPage: number
+  setCurrentPage: (page: number) => void
+  itemsPerPage: string
+  setItemsPerPage: (value: string) => void
+  totalPages: number
+  pageNumbers: number[]
+  handleNew: () => void
+  handleEdit: (id: string) => void
+  handleDeleteClick: (id: string) => void
+  secretarias: string[]
+}) {
+  return (
+    <div className="w-full max-w-full overflow-x-hidden px-6 py-1.5">
+      <div className="space-y-0.5 mb-2">
+        <h1 className="text-base font-bold text-primary text-center">Colaboradores</h1>
+        <p className="text-[9px] text-muted-foreground text-center">Gerencie os colaboradores</p>
+      </div>
+
+      <div className="flex flex-col gap-1.5 mb-2">
+        <div className="relative w-full">
+          <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar..."
+            className="pl-8 h-9 text-sm w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+          <SelectTrigger className="w-full h-9 text-sm">
+            <div className="flex items-center min-w-0">
+              <Filter className="mr-1 h-3 w-3 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar secretaria" className="truncate" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as secretarias</SelectItem>
+            {secretarias.map((secretaria) => (
+              <SelectItem key={secretaria} value={secretaria}>
+                {secretaria}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button className="w-full btn-gradient h-9 text-sm" onClick={handleNew}>
+          <Plus className="mr-1 h-3 w-3" /> Novo Colaborador
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <p className="text-sm text-muted-foreground">Carregando colaboradores...</p>
+          </div>
+        </div>
+      ) : paginatedData.length > 0 ? (
+        <div className="space-y-1 w-full">
+          {paginatedData.map((colaborador) => (
+            <Card key={colaborador.id} className="border-l-4 border-l-primary w-full">
+              <CardContent className="p-2">
+                <div className="flex items-start justify-between gap-1.5 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden pr-1">
+                    <div className="font-bold text-sm truncate">{colaborador.nome}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 truncate">{colaborador.funcao}</div>
+                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[60px]">
+                        <span className="truncate block">{formatPhoneForDisplay(colaborador.telefone)}</span>
+                      </Badge>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[80px]">
+                        <span className="truncate block">{colaborador.secretaria}</span>
+                      </Badge>
+                    </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
+                        <MoreVertical className="h-4 w-4" />
+                        <span className="sr-only">Abrir menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(colaborador.id)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(colaborador.id)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          <Users className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+          <p>
+            {searchTerm || secretariaFilter ? "Nenhum resultado encontrado" : "Nenhum colaborador cadastrado"}
+          </p>
+        </div>
+      )}
+
+      {sortedData.length > 0 && (
+        <div className="flex flex-col gap-1.5 mt-2 w-full">
+          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 w-full justify-center max-w-full">
+              <Select
+                value={itemsPerPage}
+                onValueChange={(value) => {
+                  setItemsPerPage(value)
+                  setCurrentPage(1)
+                }}
+              >
+                <SelectTrigger className="w-[60px] h-8 text-xs flex-shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-center text-xs truncate min-w-0">
+                {Math.min(sortedData.length, (currentPage - 1) * Number(itemsPerPage) + 1)}-
+                {Math.min(sortedData.length, currentPage * Number(itemsPerPage))} de {sortedData.length}
+              </span>
+            </div>
+          </div>
+
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage > 1) setCurrentPage(currentPage - 1)
+                  }}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {pageNumbers.map((pageNumber, index) => (
+                <PaginationItem key={index}>
+                  {pageNumber < 0 ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === pageNumber}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setCurrentPage(pageNumber)
+                      }}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                  }}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ColaboradoresPage() {
+  const isMobile = useIsMobile()
   // Estado para modo de visualização
   const [viewMode, setViewMode] = useState<ViewMode>("table")
 
@@ -320,6 +544,49 @@ export default function ColaboradoresPage() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, secretariaFilter])
+
+  // Renderizar versão mobile
+  if (isMobile) {
+    return (
+      <>
+        <ColaboradoresMobileView
+          colaboradores={colaboradores}
+          isLoading={isLoading}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          secretariaFilter={secretariaFilter}
+          setSecretariaFilter={setSecretariaFilter}
+          filteredData={filteredData}
+          sortedData={sortedData}
+          paginatedData={paginatedData}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalPages={totalPages}
+          pageNumbers={pageNumbers}
+          handleNew={handleNew}
+          handleEdit={handleEdit}
+          handleDeleteClick={handleDeleteClick}
+          secretarias={secretarias}
+        />
+        <ColaboradorForm
+          isOpen={formOpen}
+          onClose={() => setFormOpen(false)}
+          onSubmit={loadData}
+          colaborador={editingId ? colaboradores.find((c) => c.id === editingId) || null : null}
+        />
+        <DeleteConfirmation
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleDelete}
+          title="Excluir colaborador"
+          description="Tem certeza que deseja excluir este colaborador? Esta ação não pode ser desfeita."
+        />
+        <Toaster />
+      </>
+    )
+  }
 
   return (
     <div className="space-y-6">
