@@ -18,6 +18,7 @@ import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, Ale
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 // Interfaces para os dados
 interface VeiculoBase {
@@ -114,6 +115,16 @@ function isTrocaOleo(tipoServico: string) {
 // Adicionar função auxiliar para mobile
 function DashboardMobileView() {
   const { verificarPermissao } = useAuth()
+  const router = useRouter()
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
+  
+  const handleNavigation = (href: string) => {
+    setNavigatingTo(href)
+    // Pequeno delay para mostrar a animação antes de navegar
+    setTimeout(() => {
+      router.push(href)
+    }, 150)
+  }
   
   const atalhos = [
     // Cadastros
@@ -153,20 +164,36 @@ function DashboardMobileView() {
       <div className="grid gap-3">
         {atalhosPermitidos.map((atalho) => {
           const Icon = atalho.icon
+          const isNavigating = navigatingTo === atalho.href
           return (
-            <Link key={atalho.href} href={atalho.href} className="block">
-              <Card className="border border-primary/30 shadow-sm hover:shadow-md hover:bg-accent/50 transition-all duration-200 active:scale-[0.98]">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="space-y-1 flex-1 min-w-0">
-                    <h2 className="text-base font-semibold truncate">{atalho.title}</h2>
-                    <p className="text-xs text-muted-foreground truncate">{atalho.desc}</p>
-                  </div>
-                  <div className="p-2.5 bg-primary/10 rounded-lg text-primary flex-shrink-0 ml-3">
-                    <Icon className="h-5 w-5" />
+            <div
+              key={atalho.href}
+              onClick={() => handleNavigation(atalho.href)}
+              className="block cursor-pointer"
+            >
+              <Card className={`border-l-4 border-l-primary border border-primary/20 shadow-sm hover:shadow-md hover:bg-accent/50 transition-all duration-200 active:scale-[0.95] bg-gradient-to-r from-primary/5 via-primary/3 to-transparent ${
+                isNavigating ? 'opacity-75 scale-95' : ''
+              }`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl text-primary flex-shrink-0 shadow-sm transition-transform duration-200 ${
+                      isNavigating ? 'scale-110 rotate-3' : ''
+                    }`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-bold text-primary truncate mb-1">{atalho.title}</h2>
+                      <p className="text-sm text-muted-foreground truncate">{atalho.desc}</p>
+                    </div>
+                    {isNavigating && (
+                      <div className="flex-shrink-0">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           )
         })}
       </div>
