@@ -15,6 +15,16 @@ import { UserPlus, Edit, Trash2, Loader2, Save } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { MobileBackButton } from "@/components/mobile-back-button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { MoreVertical } from "lucide-react"
 
 // Tipo para permissões de módulos
 type ModulePermission = {
@@ -852,6 +862,464 @@ export default function ConfiguracoesPage() {
     } finally {
       setIsProcessing(false)
     }
+  }
+
+  const isMobile = useIsMobile()
+
+  // Componente Mobile View
+  function ConfiguracoesMobileView({
+    users,
+    isLoading,
+    isProcessing,
+    selectedUserForPermissions,
+    userPermissions,
+    pages,
+    onAddUser,
+    onEditUser,
+    onDeleteUser,
+    onToggleStatus,
+    onSelectUserForPermissions,
+    onTogglePermission,
+    onSavePermissions,
+  }: {
+    users: User[]
+    isLoading: boolean
+    isProcessing: boolean
+    selectedUserForPermissions: string | null
+    userPermissions: Record<string, boolean>
+    pages: { id: string; name: string }[]
+    onAddUser: () => void
+    onEditUser: (user: User) => void
+    onDeleteUser: (user: User) => void
+    onToggleStatus: (userId: string) => void
+    onSelectUserForPermissions: (userId: string) => void
+    onTogglePermission: (pageId: string) => void
+    onSavePermissions: () => void
+  }) {
+    const [activeTab, setActiveTab] = useState<"users" | "permissions">("users")
+
+    return (
+      <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
+        <div className="w-[92%] mb-4 pl-0 pr-0">
+          <MobileBackButton />
+        </div>
+
+        <div className="w-[92%] pl-0 pr-0">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "permissions")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="users">Usuários</TabsTrigger>
+              <TabsTrigger value="permissions">Permissões</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="users" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">Usuários</h2>
+                <Button onClick={onAddUser} disabled={isProcessing} size="sm">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Novo
+                </Button>
+              </div>
+
+              {isLoading ? (
+                <div className="flex justify-center items-center py-16">
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                    <p className="text-sm text-muted-foreground">Carregando usuários...</p>
+                  </div>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <p className="text-base font-medium mb-1">Nenhum usuário encontrado</p>
+                  <p className="text-sm">Crie o primeiro usuário clicando em "Novo"</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {users.map((user) => (
+                    <Card key={user.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
+                            <div className="font-bold text-lg text-primary truncate">{user.name}</div>
+                            <div className="text-sm text-muted-foreground truncate">{user.username}</div>
+                            <div className="mt-2">
+                              <Badge variant={user.active ? "default" : "secondary"} className="text-xs">
+                                {user.active ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-9 w-9 p-0 flex-shrink-0">
+                                <MoreVertical className="h-5 w-5" />
+                                <span className="sr-only">Abrir menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => onToggleStatus(user.id)}
+                                disabled={isProcessing}
+                                className="cursor-pointer"
+                              >
+                                {user.active ? "Desativar" : "Ativar"}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => onEditUser(user)}
+                                disabled={isProcessing}
+                                className="cursor-pointer"
+                              >
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => onDeleteUser(user)}
+                                disabled={isProcessing}
+                                className="text-red-600 focus:text-red-600 cursor-pointer"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="permissions" className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold mb-2">Permissões</h2>
+                <p className="text-sm text-muted-foreground">
+                  Selecione um usuário e defina quais páginas ele pode acessar
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-base font-medium">Selecione o usuário</Label>
+                {users.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    Nenhum usuário encontrado. Crie um usuário primeiro na aba "Usuários".
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {users.map((user) => (
+                      <Card
+                        key={user.id}
+                        className={`cursor-pointer transition-all ${
+                          selectedUserForPermissions === user.id
+                            ? 'border-2 border-primary bg-primary/5'
+                            : 'hover:border-primary/50'
+                        }`}
+                        onClick={() => onSelectUserForPermissions(user.id)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">{user.name}</p>
+                              <p className="text-sm text-muted-foreground truncate">{user.username}</p>
+                            </div>
+                            <Badge variant={user.active ? "default" : "secondary"} className="ml-2 flex-shrink-0">
+                              {user.active ? "Ativo" : "Inativo"}
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {selectedUserForPermissions && (
+                  <div className="space-y-4 mt-6">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">
+                        Páginas que o usuário pode acessar
+                      </Label>
+                      <Button
+                        onClick={onSavePermissions}
+                        disabled={isProcessing}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Salvando...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Salvar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    
+                    <div className="border rounded-lg p-4 space-y-3 max-h-[500px] overflow-y-auto">
+                      {pages.map((page) => (
+                        <div
+                          key={page.id}
+                          className="flex items-center space-x-3 p-2 hover:bg-muted/50 rounded-md transition-colors"
+                        >
+                          <Checkbox
+                            id={`perm-${page.id}`}
+                            checked={userPermissions[page.id] || false}
+                            onCheckedChange={() => onTogglePermission(page.id)}
+                          />
+                          <Label
+                            htmlFor={`perm-${page.id}`}
+                            className="flex-1 cursor-pointer font-normal"
+                          >
+                            {page.name}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!selectedUserForPermissions && users.length > 0 && (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    Selecione um usuário acima para gerenciar suas permissões
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+      </div>
+    )
+  }
+
+  if (isMobile) {
+    return (
+      <>
+        <Toaster />
+        <ConfiguracoesMobileView
+          users={users}
+          isLoading={isLoading}
+          isProcessing={isProcessing}
+          selectedUserForPermissions={selectedUserForPermissions}
+          userPermissions={userPermissions}
+          pages={pages}
+          onAddUser={() => {
+            setFormData({ name: "", username: "", password: "", confirmPassword: "" })
+            setIsAddDialogOpen(true)
+          }}
+          onEditUser={prepareEditUser}
+          onDeleteUser={prepareDeleteUser}
+          onToggleStatus={toggleUserStatus}
+          onSelectUserForPermissions={loadUserPermissions}
+          onTogglePermission={togglePermission}
+          onSavePermissions={saveUserPermissions}
+        />
+        {/* Diálogos - mesmos da versão desktop */}
+        {/* Diálogo para Adicionar Usuário */}
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Novo Usuário</DialogTitle>
+              <DialogDescription>
+                Insira os dados do novo usuário no sistema.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Nome completo"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="username">Nome de Usuário</Label>
+                <Input
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="Nome de login"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Senha"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="confirmPassword">Confirmar Senha</Label>
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="Confirme a senha"
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsAddDialogOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={addUser}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Adicionando...
+                  </>
+                ) : (
+                  "Adicionar"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Diálogo para Editar Usuário */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Usuário</DialogTitle>
+              <DialogDescription>
+                Modifique os dados do usuário no sistema.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-name">Nome</Label>
+                <Input
+                  id="edit-name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Nome completo"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-username">Nome de Usuário</Label>
+                <Input
+                  id="edit-username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleInputChange}
+                  placeholder="Nome de login"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-password">Nova Senha (deixe em branco para manter atual)</Label>
+                <Input
+                  id="edit-password"
+                  name="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="Nova senha"
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                <Label htmlFor="edit-confirmPassword">Confirmar Nova Senha</Label>
+                <Input
+                  id="edit-confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={handleInputChange}
+                  placeholder="Confirme a nova senha"
+                  disabled={isProcessing}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsEditDialogOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={updateUser}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        {/* Diálogo para Excluir Usuário */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Confirmar Exclusão</DialogTitle>
+              <DialogDescription>
+                Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="pt-4">
+              Você está prestes a excluir o usuário: <strong>{currentUser?.name}</strong>
+            </p>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeleteDialogOpen(false)}
+                disabled={isProcessing}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={deleteUser}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Excluindo...
+                  </>
+                ) : (
+                  "Excluir"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
   }
 
   return (

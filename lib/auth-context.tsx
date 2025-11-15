@@ -37,6 +37,7 @@ export const rotasPermissoes: Record<string, {
   "/dashboard/manutencoes/ordem-servico": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "ordem-servico" },
   "/dashboard/manutencoes/planejamento": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "planejamento" },
   "/dashboard/manutencoes/troca-oleo": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "troca-oleo" },
+  "/dashboard/manutencoes/troca-pneu": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "troca-pneu" },
   "/dashboard/manutencoes/historicos": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "historicos" },
   "/dashboard/movimento/entradas": { modulo: "entradas", acao: "visualizar" },
   "/dashboard/movimento/saidas": { modulo: "saidas", acao: "visualizar" },

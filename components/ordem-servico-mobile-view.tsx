@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Loader2, MoreVertical, PlusCircle, Search, Wrench, Package, ShoppingCart, CheckCircle } from "lucide-react"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 const StatusBadge = ({ status }: { status: string }) => {
   let badgeClasses = ""
@@ -148,7 +149,9 @@ export function OrdemServicoMobileView({ ordens, loading, onNovaOS, onAction }: 
 
   return (
     <div className="p-2 relative pb-24">
-      <h2 className="text-lg font-bold mb-3">Ordens de Serviço</h2>
+      <div className="mb-4">
+        <MobileBackButton />
+      </div>
       <div className="relative mb-4">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <Input

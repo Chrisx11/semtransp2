@@ -45,6 +45,7 @@ import { exportToCSV, exportToPDF, formatPhoneForDisplay } from "@/utils/export-
 import { ColaboradorCard } from "@/components/colaborador-card"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Badge } from "@/components/ui/badge"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 type SortDirection = "asc" | "desc" | null
 type SortField = "nome" | "funcao" | "telefone" | "secretaria" | null
@@ -112,29 +113,28 @@ function ColaboradoresMobileView({
   secretarias: string[]
 }) {
   return (
-    <div className="w-full max-w-full overflow-x-hidden px-6 py-1.5">
-      <div className="space-y-0.5 mb-2">
-        <h1 className="text-base font-bold text-primary text-center">Colaboradores</h1>
-        <p className="text-[9px] text-muted-foreground text-center">Gerencie os colaboradores</p>
+    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
+      <div className="w-[70%] mb-4 pl-0 pr-0">
+        <MobileBackButton />
       </div>
-
-      <div className="flex flex-col gap-1.5 mb-2">
+      {/* Filtros e Busca */}
+      <div className="flex flex-col gap-3 mb-4 w-[70%] pl-0 pr-0">
         <div className="relative w-full">
-          <Search className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Buscar..."
-            className="pl-8 h-9 text-sm w-full"
+            placeholder="Buscar por nome, função, telefone..."
+            className="pl-10 h-11 text-base w-full"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
-          <SelectTrigger className="w-full h-9 text-sm">
+          <SelectTrigger className="w-full h-11 text-base">
             <div className="flex items-center min-w-0">
-              <Filter className="mr-1 h-3 w-3 flex-shrink-0" />
-              <SelectValue placeholder="Filtrar secretaria" className="truncate" />
+              <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar por secretaria" className="truncate" />
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -147,51 +147,68 @@ function ColaboradoresMobileView({
           </SelectContent>
         </Select>
 
-        <Button className="w-full btn-gradient h-9 text-sm" onClick={handleNew}>
-          <Plus className="mr-1 h-3 w-3" /> Novo Colaborador
+        <Button className="w-full btn-gradient h-11 text-base font-medium shadow-md" onClick={handleNew}>
+          <Plus className="mr-2 h-5 w-5" /> Novo Colaborador
         </Button>
       </div>
 
+      {/* Loading State */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-12">
+        <div className="flex justify-center items-center py-16 w-[70%] pl-0 pr-0">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
             <p className="text-sm text-muted-foreground">Carregando colaboradores...</p>
           </div>
         </div>
       ) : paginatedData.length > 0 ? (
-        <div className="space-y-1 w-full">
+        <div className="space-y-3 w-[70%] pl-0 pr-0">
           {paginatedData.map((colaborador) => (
-            <Card key={colaborador.id} className="border-l-4 border-l-primary w-full">
-              <CardContent className="p-2">
-                <div className="flex items-start justify-between gap-1.5 min-w-0">
-                  <div className="flex-1 min-w-0 overflow-hidden pr-1">
-                    <div className="font-bold text-sm truncate">{colaborador.nome}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 truncate">{colaborador.funcao}</div>
-                    <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[60px]">
-                        <span className="truncate block">{formatPhoneForDisplay(colaborador.telefone)}</span>
-                      </Badge>
-                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 max-w-[80px]">
-                        <span className="truncate block">{colaborador.secretaria}</span>
-                      </Badge>
+            <Card key={colaborador.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    {/* Nome e Info Principal */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Users className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-lg text-primary truncate">{colaborador.nome}</div>
+                        <div className="text-sm text-muted-foreground truncate">
+                          {colaborador.funcao}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Badges e Informações */}
+                    <div className="flex flex-col gap-2 mt-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                          {formatPhoneForDisplay(colaborador.telefone)}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                          {colaborador.secretaria}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Menu de Ações */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
-                        <MoreVertical className="h-4 w-4" />
+                      <Button variant="ghost" size="sm" className="h-9 w-9 p-0 flex-shrink-0">
+                        <MoreVertical className="h-5 w-5" />
                         <span className="sr-only">Abrir menu</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(colaborador.id)}>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem onClick={() => handleEdit(colaborador.id)} className="cursor-pointer">
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDeleteClick(colaborador.id)}
-                        className="text-red-600 focus:text-red-600"
+                        className="text-red-600 focus:text-red-600 cursor-pointer"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
                         Excluir
@@ -204,44 +221,48 @@ function ColaboradoresMobileView({
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground text-sm">
-          <Users className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-          <p>
+        <div className="text-center py-16 text-muted-foreground w-[70%] pl-0 pr-0">
+          <Users className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-base font-medium mb-1">
             {searchTerm || secretariaFilter ? "Nenhum resultado encontrado" : "Nenhum colaborador cadastrado"}
+          </p>
+          <p className="text-sm">
+            {searchTerm || secretariaFilter 
+              ? "Tente usar termos diferentes na busca ou remover os filtros" 
+              : "Adicione um novo colaborador para começar"}
           </p>
         </div>
       )}
 
+      {/* Paginação */}
       {sortedData.length > 0 && (
-        <div className="flex flex-col gap-1.5 mt-2 w-full">
-          <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5 w-full justify-center max-w-full">
-              <Select
-                value={itemsPerPage}
-                onValueChange={(value) => {
-                  setItemsPerPage(value)
-                  setCurrentPage(1)
-                }}
-              >
-                <SelectTrigger className="w-[60px] h-8 text-xs flex-shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5</SelectItem>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="20">20</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-center text-xs truncate min-w-0">
-                {Math.min(sortedData.length, (currentPage - 1) * Number(itemsPerPage) + 1)}-
-                {Math.min(sortedData.length, currentPage * Number(itemsPerPage))} de {sortedData.length}
-              </span>
-            </div>
+        <div className="flex flex-col gap-3 mt-6 w-[70%] pl-0 pr-0">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Select
+              value={itemsPerPage}
+              onValueChange={(value) => {
+                setItemsPerPage(value)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[70px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm">
+              {Math.min(sortedData.length, (currentPage - 1) * Number(itemsPerPage) + 1)}-
+              {Math.min(sortedData.length, currentPage * Number(itemsPerPage))} de {sortedData.length}
+            </span>
           </div>
 
           <Pagination>
-            <PaginationContent>
+            <PaginationContent className="flex-wrap">
               <PaginationItem>
                 <PaginationPrevious
                   href="#"
@@ -265,6 +286,7 @@ function ColaboradoresMobileView({
                         e.preventDefault()
                         setCurrentPage(pageNumber)
                       }}
+                      className="min-w-[40px]"
                     >
                       {pageNumber}
                     </PaginationLink>

@@ -21,10 +21,262 @@ import { EmptyState } from "@/components/empty-state"
 import { EntradaForm } from "@/components/entrada-form"
 import { getEntradasSupabase, deleteEntradaSupabase, type Entrada } from "@/services/entrada-service"
 import { getProdutosSupabase, type Produto } from "@/services/produto-service"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil } from "lucide-react"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { MobileBackButton } from "@/components/mobile-back-button"
+import { Badge } from "@/components/ui/badge"
+
+// Componente Mobile View
+function EntradasMobileView({
+  paginatedData,
+  processedData,
+  currentPage,
+  setCurrentPage,
+  itemsPerPage,
+  setItemsPerPage,
+  totalPages,
+  pageNumbers,
+  searchTerm,
+  setSearchTerm,
+  dateFilter,
+  setDateFilter,
+  isLoading,
+  produtoCategoriaMap,
+  formatDate,
+  handleEditClick,
+  handleDeleteClick,
+  setFormOpen,
+}: {
+  paginatedData: Entrada[]
+  processedData: Entrada[]
+  currentPage: number
+  setCurrentPage: (page: number) => void
+  itemsPerPage: string
+  setItemsPerPage: (value: string) => void
+  totalPages: number
+  pageNumbers: number[]
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  dateFilter: string
+  setDateFilter: (value: string) => void
+  isLoading: boolean
+  produtoCategoriaMap: Record<string, string>
+  formatDate: (dateString: string) => string
+  handleEditClick: (id: string) => void
+  handleDeleteClick: (id: string) => void
+  setFormOpen: (open: boolean) => void
+}) {
+  return (
+    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
+      <div className="w-[52%] mb-4 pl-0 pr-0">
+        <MobileBackButton />
+      </div>
+      
+      {/* Busca e Filtros */}
+      <div className="flex flex-col gap-3 mb-4 w-[52%] pl-0 pr-0">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar entradas..."
+            className="pl-10 h-11 text-base w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="w-full h-11 text-base">
+            <div className="flex items-center min-w-0">
+              <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar por data" className="truncate" />
+            </div>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas as datas</SelectItem>
+            <SelectItem value="today">Hoje</SelectItem>
+            <SelectItem value="week">Esta semana</SelectItem>
+            <SelectItem value="month">Este mês</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button className="w-full btn-gradient h-11 text-base font-medium shadow-md" onClick={() => setFormOpen(true)}>
+          <Plus className="mr-2 h-5 w-5" /> Nova Entrada
+        </Button>
+      </div>
+
+      {/* Loading State */}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-16 w-[52%] pl-0 pr-0">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
+            <p className="text-sm text-muted-foreground">Carregando entradas...</p>
+          </div>
+        </div>
+      ) : paginatedData.length > 0 ? (
+        <div className="space-y-3 w-[52%] pl-0 pr-0">
+          {paginatedData.map((entrada) => (
+            <Card key={entrada.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-3 min-w-0">
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    {/* Produto e Info Principal */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="bg-primary/10 p-2 rounded-lg">
+                        <Package className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-lg text-primary truncate">{entrada.produtoDescricao}</div>
+                        <div className="text-sm text-muted-foreground truncate">
+                          {produtoCategoriaMap[entrada.produtoId] || "-"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Informações */}
+                    <div className="flex flex-col gap-2 mt-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                          Qtd: {entrada.quantidade}
+                        </Badge>
+                        {entrada.valorUnitario !== undefined && (
+                          <>
+                            <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                              Unit: R$ {entrada.valorUnitario.toFixed(2)}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs px-2 py-1 h-auto font-semibold text-green-700 dark:text-green-400 border-green-300 dark:border-green-600">
+                              Total: R$ {(entrada.valorUnitario * entrada.quantidade).toFixed(2)}
+                            </Badge>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        <div>Responsável: {entrada.responsavelNome}</div>
+                        <div>Data: {formatDate(entrada.data)}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Menu de Ações */}
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0"
+                      onClick={() => handleEditClick(entrada.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="sr-only">Editar</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
+                      onClick={() => handleDeleteClick(entrada.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Excluir</span>
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground w-[52%] pl-0 pr-0">
+          <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-base font-medium mb-1">
+            {searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma entrada cadastrada"}
+          </p>
+          <p className="text-sm">
+            {searchTerm || dateFilter !== "all"
+              ? "Tente usar termos diferentes na busca ou remover os filtros"
+              : "Adicione uma nova entrada para começar"}
+          </p>
+        </div>
+      )}
+
+      {/* Paginação */}
+      {processedData.length > 0 && (
+        <div className="flex flex-col gap-3 mt-6 w-[52%] pl-0 pr-0">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Select
+              value={itemsPerPage}
+              onValueChange={(value) => {
+                setItemsPerPage(value)
+                setCurrentPage(1)
+              }}
+            >
+              <SelectTrigger className="w-[70px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-sm">
+              Mostrando {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
+              {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
+            </span>
+          </div>
+
+          <Pagination>
+            <PaginationContent className="flex-wrap">
+              <PaginationItem>
+                <PaginationPrevious
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage > 1) setCurrentPage(currentPage - 1)
+                  }}
+                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+
+              {pageNumbers.map((pageNumber, index) => (
+                <PaginationItem key={index}>
+                  {pageNumber < 0 ? (
+                    <PaginationEllipsis />
+                  ) : (
+                    <PaginationLink
+                      href="#"
+                      isActive={currentPage === pageNumber}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        setCurrentPage(pageNumber)
+                      }}
+                      className="min-w-[40px]"
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  )}
+                </PaginationItem>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    if (currentPage < totalPages) setCurrentPage(currentPage + 1)
+                  }}
+                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EntradasPage() {
   // Estado para paginação
@@ -322,6 +574,59 @@ export default function EntradasPage() {
     })
     return map
   }, [produtos])
+
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <>
+        <EntradasMobileView
+          paginatedData={paginatedData}
+          processedData={processedData}
+          currentPage={currentPage}
+          setCurrentPage={setCurrentPage}
+          itemsPerPage={itemsPerPage}
+          setItemsPerPage={setItemsPerPage}
+          totalPages={totalPages}
+          pageNumbers={pageNumbers}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          dateFilter={dateFilter}
+          setDateFilter={setDateFilter}
+          isLoading={isLoading}
+          produtoCategoriaMap={produtoCategoriaMap}
+          formatDate={formatDate}
+          handleEditClick={handleEditClick}
+          handleDeleteClick={handleDeleteClick}
+          setFormOpen={setFormOpen}
+        />
+        
+        {/* Modais compartilhados */}
+        <Dialog open={formOpen} onOpenChange={handleFormClose}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingId ? "Editar Entrada" : "Nova Entrada"}</DialogTitle>
+            </DialogHeader>
+            <EntradaForm
+              onSuccess={() => {
+                handleFormClose()
+                loadData()
+              }}
+              entradaId={editingId || undefined}
+            />
+          </DialogContent>
+        </Dialog>
+
+        <DeleteConfirmation
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          onConfirm={handleDelete}
+          title="Excluir entrada"
+          description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e o estoque será atualizado."
+        />
+      </>
+    )
+  }
 
   return (
     <div className="space-y-6">
