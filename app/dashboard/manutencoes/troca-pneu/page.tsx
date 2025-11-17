@@ -23,6 +23,7 @@ import { supabase } from "@/lib/supabase"
 import { Search, Plus, Disc, Car, Save, RefreshCw, Loader2, FileDown, AlertCircle, CheckCircle2, MoreVertical, Eye, ChevronDown, ChevronUp, Gauge, Wrench, Info, Sparkles, X, Pencil, Trash2, History, Calendar } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { cn } from "@/lib/utils"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 // Importar jspdf e autotable
 import jsPDF from 'jspdf'
@@ -2280,10 +2281,7 @@ export default function TrocaPneuPage() {
 
     return (
       <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
-        <div className="space-y-1 px-1">
-          <h1 className="text-xl font-bold text-primary">Troca de Pneu</h1>
-          <p className="text-xs text-muted-foreground">Acompanhamento de manutenções</p>
-        </div>
+        <MobileBackButton />
 
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -2508,7 +2506,7 @@ export default function TrocaPneuPage() {
       {isMobile ? (
         <TrocaPneuMobileView />
       ) : (
-      <div className="space-y-6">
+        <div className="space-y-6">
         <Card className="shadow-md-custom">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -2921,7 +2919,7 @@ export default function TrocaPneuPage() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </div>
       )}
       
       {/* Dialog de Nova Troca de Pneu */}
