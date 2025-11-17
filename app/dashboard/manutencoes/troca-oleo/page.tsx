@@ -51,6 +51,7 @@ type SortDirection = 'asc' | 'desc' | null
 export default function TrocaOleoPage() {
   const isMobile = useIsMobile()
   const { user } = useAuth()
+  const [ocultarBotaoRegistrar, setOcultarBotaoRegistrar] = useState(false)
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [veiculosComDados, setVeiculosComDados] = useState<VeiculoComDados[]>([])
   const [veiculosFiltrados, setVeiculosFiltrados] = useState<VeiculoComDados[]>([])
@@ -81,6 +82,63 @@ export default function TrocaOleoPage() {
   useEffect(() => {
     carregarVeiculos()
   }, [])
+
+  // Verificar se o usuário tem acesso apenas ao dashboard e troca de óleo
+  useEffect(() => {
+    const verificarPermissoesLimitadas = async () => {
+      if (!user) {
+        setOcultarBotaoRegistrar(false)
+        return
+      }
+
+      try {
+        // Buscar todas as permissões do usuário
+        const { data: modulePermissions, error } = await supabase
+          .from('user_module_permissions')
+          .select('*, module:modules(*)')
+          .eq('user_id', user.id)
+          .eq('can_view', true)
+
+        if (error) {
+          console.error('Erro ao buscar permissões:', error)
+          setOcultarBotaoRegistrar(false)
+          return
+        }
+
+        if (!modulePermissions || modulePermissions.length === 0) {
+          setOcultarBotaoRegistrar(false)
+          return
+        }
+
+        // Lista de módulos permitidos (dashboard e trocaOleo)
+        const modulosPermitidos = ['dashboard', 'trocaOleo']
+        
+        // Verificar se o usuário tem acesso apenas aos módulos permitidos
+        const modulosComAcesso = modulePermissions
+          .map((p: any) => p.module?.id)
+          .filter((id: string) => id !== null && id !== undefined)
+
+        // Verificar se tem acesso ao dashboard
+        const temDashboard = modulosComAcesso.includes('dashboard')
+        
+        // Verificar se tem acesso ao trocaOleo
+        const temTrocaOleo = modulosComAcesso.includes('trocaOleo')
+
+        // Verificar se tem acesso a outros módulos além dos permitidos
+        const temOutrosModulos = modulosComAcesso.some(
+          (id: string) => !modulosPermitidos.includes(id)
+        )
+
+        // Ocultar botão se: tem dashboard, tem trocaOleo, mas NÃO tem outros módulos
+        setOcultarBotaoRegistrar(temDashboard && temTrocaOleo && !temOutrosModulos)
+      } catch (error) {
+        console.error('Erro ao verificar permissões:', error)
+        setOcultarBotaoRegistrar(false)
+      }
+    }
+
+    verificarPermissoesLimitadas()
+  }, [user])
 
   // Listener para atualizar histórico quando houver atualizações
   useEffect(() => {
@@ -691,6 +749,7 @@ export default function TrocaOleoPage() {
           onAtualizar={abrirDialogAtualizarKm}
           onHistorico={abrirHistorico}
           getCorProgresso={getCorProgresso}
+          ocultarBotaoRegistrar={ocultarBotaoRegistrar}
         />
       ) : (
       <div className="space-y-6">
@@ -1239,6 +1298,7 @@ function TrocaOleoMobileView({
   onAtualizar,
   onHistorico,
   getCorProgresso,
+  ocultarBotaoRegistrar,
 }: {
   loading: boolean
   searchTerm: string
@@ -1249,6 +1309,7 @@ function TrocaOleoMobileView({
   onAtualizar: (veiculo: VeiculoComDados) => void
   onHistorico: (veiculo: VeiculoComDados) => void
   getCorProgresso: (progresso: number) => string
+  ocultarBotaoRegistrar: boolean
 }) {
   const emDia = veiculosResumo.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length
   const proximo = veiculosResumo.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length
@@ -1316,10 +1377,12 @@ function TrocaOleoMobileView({
                     <Progress value={veiculo.progresso} className="h-2" indicatorClassName={indicadorClasse} />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <Button size="sm" onClick={() => onRegistrar(veiculo)}>
-                      Registrar troca
-                    </Button>
+                  <div className={`grid gap-2 ${ocultarBotaoRegistrar ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+                    {!ocultarBotaoRegistrar && (
+                      <Button size="sm" onClick={() => onRegistrar(veiculo)}>
+                        Registrar troca
+                      </Button>
+                    )}
                     <Button size="sm" variant="outline" onClick={() => onAtualizar(veiculo)}>
                       Atualizar km
                     </Button>
