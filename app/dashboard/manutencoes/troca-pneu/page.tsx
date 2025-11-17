@@ -110,6 +110,9 @@ export default function TrocaPneuPage() {
   const [loading, setLoading] = useState(true)
   const [geradorPdfLoading, setGeradorPdfLoading] = useState(false)
   
+  // Estado para evitar mismatch de hidratação
+  const [mounted, setMounted] = useState(false)
+  
   // Estados para gerenciar modais
   const [dialogTrocaPneuOpen, setDialogTrocaPneuOpen] = useState(false)
   const [dialogTipoPneuOpen, setDialogTipoPneuOpen] = useState(false)
@@ -501,6 +504,11 @@ export default function TrocaPneuPage() {
       calcularProgressoTodosVeiculosAtualizado(trocasPneu, veiculos)
     }
   }, [veiculos, trocasPneu])
+  
+  // Definir mounted após a hidratação para evitar mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // Recalcular progresso quando apenas o kmAtual de algum veículo mudar
   // Usar useMemo para criar uma string de hash dos kms
@@ -2500,6 +2508,24 @@ export default function TrocaPneuPage() {
   }
 
   // Retornar a interface da página
+  // Aguardar a hidratação para evitar mismatch
+  if (!mounted) {
+    return (
+      <>
+        <Toaster />
+        <div className="space-y-6">
+          <Card className="shadow-md-custom">
+            <CardContent className="p-6">
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </>
+    )
+  }
+  
   return (
     <>
       <Toaster />
