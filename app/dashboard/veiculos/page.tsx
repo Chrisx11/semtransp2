@@ -130,116 +130,75 @@ function VeiculosMobileView({
   setTrocaOleoOpen: (open: boolean) => void
 }) {
   return (
-    <div className="w-full max-w-full overflow-x-hidden pl-2 pr-0 py-4 pb-6 flex flex-col items-start">
+    <div className="p-3 space-y-4">
       <MobileBackButton />
-      {/* Filtros e Busca */}
-      <div className="flex flex-col gap-3 mb-4 w-[90%]">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar por placa, modelo, marca..."
-            className="pl-10 h-11 text-base w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
 
-        <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
-          <SelectTrigger className="w-full h-11 text-base">
-            <div className="flex items-center min-w-0">
-              <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
-              <SelectValue placeholder="Filtrar por secretaria" className="truncate" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as secretarias</SelectItem>
-            {secretarias.map((secretaria) => (
-              <SelectItem key={secretaria} value={secretaria}>
-                {secretaria}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Button className="w-full btn-gradient h-11 text-base font-medium shadow-md" onClick={handleNew}>
-          <Plus className="mr-2 h-5 w-5" /> Novo Veículo
-        </Button>
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Buscar por placa, modelo, marca..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9 text-sm"
+        />
       </div>
 
-      {/* Loading State */}
-      {isLoading ? (
-        <div className="flex justify-center items-center py-16 w-[90%]">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
-            <p className="text-sm text-muted-foreground">Carregando veículos...</p>
+      <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+        <SelectTrigger className="w-full text-sm">
+          <div className="flex items-center min-w-0">
+            <Filter className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
+            <SelectValue placeholder="Filtrar por secretaria" className="truncate" />
           </div>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as secretarias</SelectItem>
+          {secretarias.map((secretaria) => (
+            <SelectItem key={secretaria} value={secretaria}>
+              {secretaria}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button className="w-full btn-gradient shadow-md text-sm h-9" onClick={handleNew}>
+        <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo Veículo
+      </Button>
+
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 text-xs text-muted-foreground">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin mb-2" />
+          Carregando veículos...
         </div>
       ) : paginatedData.length > 0 ? (
-        <div className="space-y-3 w-[90%]">
+        <div className="space-y-2">
           {paginatedData.map((veiculo) => (
             <Card 
               key={veiculo.id} 
-              className="border-l-4 border-l-primary shadow-sm hover:shadow-md hover:bg-accent/50 transition-all duration-200 w-full cursor-pointer active:scale-[0.98]" 
+              className="border border-primary/20 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.98]"
               onClick={() => handleView(veiculo.id)}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3 min-w-0">
-                  <div className="flex-1 min-w-0 overflow-hidden">
-                    {/* Placa e Info Principal */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="bg-primary/10 p-2 rounded-lg">
-                        <Car className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <div className="font-bold text-lg text-primary truncate">{veiculo.placa}</div>
-                          <Eye className="h-4 w-4 text-muted-foreground/60 flex-shrink-0" />
-                        </div>
-                        <div className="text-sm text-muted-foreground truncate">
-                          {veiculo.marca} {veiculo.modelo}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          Ano {veiculo.ano} • {veiculo.tipo}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Badges e Informações */}
-                    <div className="flex flex-col gap-2 mt-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
-                          {veiculo.secretaria}
-                        </Badge>
-                        <Badge 
-                          variant={veiculo.status === "Ativo" ? "default" : "destructive"} 
-                          className="text-xs px-2 py-1 h-auto"
-                        >
-                          {veiculo.status}
-                        </Badge>
-                        {!isSaidasLoading && (
-                          <Badge variant="outline" className="text-xs px-2 py-1 h-auto font-semibold text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
-                            R$ {getDespesaMensal(veiculo.id).toFixed(2)}
-                          </Badge>
-                        )}
-                      </div>
+              <CardContent className="p-3 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-base font-semibold truncate">{veiculo.placa}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {veiculo.marca} {veiculo.modelo} • Ano {veiculo.ano} • {veiculo.tipo}
                     </div>
                   </div>
-                  
-                  {/* Menu de Ações */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="h-9 w-9 p-0 flex-shrink-0"
+                        className="h-7 w-7 p-0 flex-shrink-0"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <MoreVertical className="h-5 w-5" />
+                        <MoreVertical className="h-3.5 w-3.5" />
                         <span className="sr-only">Abrir menu</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenuContent align="end" className="w-44 text-sm" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation()
@@ -247,7 +206,7 @@ function VeiculosMobileView({
                         }}
                         className="text-blue-600 dark:text-blue-400 focus:text-blue-600 dark:focus:text-blue-400 cursor-pointer"
                       >
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="mr-2 h-3.5 w-3.5" />
                         Visualizar
                       </DropdownMenuItem>
                       <DropdownMenuItem 
@@ -257,7 +216,7 @@ function VeiculosMobileView({
                         }} 
                         className="cursor-pointer"
                       >
-                        <Pencil className="mr-2 h-4 w-4" />
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
                         Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
@@ -268,7 +227,7 @@ function VeiculosMobileView({
                         }}
                         className="cursor-pointer"
                       >
-                        <span className="mr-2">🛢️</span>
+                        <span className="mr-2 text-xs">🛢️</span>
                         Registrar Troca de Óleo
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -279,23 +238,40 @@ function VeiculosMobileView({
                         }}
                         className="text-red-600 focus:text-red-600 cursor-pointer"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="mr-2 h-3.5 w-3.5" />
                         Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                </div>
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 h-auto">
+                    {veiculo.secretaria}
+                  </Badge>
+                  <Badge 
+                    variant={veiculo.status === "Ativo" ? "default" : "destructive"} 
+                    className="text-[9px] px-1.5 py-0.5 h-auto"
+                  >
+                    {veiculo.status}
+                  </Badge>
+                  {!isSaidasLoading && (
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0.5 h-auto font-semibold text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-600">
+                      R$ {getDespesaMensal(veiculo.id).toFixed(2)}
+                    </Badge>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 text-muted-foreground w-[90%]">
-          <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-base font-medium mb-1">
+        <div className="text-center text-muted-foreground py-12">
+          <Car className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+          <p className="text-sm font-medium mb-1">
             {searchTerm || secretariaFilter ? "Nenhum resultado encontrado" : "Nenhum veículo cadastrado"}
           </p>
-          <p className="text-sm">
+          <p className="text-xs">
             {searchTerm || secretariaFilter 
               ? "Tente usar termos diferentes na busca ou remover os filtros" 
               : "Adicione um novo veículo para começar"}
@@ -303,10 +279,9 @@ function VeiculosMobileView({
         </div>
       )}
 
-      {/* Paginação */}
       {processedData.length > 0 && (
-        <div className="flex flex-col gap-3 mt-6 w-[90%]">
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-1.5 mt-4">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
             <Select
               value={itemsPerPage}
               onValueChange={(value) => {
@@ -314,7 +289,7 @@ function VeiculosMobileView({
                 setCurrentPage(1)
               }}
             >
-              <SelectTrigger className="w-[70px] h-9 text-sm">
+              <SelectTrigger className="w-[60px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -324,14 +299,14 @@ function VeiculosMobileView({
                 <SelectItem value="50">50</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm">
+            <span className="text-xs">
               {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
               {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
             </span>
           </div>
 
           <Pagination>
-            <PaginationContent className="flex-wrap">
+            <PaginationContent className="flex-wrap gap-1">
               <PaginationItem>
                 <PaginationPrevious
                   href="#"
@@ -339,7 +314,7 @@ function VeiculosMobileView({
                     e.preventDefault()
                     if (currentPage > 1) setCurrentPage(currentPage - 1)
                   }}
-                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
 
@@ -355,7 +330,7 @@ function VeiculosMobileView({
                         e.preventDefault()
                         setCurrentPage(pageNumber)
                       }}
-                      className="min-w-[40px]"
+                      className="min-w-[36px] h-8 text-xs"
                     >
                       {pageNumber}
                     </PaginationLink>
@@ -370,7 +345,7 @@ function VeiculosMobileView({
                     e.preventDefault()
                     if (currentPage < totalPages) setCurrentPage(currentPage + 1)
                   }}
-                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
             </PaginationContent>

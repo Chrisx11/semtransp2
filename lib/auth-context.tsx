@@ -9,7 +9,7 @@ import { Session } from "@supabase/supabase-js"
 type SubmoduloOrdemServico = "todos" | "oficina" | "almoxarifado" | "compras" | "finalizadas"
 
 // Submódulos específicos para Manutenções
-type SubmoduloManutencao = "todos" | "painel" | "ordem-servico" | "troca-oleo" | "historicos" | "planejamento"
+type SubmoduloManutencao = "todos" | "painel" | "ordem-servico" | "troca-oleo" | "troca-pneu" | "historicos" | "planejamento"
 
 // Tipo para o usuário logado
 export interface AuthUser {
@@ -85,7 +85,7 @@ const permissoesPreDefinidas: Record<string, Permissoes> = {
     },
     manutencoes: {
       acoes: ["visualizar", "criar", "editar", "excluir"],
-      submodulos: ["todos", "painel", "ordem-servico", "troca-oleo", "historicos", "planejamento"]
+      submodulos: ["todos", "painel", "ordem-servico", "troca-oleo", "troca-pneu", "historicos", "planejamento"]
     },
     relatorios: ["visualizar", "criar"],
     configuracoes: ["visualizar", "criar", "editar", "excluir"]
@@ -100,7 +100,7 @@ const permissoesPreDefinidas: Record<string, Permissoes> = {
     },
     manutencoes: {
       acoes: ["visualizar", "criar", "editar"],
-      submodulos: ["todos", "painel", "ordem-servico", "troca-oleo", "historicos", "planejamento"]
+      submodulos: ["todos", "painel", "ordem-servico", "troca-oleo", "troca-pneu", "historicos", "planejamento"]
     },
     relatorios: ["visualizar", "criar"],
     configuracoes: ["visualizar"]
@@ -130,7 +130,7 @@ const permissoesPreDefinidas: Record<string, Permissoes> = {
     },
     manutencoes: {
       acoes: ["visualizar", "criar", "editar"],
-      submodulos: ["ordem-servico", "troca-oleo", "planejamento"]
+      submodulos: ["ordem-servico", "troca-oleo", "troca-pneu", "planejamento"]
     },
     relatorios: ["visualizar"],
     configuracoes: []
@@ -389,6 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "painel": "painel",
           "tela": "tela",
           "troca-oleo": "trocaOleo",
+          "troca-pneu": "trocaPneu",
           "planejamento": "planejamento",
           "historicos": "historico",
           "ordem-servico": "ordemServico"
@@ -645,7 +646,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Lista de todos os módulos possíveis
       const allModules = [
         'dashboard', 'colaboradores', 'veiculos', 'produtos', 'filtros', 'entradas', 'saidas',
-        'painel', 'tela', 'planejamento', 'trocaOleo', 'historico', 'custoVeiculo',
+        'painel', 'tela', 'planejamento', 'trocaOleo', 'trocaPneu', 'historico', 'custoVeiculo',
         'configuracoes', 'borracharia', 'lavador', 'ordemServico'
       ];
       
@@ -680,6 +681,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         'painel': 'painel',
         'tela': 'tela',
         'trocaOleo': 'troca-oleo',
+        'trocaPneu': 'troca-pneu',
         'planejamento': 'planejamento',
         'historico': 'historicos',
         'ordemServico': 'ordem-servico'
