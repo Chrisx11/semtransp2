@@ -58,6 +58,10 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Lavador",
     description: "Autorizações para serviços de lavagem",
   },
+  "/dashboard/servico-externo/servico-externo": {
+    title: "Serviço Externo",
+    description: "Gerenciamento de serviços externos",
+  },
   "/dashboard/filtros": {
     title: "Filtros",
     description: "Gerenciamento de filtros dos veículos",

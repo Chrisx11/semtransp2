@@ -102,7 +102,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }
     if (pathname?.includes("/dashboard/custo-veiculo") || 
         pathname?.includes("/dashboard/servico-externo/borracharia") || 
-        pathname?.includes("/dashboard/servico-externo/lavador")) {
+        pathname?.includes("/dashboard/servico-externo/lavador") ||
+        pathname?.includes("/dashboard/servico-externo/servico-externo")) {
       setOpenServicos(true)
     }
   }, [pathname])
@@ -247,6 +248,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           title: "Lavador",
           href: "/dashboard/servico-externo/lavador",
           icon: Droplets,
+          requiredPermission: { modulo: "servicoExterno", acao: "visualizar" }
+        },
+        {
+          title: "Serviço Externo",
+          href: "/dashboard/servico-externo/servico-externo",
+          icon: Wrench,
           requiredPermission: { modulo: "servicoExterno", acao: "visualizar" }
         },
       ],

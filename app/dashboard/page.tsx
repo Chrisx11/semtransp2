@@ -14,7 +14,11 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download } from "lucide-react"
+import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { supabase } from "@/lib/supabase"
 import { useAuth } from "@/lib/auth-context"
@@ -230,6 +234,11 @@ export default function DashboardPage() {
   const [kmAtualizacaoDialogOpen, setKmAtualizacaoDialogOpen] = useState(false)
   // ---------- ESTADO GLOBAL USUÁRIO (topo do componente)
   const [usuariosKmMap, setUsuariosKmMap] = useState<Record<string, string>>({});
+  // Estados para filtros do diálogo de KM
+  const [kmSearchTerm, setKmSearchTerm] = useState("")
+  const [kmSecretariaFilter, setKmSecretariaFilter] = useState<string>("all")
+  const [kmPdfDialogOpen, setKmPdfDialogOpen] = useState(false)
+  const [kmPdfOption, setKmPdfOption] = useState<"sem-atualizacao" | "com-atualizacao" | "ambos">("ambos")
 
   // Função para atualizar todos os dados
   const atualizarDashboard = async () => {
@@ -1211,62 +1220,146 @@ export default function DashboardPage() {
       </Dialog>
 
       {/* Diálogo de Atualização de KM */}
-      <Dialog open={kmAtualizacaoDialogOpen} onOpenChange={setKmAtualizacaoDialogOpen}>
+      <Dialog open={kmAtualizacaoDialogOpen} onOpenChange={(open) => {
+        setKmAtualizacaoDialogOpen(open)
+        if (!open) {
+          // Limpar filtros ao fechar
+          setKmSearchTerm("")
+          setKmSecretariaFilter("all")
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Atualização de Quilometragem</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-2xl font-bold">Atualização de Quilometragem</DialogTitle>
+            <DialogDescription className="text-base">
               Veículos que atualizaram e não atualizaram KM nos últimos 3 dias
             </DialogDescription>
           </DialogHeader>
           
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
+            {/* Barra de pesquisa e filtros */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar por placa, modelo ou marca..."
+                  className="pl-8 h-9 text-sm"
+                  value={kmSearchTerm}
+                  onChange={(e) => setKmSearchTerm(e.target.value)}
+                />
+              </div>
+              <Select value={kmSecretariaFilter} onValueChange={setKmSecretariaFilter}>
+                <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm">
+                  <Filter className="mr-2 h-3.5 w-3.5" />
+                  <SelectValue placeholder="Filtrar por secretaria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as secretarias</SelectItem>
+                  {Array.from(new Set([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm]
+                    .map(v => v.secretaria)
+                    .filter(Boolean)))
+                    .sort()
+                    .map(secretaria => (
+                      <SelectItem key={secretaria} value={secretaria}>{secretaria}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-sm"
+                onClick={() => setKmPdfDialogOpen(true)}
+              >
+                <Download className="h-3.5 w-3.5 mr-2" />
+                Baixar PDF
+              </Button>
+            </div>
+
             <Tabs defaultValue="sem-atualizacao" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="sem-atualizacao" className="text-amber-600 data-[state=active]:font-bold">
                   <AlertTriangle className="h-4 w-4 mr-2" />
-                  Não Atualizaram ({veiculosSemAtualizacaoKm.length})
+                  Não Atualizaram ({veiculosSemAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
                 </TabsTrigger>
                 <TabsTrigger value="com-atualizacao" className="text-green-600 data-[state=active]:font-bold">
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Atualizaram ({veiculosComAtualizacaoKm.length})
+                  Atualizaram ({veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="sem-atualizacao" className="mt-6">
-                {veiculosSemAtualizacaoKm.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
-                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                    <p className="text-lg font-medium">Todos os veículos atualizaram KM nos últimos 3 dias!</p>
-                    <p className="text-sm mt-2">Nenhum veículo precisa de atenção.</p>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Placa</TableHead>
-                          <TableHead>Modelo</TableHead>
-                          <TableHead>Marca</TableHead>
-                          <TableHead className="text-right">Km Atual</TableHead>
-                          <TableHead>Última Atualização</TableHead>
-                          <TableHead className="text-right">Dias Sem Atualizar</TableHead>
-                          <TableHead>Usuário</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {veiculosSemAtualizacaoKm
-                          .sort((a, b) => {
-                            const diasA = a.diasSemAtualizar ?? 999
-                            const diasB = b.diasSemAtualizar ?? 999
-                            return diasB - diasA
-                          })
-                          .map((veiculo) => (
-                            <TableRow key={veiculo.id} className="hover:bg-amber-50 dark:hover:bg-amber-900/10">
+                {(() => {
+                  const filtered = veiculosSemAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  })
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/30">
+                        <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                        <p className="text-lg font-medium">
+                          {veiculosSemAtualizacaoKm.length === 0 
+                            ? "Todos os veículos atualizaram KM nos últimos 3 dias!"
+                            : "Nenhum veículo encontrado com os filtros aplicados"}
+                        </p>
+                        <p className="text-sm mt-2">
+                          {veiculosSemAtualizacaoKm.length === 0 
+                            ? "Nenhum veículo precisa de atenção."
+                            : "Tente ajustar os filtros de busca ou secretaria."}
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="border rounded-lg overflow-hidden shadow-sm">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="font-semibold">Placa</TableHead>
+                            <TableHead className="font-semibold">Modelo</TableHead>
+                            <TableHead className="font-semibold">Marca</TableHead>
+                            <TableHead className="font-semibold">Secretaria</TableHead>
+                            <TableHead className="text-right font-semibold">Km Atual</TableHead>
+                            <TableHead className="font-semibold">Última Atualização</TableHead>
+                            <TableHead className="text-right font-semibold">Dias Sem Atualizar</TableHead>
+                            <TableHead className="font-semibold">Usuário</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered
+                            .sort((a, b) => {
+                              const diasA = a.diasSemAtualizar ?? 999
+                              const diasB = b.diasSemAtualizar ?? 999
+                              return diasB - diasA
+                            })
+                            .map((veiculo) => (
+                            <TableRow key={veiculo.id} className="hover:bg-amber-50 dark:hover:bg-amber-900/10 border-b">
                               <TableCell className="font-medium">{veiculo.placa}</TableCell>
                               <TableCell>{veiculo.modelo}</TableCell>
                               <TableCell>{veiculo.marca}</TableCell>
-                              <TableCell className="text-right">{veiculo.kmAtual?.toLocaleString() || 'N/A'}</TableCell>
+                              <TableCell className="text-muted-foreground">{veiculo.secretaria || 'N/A'}</TableCell>
+                              <TableCell className="text-right font-medium">{veiculo.kmAtual?.toLocaleString() || 'N/A'}</TableCell>
                               <TableCell>
                                 <div className="space-y-1">
                                   {veiculo.ultimaAtualizacaoKm 
@@ -1303,47 +1396,72 @@ export default function DashboardPage() {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                  )
+                })()}
               </TabsContent>
 
               <TabsContent value="com-atualizacao" className="mt-6">
-                {veiculosComAtualizacaoKm.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
-                    <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-amber-500" />
-                    <p className="text-lg font-medium">Nenhum veículo atualizou KM nos últimos 3 dias.</p>
-                    <p className="text-sm mt-2">Todos os veículos precisam atualizar a quilometragem.</p>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Placa</TableHead>
-                          <TableHead>Modelo</TableHead>
-                          <TableHead>Marca</TableHead>
-                          <TableHead className="text-right">Km Atual</TableHead>
-                          <TableHead>Última Atualização</TableHead>
-                          <TableHead className="text-right">Dias Desde Atualização</TableHead>
-                          <TableHead>Usuário</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {veiculosComAtualizacaoKm
-                          .sort((a, b) => {
-                            const dataA = a.ultimaAtualizacaoKm?.getTime() || 0
-                            const dataB = b.ultimaAtualizacaoKm?.getTime() || 0
-                            return dataB - dataA
-                          })
-                          .map((veiculo) => {
+                {(() => {
+                  const filtered = veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  })
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/30">
+                        <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-amber-500" />
+                        <p className="text-lg font-medium">
+                          {veiculosComAtualizacaoKm.length === 0 
+                            ? "Nenhum veículo atualizou KM nos últimos 3 dias."
+                            : "Nenhum veículo encontrado com os filtros aplicados"}
+                        </p>
+                        <p className="text-sm mt-2">
+                          {veiculosComAtualizacaoKm.length === 0 
+                            ? "Todos os veículos precisam atualizar a quilometragem."
+                            : "Tente ajustar os filtros de busca ou secretaria."}
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="border rounded-lg overflow-hidden shadow-sm">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="font-semibold">Placa</TableHead>
+                            <TableHead className="font-semibold">Modelo</TableHead>
+                            <TableHead className="font-semibold">Marca</TableHead>
+                            <TableHead className="font-semibold">Secretaria</TableHead>
+                            <TableHead className="text-right font-semibold">Km Atual</TableHead>
+                            <TableHead className="font-semibold">Última Atualização</TableHead>
+                            <TableHead className="text-right font-semibold">Dias Desde Atualização</TableHead>
+                            <TableHead className="font-semibold">Usuário</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered
+                            .sort((a, b) => {
+                              const dataA = a.ultimaAtualizacaoKm?.getTime() || 0
+                              const dataB = b.ultimaAtualizacaoKm?.getTime() || 0
+                              return dataB - dataA
+                            })
+                            .map((veiculo) => {
                             const diasDesdeAtualizacao = veiculo.ultimaAtualizacaoKm
                               ? Math.floor((new Date().getTime() - veiculo.ultimaAtualizacaoKm.getTime()) / (1000 * 60 * 60 * 24))
                               : null
                             return (
-                              <TableRow key={veiculo.id} className="hover:bg-green-50 dark:hover:bg-green-900/10">
+                              <TableRow key={veiculo.id} className="hover:bg-green-50 dark:hover:bg-green-900/10 border-b">
                                 <TableCell className="font-medium">{veiculo.placa}</TableCell>
                                 <TableCell>{veiculo.modelo}</TableCell>
                                 <TableCell>{veiculo.marca}</TableCell>
-                                <TableCell className="text-right">{veiculo.kmAtual?.toLocaleString() || 'N/A'}</TableCell>
+                                <TableCell className="text-muted-foreground">{veiculo.secretaria || 'N/A'}</TableCell>
+                                <TableCell className="text-right font-medium">{veiculo.kmAtual?.toLocaleString() || 'N/A'}</TableCell>
                                 <TableCell>
                                   <div className="space-y-1">
                                     {veiculo.ultimaAtualizacaoKm 
@@ -1372,9 +1490,310 @@ export default function DashboardPage() {
                       </TableBody>
                     </Table>
                   </div>
-                )}
+                  )
+                })()}
               </TabsContent>
             </Tabs>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para escolher opção de PDF */}
+      <Dialog open={kmPdfDialogOpen} onOpenChange={setKmPdfDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Baixar Relatório PDF</DialogTitle>
+            <DialogDescription>
+              Escolha quais veículos deseja incluir no relatório
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select value={kmPdfOption} onValueChange={(value: "sem-atualizacao" | "com-atualizacao" | "ambos") => setKmPdfOption(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sem-atualizacao">
+                  Não Atualizaram ({veiculosSemAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
+                </SelectItem>
+                <SelectItem value="com-atualizacao">
+                  Atualizaram ({veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
+                </SelectItem>
+                <SelectItem value="ambos">
+                  Ambos ({veiculosSemAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length + veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setKmPdfDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => {
+              // Filtrar veículos baseado nos filtros aplicados
+              const filterVeiculos = (veiculos: any[]) => {
+                return veiculos.filter(v => {
+                  const matchesSearch = !kmSearchTerm || 
+                    v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                    v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                    v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                  const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                  return matchesSearch && matchesSecretaria
+                })
+              }
+
+              let veiculosParaPdf: any[] = []
+              let tituloSecao = ""
+
+              if (kmPdfOption === "sem-atualizacao") {
+                veiculosParaPdf = filterVeiculos(veiculosSemAtualizacaoKm)
+                tituloSecao = "Veículos que NÃO Atualizaram KM"
+              } else if (kmPdfOption === "com-atualizacao") {
+                veiculosParaPdf = filterVeiculos(veiculosComAtualizacaoKm)
+                tituloSecao = "Veículos que Atualizaram KM"
+              } else {
+                const semAtualizacao = filterVeiculos(veiculosSemAtualizacaoKm)
+                const comAtualizacao = filterVeiculos(veiculosComAtualizacaoKm)
+                veiculosParaPdf = [...semAtualizacao, ...comAtualizacao]
+                tituloSecao = "Todos os Veículos"
+              }
+
+              // Gerar PDF
+              const doc = new jsPDF({ orientation: "landscape" })
+              doc.setFontSize(16)
+              doc.text("Relatório de Atualização de Quilometragem", 14, 15)
+              doc.setFontSize(10)
+              doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 22)
+              
+              let startY = 30
+
+              if (kmPdfOption === "ambos") {
+                // Seção: Não Atualizaram
+                const semAtualizacao = filterVeiculos(veiculosSemAtualizacaoKm)
+                if (semAtualizacao.length > 0) {
+                  if (startY > 20) {
+                    doc.addPage()
+                    startY = 20
+                  }
+                  doc.setFontSize(12)
+                  doc.setTextColor(255, 140, 0) // Laranja/Amber
+                  doc.text("Veículos que NÃO Atualizaram KM", 14, startY)
+                  startY += 8
+                  
+                  const tableData = semAtualizacao
+                    .sort((a, b) => {
+                      const diasA = a.diasSemAtualizar ?? 999
+                      const diasB = b.diasSemAtualizar ?? 999
+                      return diasB - diasA
+                    })
+                    .map(v => [
+                      v.placa || "",
+                      v.modelo || "",
+                      v.marca || "",
+                      v.secretaria || "N/A",
+                      v.kmAtual?.toLocaleString() || "N/A",
+                      v.ultimaAtualizacaoKm 
+                        ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                        : "Nunca atualizado",
+                      v.diasSemAtualizar !== null 
+                        ? `${v.diasSemAtualizar} ${v.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
+                        : "N/A",
+                      v.userId || v.user_id
+                        ? usuariosKmMap[v.userId || v.user_id] || "Sistema"
+                        : "Sistema"
+                    ])
+
+                  autoTable(doc, {
+                    head: [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Sem Atualizar", "Usuário"]],
+                    body: tableData,
+                    startY: startY,
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    headStyles: { fillColor: [255, 140, 0] },
+                    alternateRowStyles: { fillColor: [255, 250, 240] },
+                    margin: { top: startY, left: 10, right: 10 },
+                  })
+                  startY = doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY + 15 : startY + 50
+                }
+
+                // Seção: Atualizaram
+                const comAtualizacao = filterVeiculos(veiculosComAtualizacaoKm)
+                if (comAtualizacao.length > 0) {
+                  if (startY > 150) {
+                    doc.addPage()
+                    startY = 20
+                  }
+                  doc.setFontSize(12)
+                  doc.setTextColor(34, 197, 94) // Verde
+                  doc.text("Veículos que Atualizaram KM", 14, startY)
+                  startY += 8
+                  
+                  const tableData = comAtualizacao
+                    .sort((a, b) => {
+                      const dataA = a.ultimaAtualizacaoKm?.getTime() || 0
+                      const dataB = b.ultimaAtualizacaoKm?.getTime() || 0
+                      return dataB - dataA
+                    })
+                    .map(v => {
+                      const diasDesdeAtualizacao = v.ultimaAtualizacaoKm
+                        ? Math.floor((new Date().getTime() - v.ultimaAtualizacaoKm.getTime()) / (1000 * 60 * 60 * 24))
+                        : null
+                      return [
+                        v.placa || "",
+                        v.modelo || "",
+                        v.marca || "",
+                        v.secretaria || "N/A",
+                        v.kmAtual?.toLocaleString() || "N/A",
+                        v.ultimaAtualizacaoKm 
+                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          : "N/A",
+                        diasDesdeAtualizacao !== null 
+                          ? `${diasDesdeAtualizacao} ${diasDesdeAtualizacao === 1 ? 'dia' : 'dias'}`
+                          : "N/A",
+                        v.userId || v.user_id
+                          ? usuariosKmMap[v.userId || v.user_id] || "Sistema"
+                          : "Sistema"
+                      ]
+                    })
+
+                  autoTable(doc, {
+                    head: [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Desde Atualização", "Usuário"]],
+                    body: tableData,
+                    startY: startY,
+                    styles: { fontSize: 8, cellPadding: 2 },
+                    headStyles: { fillColor: [34, 197, 94] },
+                    alternateRowStyles: { fillColor: [240, 253, 244] },
+                    margin: { top: startY, left: 10, right: 10 },
+                  })
+                }
+              } else {
+                // Uma única seção
+                doc.setFontSize(12)
+                doc.setTextColor(0, 0, 0)
+                doc.text(tituloSecao, 14, startY)
+                startY += 8
+
+                const tableData = veiculosParaPdf
+                  .sort((a, b) => {
+                    if (kmPdfOption === "sem-atualizacao") {
+                      const diasA = a.diasSemAtualizar ?? 999
+                      const diasB = b.diasSemAtualizar ?? 999
+                      return diasB - diasA
+                    } else {
+                      const dataA = a.ultimaAtualizacaoKm?.getTime() || 0
+                      const dataB = b.ultimaAtualizacaoKm?.getTime() || 0
+                      return dataB - dataA
+                    }
+                  })
+                  .map(v => {
+                    if (kmPdfOption === "sem-atualizacao") {
+                      return [
+                        v.placa || "",
+                        v.modelo || "",
+                        v.marca || "",
+                        v.secretaria || "N/A",
+                        v.kmAtual?.toLocaleString() || "N/A",
+                        v.ultimaAtualizacaoKm 
+                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          : "Nunca atualizado",
+                        v.diasSemAtualizar !== null 
+                          ? `${v.diasSemAtualizar} ${v.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
+                          : "N/A",
+                        v.userId || v.user_id
+                          ? usuariosKmMap[v.userId || v.user_id] || "Sistema"
+                          : "Sistema"
+                      ]
+                    } else {
+                      const diasDesdeAtualizacao = v.ultimaAtualizacaoKm
+                        ? Math.floor((new Date().getTime() - v.ultimaAtualizacaoKm.getTime()) / (1000 * 60 * 60 * 24))
+                        : null
+                      return [
+                        v.placa || "",
+                        v.modelo || "",
+                        v.marca || "",
+                        v.secretaria || "N/A",
+                        v.kmAtual?.toLocaleString() || "N/A",
+                        v.ultimaAtualizacaoKm 
+                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          : "N/A",
+                        diasDesdeAtualizacao !== null 
+                          ? `${diasDesdeAtualizacao} ${diasDesdeAtualizacao === 1 ? 'dia' : 'dias'}`
+                          : "N/A",
+                        v.userId || v.user_id
+                          ? usuariosKmMap[v.userId || v.user_id] || "Sistema"
+                          : "Sistema"
+                      ]
+                    }
+                  })
+
+                const headers = kmPdfOption === "sem-atualizacao"
+                  ? [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Sem Atualizar", "Usuário"]]
+                  : [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Desde Atualização", "Usuário"]]
+
+                autoTable(doc, {
+                  head: headers,
+                  body: tableData,
+                  startY: startY,
+                  styles: { fontSize: 8, cellPadding: 2 },
+                  headStyles: { 
+                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 140, 0] : [34, 197, 94] 
+                  },
+                  alternateRowStyles: { 
+                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 250, 240] : [240, 253, 244] 
+                  },
+                  margin: { top: startY, left: 10, right: 10 },
+                })
+              }
+
+              // Adicionar rodapé com número de página
+              const pageCount = doc.internal.getNumberOfPages()
+              for (let i = 1; i <= pageCount; i++) {
+                doc.setPage(i)
+                doc.setFontSize(8)
+                doc.setTextColor(0, 0, 0)
+                doc.text(
+                  `Página ${i} de ${pageCount}`,
+                  doc.internal.pageSize.getWidth() / 2,
+                  doc.internal.pageSize.getHeight() - 10,
+                  { align: "center" }
+                )
+              }
+
+              // Salvar o PDF
+              const nomeArquivo = `atualizacao_km_${kmPdfOption}_${new Date().toISOString().split("T")[0]}.pdf`
+              doc.save(nomeArquivo)
+              
+              setKmPdfDialogOpen(false)
+            }}>
+              Baixar
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

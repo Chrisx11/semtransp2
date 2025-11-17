@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Loader2,
   FileText,
+  Building2,
 } from "lucide-react"
 import {
   Pagination,
@@ -57,6 +58,20 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useIsMobile } from "@/components/ui/use-mobile";
 import { OrdemServicoMobileView } from "@/components/ordem-servico-mobile-view";
+import { ServicoExternoDialog } from "@/components/servico-externo-dialog"
+import { gerarCanhotoServicoExternoPDF } from "@/utils/canhoto-servico-externo-utils"
+import { createServicoExterno } from "@/services/servico-externo-service"
+import { getVeiculoByIdSupabase } from "@/services/veiculo-service"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Tipo para a ordenação
 type SortConfig = {
@@ -255,6 +270,10 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
                 <Wrench className="mr-2 h-4 w-4" />
                 <span>Em Serviço</span>
               </Button>
+              <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("servico_externo")}>
+                <Building2 className="mr-2 h-4 w-4" />
+                <span>Serviço Externo</span>
+              </Button>
               <Button variant="outline" className="w-full justify-start" onClick={() => handleAction("finalizado")}>
                 <CheckCircle className="mr-2 h-4 w-4" />
                 <span>Finalizado</span>
@@ -436,6 +455,10 @@ export default function OrdemServicoPage() {
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] = useState(false)
   // Adicionar o estado para controlar a visibilidade do diálogo de observação
   const [isRegistrarObservacaoDialogOpen, setIsRegistrarObservacaoDialogOpen] = useState(false)
+  // Estados para serviço externo
+  const [isServicoExternoConfirmDialogOpen, setIsServicoExternoConfirmDialogOpen] = useState(false)
+  const [isServicoExternoDialogOpen, setIsServicoExternoDialogOpen] = useState(false)
+  const [ordemServicoParaServicoExterno, setOrdemServicoParaServicoExterno] = useState<OrdemServico | null>(null)
 
   // Estado para os termos de pesquisa em cada aba
   const [searchTermOficina, setSearchTermOficina] = useState("")
@@ -836,6 +859,14 @@ export default function OrdemServicoPage() {
             description: error instanceof Error ? error.message : JSON.stringify(error),
             variant: "destructive",
           })
+        }
+        break
+      case "servico_externo":
+        // Buscar a ordem de serviço para mostrar no diálogo
+        const ordemParaServicoExterno = todasOrdensServico.find((o) => o.id === id)
+        if (ordemParaServicoExterno) {
+          setOrdemServicoParaServicoExterno(ordemParaServicoExterno)
+          setIsServicoExternoConfirmDialogOpen(true)
         }
         break
       case "reabrir_os":
@@ -1549,6 +1580,117 @@ export default function OrdemServicoPage() {
         ordemId={selectedOrdemId}
         onSuccess={handleOSSuccess}
         activeTab={activeTab}
+      />
+
+      {/* Diálogo de Confirmação de Serviço Externo */}
+      <AlertDialog open={isServicoExternoConfirmDialogOpen} onOpenChange={setIsServicoExternoConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Enviar para Serviço Externo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja enviar esta ordem de serviço para serviço externo?
+              <br />
+              <br />
+              <strong>ATENÇÃO:</strong> Esta ação irá gerar custos externos e alterar o mecânico responsável para o fornecedor selecionado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setIsServicoExternoConfirmDialogOpen(false)
+                setIsServicoExternoDialogOpen(true)
+              }}
+            >
+              Sim, continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Diálogo de Serviço Externo */}
+      <ServicoExternoDialog
+        open={isServicoExternoDialogOpen}
+        onOpenChange={setIsServicoExternoDialogOpen}
+        ordemServico={ordemServicoParaServicoExterno}
+        onConfirm={async (fornecedorId, fornecedorNome, servicoSolicitado) => {
+          if (!ordemServicoParaServicoExterno) return
+
+          try {
+            // Buscar dados do veículo para criar o registro
+            const veiculo = await getVeiculoByIdSupabase(ordemServicoParaServicoExterno.veiculoId)
+            
+            if (!veiculo) {
+              throw new Error("Veículo não encontrado")
+            }
+
+            // Atualizar a OS com o novo mecânico e status
+            await updateOrdemServicoSupabase(
+              ordemServicoParaServicoExterno.id,
+              {
+                status: "Serviço Externo",
+                mecanicoId: fornecedorId,
+                mecanicoInfo: fornecedorNome,
+              },
+              undefined,
+              user?.id,
+              user?.nome || user?.login || "Sistema"
+            )
+
+            // Criar registro de serviço externo automaticamente
+            await createServicoExterno({
+              ordemServicoId: ordemServicoParaServicoExterno.id,
+              ordemServicoNumero: ordemServicoParaServicoExterno.numero,
+              veiculoId: veiculo.id,
+              veiculoPlaca: veiculo.placa,
+              veiculoModelo: veiculo.modelo,
+              veiculoMarca: veiculo.marca,
+              veiculoSecretaria: veiculo.secretaria,
+              fornecedorId: fornecedorId,
+              fornecedorNome: fornecedorNome,
+              servicoSolicitado: servicoSolicitado,
+              valor: 0, // Valor inicial é 0
+              dataAutorizacao: new Date(),
+              observacoes: null,
+            })
+
+            // Criar uma cópia atualizada da OS para o PDF
+            const ordemAtualizada: OrdemServico = {
+              ...ordemServicoParaServicoExterno,
+              status: "Serviço Externo",
+              mecanicoId: fornecedorId,
+              mecanicoInfo: fornecedorNome,
+            }
+
+            // Gerar o PDF do canhoto
+            await gerarCanhotoServicoExternoPDF({
+              ordemServico: ordemAtualizada,
+              fornecedorNome,
+              servicoSolicitado,
+              dataAutorizacao: new Date(),
+            })
+
+            // Recarregar as ordens
+            carregarOrdensServico()
+
+            toast({
+              title: "Serviço externo autorizado",
+              description: `A ordem de serviço foi enviada para ${fornecedorNome}, o registro foi criado e o canhoto foi gerado.`,
+              variant: "default",
+            })
+
+            // Limpar estados
+            setOrdemServicoParaServicoExterno(null)
+          } catch (error) {
+            console.error("Erro ao processar serviço externo:", error)
+            toast({
+              title: "Erro ao processar serviço externo",
+              description: error instanceof Error ? error.message : "Ocorreu um erro inesperado.",
+              variant: "destructive",
+            })
+            throw error
+          }
+        }}
       />
     </>
   )

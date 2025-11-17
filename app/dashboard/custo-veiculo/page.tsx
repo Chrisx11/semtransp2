@@ -7,6 +7,7 @@ import { getVeiculosSupabase } from "@/services/veiculo-service"
 import { getSaidasSupabase } from "@/services/saida-service"
 import { getAutorizacoesBorracharia, type AutorizacaoBorracharia } from "@/services/autorizacao-borracharia-service"
 import { getAutorizacoesLavador, type AutorizacaoLavador } from "@/services/autorizacao-lavador-service"
+import { getServicosExternos, type ServicoExterno } from "@/services/servico-externo-service"
 import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
@@ -68,9 +69,11 @@ function CustoVeiculoMobileView({
   setDateFilters: (prev: any) => any
   autorizacoesBorracharia: AutorizacaoBorracharia[]
   autorizacoesLavador: AutorizacaoLavador[]
+  servicosExternos: ServicoExterno[]
   totalCard: number
   custoBorracharia: number
   custoLavador: number
+  custoServicoExterno: number
   custoTotalGeral: number
 }) {
   return (
@@ -84,7 +87,7 @@ function CustoVeiculoMobileView({
         <Card>
           <CardContent className="py-3 px-4">
             <div className="text-xs text-muted-foreground">
-              {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Custo Total de Manutenções"}
+              {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Custo Total de Peças e Consumíveis"}
               {cardStartDate && cardEndDate ? (
                 <div className="mt-1">
                   {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -126,6 +129,22 @@ function CustoVeiculoMobileView({
               )}
             </div>
             <div className="text-lg font-bold">R$ {custoLavador.toFixed(2)}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-3 px-4">
+            <div className="text-xs text-muted-foreground">
+              Custo Total Serviço Externo
+              {cardStartDate && cardEndDate ? (
+                <div className="mt-1">
+                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                </div>
+              ) : (
+                <div className="mt-1">Mês atual</div>
+              )}
+            </div>
+            <div className="text-lg font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
           </CardContent>
         </Card>
 
@@ -241,7 +260,8 @@ function CustoVeiculoMobileView({
             const totalFiltrado = filteredSaidas.reduce((acc, s) => acc + ((s.valorUnitario ?? 0) * s.quantidade), 0)
             const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, a) => acc + (a.preco ?? 0), 0);
             const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, a) => acc + (a.preco ?? 0), 0);
-            const totalComExtras = v.custoMensal + borras + lavs;
+            const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, s) => acc + (s.valor ?? 0), 0);
+            const totalComExtras = v.custoMensal + borras + lavs + servicosExt;
 
             return (
               <Card key={v.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
@@ -273,6 +293,7 @@ function CustoVeiculoMobileView({
                           <div>Manutenções: R$ {v.custoMensal.toFixed(2)}</div>
                           <div>Borracharia: R$ {borras.toFixed(2)}</div>
                           <div>Lavador: R$ {lavs.toFixed(2)}</div>
+                          <div>Serviço Externo: R$ {servicosExt.toFixed(2)}</div>
                         </div>
                       </div>
                     </div>
@@ -392,6 +413,32 @@ function CustoVeiculoMobileView({
                           </div>
                         )}
                       </div>
+
+                      {/* Serviço Externo */}
+                      <div>
+                        <div className="font-semibold text-sm mb-2">Custos de Serviço Externo</div>
+                        {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).length > 0 ? (
+                          <div className="space-y-2">
+                            {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(s => (
+                              <Card key={s.id} className="p-3 bg-muted/30">
+                                <div className="space-y-1 text-sm">
+                                  <div className="font-medium">R$ {s.valor?.toFixed(2) ?? '0.00'}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {new Date(s.dataAutorizacao).toLocaleDateString('pt-BR')} • {s.fornecedorNome}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    OS: {s.ordemServicoNumero}
+                                  </div>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center text-muted-foreground text-sm py-4">
+                            Sem registros no período
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </CardContent>
@@ -409,6 +456,7 @@ export default function CustoVeiculoPage() {
   const [saidas, setSaidas] = useState<Saida[]>([])
   const [autorizacoesBorracharia, setAutorizacoesBorracharia] = useState<AutorizacaoBorracharia[]>([])
   const [autorizacoesLavador, setAutorizacoesLavador] = useState<AutorizacaoLavador[]>([])
+  const [servicosExternos, setServicosExternos] = useState<ServicoExterno[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [expandedIds, setExpandedIds] = useState<string[]>([])
   const [dateFilters, setDateFilters] = useState<Record<string, { start?: string; end?: string }>>({})
@@ -419,16 +467,18 @@ export default function CustoVeiculoPage() {
   useEffect(() => {
     async function loadData() {
       setIsLoading(true)
-      const [veics, saids, borracharia, lavador] = await Promise.all([
+      const [veics, saids, borracharia, lavador, servicosExt] = await Promise.all([
         getVeiculosSupabase(),
         getSaidasSupabase(),
         getAutorizacoesBorracharia(),
-        getAutorizacoesLavador()
+        getAutorizacoesLavador(),
+        getServicosExternos()
       ])
       setVeiculos(veics)
       setSaidas(saids)
       setAutorizacoesBorracharia(borracharia)
       setAutorizacoesLavador(lavador)
+      setServicosExternos(servicosExt)
       setIsLoading(false)
     }
     loadData()
@@ -570,8 +620,34 @@ export default function CustoVeiculoPage() {
 
   const custoLavador = calcularCustoLavador()
 
+  // Calcular custo total de serviço externo baseado no período
+  const calcularCustoServicoExterno = () => {
+    const now = new Date()
+    let monthStart: Date
+    let monthEnd: Date
+
+    if (cardStartDate && cardEndDate) {
+      monthStart = new Date(cardStartDate + 'T00:00:00.000')
+      monthEnd = new Date(cardEndDate + 'T23:59:59.999')
+    } else {
+      monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+      monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+    }
+
+    return servicosExternos.reduce((acc, servico) => {
+      if (!servico.valor || servico.valor <= 0) return acc
+      const dataAuth = new Date(servico.dataAutorizacao)
+      if (dataAuth >= monthStart && dataAuth <= monthEnd) {
+        return acc + servico.valor
+      }
+      return acc
+    }, 0)
+  }
+
+  const custoServicoExterno = calcularCustoServicoExterno()
+
   // Calcular custo total geral (soma de todos os cards)
-  const custoTotalGeral = totalCard + custoBorracharia + custoLavador
+  const custoTotalGeral = totalCard + custoBorracharia + custoLavador + custoServicoExterno
 
   const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: "landscape" })
@@ -692,9 +768,11 @@ export default function CustoVeiculoPage() {
         setDateFilters={setDateFilters}
         autorizacoesBorracharia={autorizacoesBorracharia}
         autorizacoesLavador={autorizacoesLavador}
+        servicosExternos={servicosExternos}
         totalCard={totalCard}
         custoBorracharia={custoBorracharia}
         custoLavador={custoLavador}
+        custoServicoExterno={custoServicoExterno}
         custoTotalGeral={custoTotalGeral}
       />
     )
@@ -704,11 +782,11 @@ export default function CustoVeiculoPage() {
     <React.Fragment>
       <div className="space-y-6">
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="sm:w-auto">
             <CardContent className="py-3 px-4">
               <div className="text-xs text-muted-foreground">
-                {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Custo Total de Manutenções"}
+                {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Custo Total de Peças e Consumíveis"}
                 {cardStartDate && cardEndDate ? (
                   <div className="mt-1">
                     {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -750,6 +828,22 @@ export default function CustoVeiculoPage() {
                 )}
               </div>
               <div className="text-lg font-bold">R$ {custoLavador.toFixed(2)}</div>
+            </CardContent>
+          </Card>
+
+          <Card className="sm:w-auto">
+            <CardContent className="py-3 px-4">
+              <div className="text-xs text-muted-foreground">
+                Custo Total Serviço Externo
+                {cardStartDate && cardEndDate ? (
+                  <div className="mt-1">
+                    {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </div>
+                ) : (
+                  <div className="mt-1">Mês atual</div>
+                )}
+              </div>
+              <div className="text-lg font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -895,7 +989,8 @@ export default function CustoVeiculoPage() {
                       // Calcular custos adicionais por veículo e período
                       const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, a) => acc + (a.preco ?? 0), 0);
                       const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, a) => acc + (a.preco ?? 0), 0);
-                      const totalComExtras = v.custoMensal + borras + lavs;
+                      const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).reduce((acc, s) => acc + (s.valor ?? 0), 0);
+                      const totalComExtras = v.custoMensal + borras + lavs + servicosExt;
                       return (
                         <Fragment key={v.id}>
                           <TableRow className="hover:bg-blue-50/30">
@@ -907,7 +1002,7 @@ export default function CustoVeiculoPage() {
                               <div className="flex flex-col">
                                 <div className="font-bold text-lg text-primary">Total: R$ {totalComExtras.toFixed(2)}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  (Manutenções: R$ {v.custoMensal.toFixed(2)} | Borracharia: R$ {borras.toFixed(2)} | Lavador: R$ {lavs.toFixed(2)})
+                                  (Manutenções: R$ {v.custoMensal.toFixed(2)} | Borracharia: R$ {borras.toFixed(2)} | Lavador: R$ {lavs.toFixed(2)} | Serviço Externo: R$ {servicosExt.toFixed(2)})
                                 </div>
                               </div>
                             </TableCell>
@@ -969,8 +1064,8 @@ export default function CustoVeiculoPage() {
                                   </Table>
                                   <div className="font-bold text-right mt-3">Valor total no período: R$ {totalFiltrado.toFixed(2)}</div>
 
-                                            {/* ---  CUSTOS ESPECÍFICOS: BORRACHARIA E LAVADOR --- */}
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                            {/* ---  CUSTOS ESPECÍFICOS: BORRACHARIA, LAVADOR E SERVIÇO EXTERNO --- */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
                                               <div>
                                                 <div className="font-semibold text-sm mb-1">Custos de Borracharia</div>
                                                 <Table>
@@ -1020,6 +1115,36 @@ export default function CustoVeiculoPage() {
                                                           <TableCell>{new Date(a.dataAutorizacao).toLocaleDateString()}</TableCell>
                                                           <TableCell>R$ {a.preco?.toFixed(2) ?? '-'}</TableCell>
                                                           <TableCell>{a.autorizadoPorNome}</TableCell>
+                                                        </TableRow>
+                                                      ))
+                                                    )}
+                                                  </TableBody>
+                                                </Table>
+                                              </div>
+
+                                              <div>
+                                                <div className="font-semibold text-sm mb-1">Custos de Serviço Externo</div>
+                                                <Table>
+                                                  <TableHeader>
+                                                    <TableRow>
+                                                      <TableHead>Data</TableHead>
+                                                      <TableHead>Valor</TableHead>
+                                                      <TableHead>Fornecedor</TableHead>
+                                                      <TableHead>OS</TableHead>
+                                                    </TableRow>
+                                                  </TableHeader>
+                                                  <TableBody>
+                                                    {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).length === 0 ? (
+                                                      <TableRow>
+                                                        <TableCell colSpan={4} className="text-muted-foreground text-center">Sem registros no período</TableCell>
+                                                      </TableRow>
+                                                    ) : (
+                                                      servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(s => (
+                                                        <TableRow key={s.id}>
+                                                          <TableCell>{new Date(s.dataAutorizacao).toLocaleDateString()}</TableCell>
+                                                          <TableCell>R$ {s.valor?.toFixed(2) ?? '0.00'}</TableCell>
+                                                          <TableCell>{s.fornecedorNome}</TableCell>
+                                                          <TableCell>{s.ordemServicoNumero}</TableCell>
                                                         </TableRow>
                                                       ))
                                                     )}
