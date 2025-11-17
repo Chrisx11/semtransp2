@@ -21,13 +21,19 @@ import { EmptyState } from "@/components/empty-state"
 import { EntradaForm } from "@/components/entrada-form"
 import { getEntradasSupabase, deleteEntradaSupabase, type Entrada } from "@/services/entrada-service"
 import { getProdutosSupabase, type Produto } from "@/services/produto-service"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package } from "lucide-react"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, MoreVertical } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 // Componente Mobile View
 function EntradasMobileView({
@@ -70,129 +76,120 @@ function EntradasMobileView({
   setFormOpen: (open: boolean) => void
 }) {
   return (
-    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
-      <div className="w-[52%] mb-4 pl-0 pr-0">
+    <div className="w-full min-w-0 px-2 py-3 space-y-3 overflow-x-hidden box-border">
+      <div className="w-full min-w-0">
         <MobileBackButton />
       </div>
-      
-      {/* Busca e Filtros */}
-      <div className="flex flex-col gap-3 mb-4 w-[52%] pl-0 pr-0">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar entradas..."
-            className="pl-10 h-11 text-base w-full"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
 
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-full h-11 text-base">
-            <div className="flex items-center min-w-0">
-              <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
-              <SelectValue placeholder="Filtrar por data" className="truncate" />
-            </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as datas</SelectItem>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Esta semana</SelectItem>
-            <SelectItem value="month">Este mês</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Button className="w-full btn-gradient h-11 text-base font-medium shadow-md" onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 h-5 w-5" /> Nova Entrada
-        </Button>
+      <div className="relative w-full min-w-0">
+        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Buscar entradas..."
+          className="pl-7 text-sm w-full min-w-0 box-border"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      {/* Loading State */}
-      {isLoading ? (
-        <div className="flex justify-center items-center py-16 w-[52%] pl-0 pr-0">
-          <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
-            <p className="text-sm text-muted-foreground">Carregando entradas...</p>
+      <Select value={dateFilter} onValueChange={setDateFilter}>
+        <SelectTrigger className="w-full text-sm min-w-0 box-border">
+          <div className="flex items-center min-w-0 w-full">
+            <Filter className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
+            <SelectValue placeholder="Filtrar por data" className="truncate min-w-0" />
           </div>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Todas as datas</SelectItem>
+          <SelectItem value="today">Hoje</SelectItem>
+          <SelectItem value="week">Esta semana</SelectItem>
+          <SelectItem value="month">Este mês</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Button className="w-full min-w-0 btn-gradient shadow-md text-sm h-9 box-border" onClick={() => setFormOpen(true)}>
+        <Plus className="mr-1 h-3.5 w-3.5" /> Nova Entrada
+      </Button>
+
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-12 text-xs text-muted-foreground">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin mb-2" />
+          Carregando entradas...
         </div>
       ) : paginatedData.length > 0 ? (
-        <div className="space-y-3 w-[52%] pl-0 pr-0">
+        <div className="space-y-2 w-full min-w-0">
           {paginatedData.map((entrada) => (
-            <Card key={entrada.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-3 min-w-0">
+            <Card key={entrada.id} className="border border-primary/20 shadow-sm hover:shadow-md transition-all duration-200 w-full min-w-0 overflow-hidden box-border">
+              <CardContent className="px-2 py-2 space-y-2 w-full min-w-0 box-border">
+                <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
                   <div className="flex-1 min-w-0 overflow-hidden">
-                    {/* Produto e Info Principal */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="bg-primary/10 p-2 rounded-lg">
-                        <Package className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-lg text-primary truncate">{entrada.produtoDescricao}</div>
-                        <div className="text-sm text-muted-foreground truncate">
-                          {produtoCategoriaMap[entrada.produtoId] || "-"}
-                        </div>
-                      </div>
+                    <div className="text-sm font-semibold truncate w-full">{entrada.produtoDescricao}</div>
+                    <div className="text-[10px] text-muted-foreground truncate w-full">
+                      {produtoCategoriaMap[entrada.produtoId] || "-"}
                     </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 flex-shrink-0"
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                        <span className="sr-only">Abrir menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-32 text-sm">
+                      <DropdownMenuItem
+                        onClick={() => handleEditClick(entrada.id)}
+                        className="cursor-pointer"
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(entrada.id)}
+                        className="text-red-600 focus:text-red-600 cursor-pointer"
+                      >
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
 
-                    {/* Informações */}
-                    <div className="flex flex-col gap-2 mt-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
-                          Qtd: {entrada.quantidade}
-                        </Badge>
-                        {entrada.valorUnitario !== undefined && (
-                          <>
-                            <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
-                              Unit: R$ {entrada.valorUnitario.toFixed(2)}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs px-2 py-1 h-auto font-semibold text-green-700 dark:text-green-400 border-green-300 dark:border-green-600">
-                              Total: R$ {(entrada.valorUnitario * entrada.quantidade).toFixed(2)}
-                            </Badge>
-                          </>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        <div>Responsável: {entrada.responsavelNome}</div>
-                        <div>Data: {formatDate(entrada.data)}</div>
-                      </div>
-                    </div>
+                <div className="space-y-1.5 w-full min-w-0">
+                  <div className="flex items-center gap-1 flex-wrap w-full min-w-0">
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto whitespace-nowrap">
+                      Qtd: {entrada.quantidade}
+                    </Badge>
+                    {entrada.valorUnitario !== undefined && (
+                      <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto whitespace-nowrap">
+                        R$ {entrada.valorUnitario.toFixed(2)}
+                      </Badge>
+                    )}
                   </div>
-                  
-                  {/* Menu de Ações */}
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 w-9 p-0"
-                      onClick={() => handleEditClick(entrada.id)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      <span className="sr-only">Editar</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
-                      onClick={() => handleDeleteClick(entrada.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Excluir</span>
-                    </Button>
-                  </div>
+                  {entrada.valorUnitario !== undefined && (
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto font-semibold text-green-700 dark:text-green-400 border-green-300 dark:border-green-600 w-fit max-w-full truncate whitespace-nowrap">
+                      Total: R$ {(entrada.valorUnitario * entrada.quantidade).toFixed(2)}
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-[10px] text-muted-foreground w-full min-w-0">
+                  <div className="truncate w-full">Responsável: {entrada.responsavelNome}</div>
+                  <div className="truncate w-full">Data: {formatDate(entrada.data)}</div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="text-center py-16 text-muted-foreground w-[52%] pl-0 pr-0">
-          <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-base font-medium mb-1">
+        <div className="text-center text-muted-foreground py-12">
+          <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+          <p className="text-sm font-medium mb-1">
             {searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma entrada cadastrada"}
           </p>
-          <p className="text-sm">
+          <p className="text-xs">
             {searchTerm || dateFilter !== "all"
               ? "Tente usar termos diferentes na busca ou remover os filtros"
               : "Adicione uma nova entrada para começar"}
@@ -200,10 +197,9 @@ function EntradasMobileView({
         </div>
       )}
 
-      {/* Paginação */}
       {processedData.length > 0 && (
-        <div className="flex flex-col gap-3 mt-6 w-[52%] pl-0 pr-0">
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-1.5 mt-4 w-full min-w-0 overflow-x-hidden box-border">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground w-full min-w-0 flex-wrap">
             <Select
               value={itemsPerPage}
               onValueChange={(value) => {
@@ -211,7 +207,7 @@ function EntradasMobileView({
                 setCurrentPage(1)
               }}
             >
-              <SelectTrigger className="w-[70px] h-9 text-sm">
+              <SelectTrigger className="w-[60px] h-8 text-xs box-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -221,14 +217,14 @@ function EntradasMobileView({
                 <SelectItem value="50">50</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm">
-              Mostrando {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
+            <span className="text-xs whitespace-nowrap min-w-0">
+              {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
               {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
             </span>
           </div>
 
-          <Pagination>
-            <PaginationContent className="flex-wrap">
+          <Pagination className="w-full min-w-0 overflow-x-hidden box-border">
+            <PaginationContent className="flex-wrap gap-1 w-full min-w-0">
               <PaginationItem>
                 <PaginationPrevious
                   href="#"
@@ -236,7 +232,7 @@ function EntradasMobileView({
                     e.preventDefault()
                     if (currentPage > 1) setCurrentPage(currentPage - 1)
                   }}
-                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
 
@@ -252,7 +248,7 @@ function EntradasMobileView({
                         e.preventDefault()
                         setCurrentPage(pageNumber)
                       }}
-                      className="min-w-[40px]"
+                      className="min-w-[28px] h-8 text-xs"
                     >
                       {pageNumber}
                     </PaginationLink>
@@ -267,7 +263,7 @@ function EntradasMobileView({
                     e.preventDefault()
                     if (currentPage < totalPages) setCurrentPage(currentPage + 1)
                   }}
-                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
             </PaginationContent>
@@ -603,7 +599,7 @@ export default function EntradasPage() {
         
         {/* Modais compartilhados */}
         <Dialog open={formOpen} onOpenChange={handleFormClose}>
-          <DialogContent>
+          <DialogContent className="max-w-[95vw] w-full mx-2">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Entrada" : "Nova Entrada"}</DialogTitle>
             </DialogHeader>

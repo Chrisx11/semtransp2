@@ -99,7 +99,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="flex h-screen bg-gradient-to-br from-background via-background to-muted/20 overflow-x-hidden">
       {/* Padrão de fundo sutil */}
       <div 
         className="fixed inset-0 opacity-[0.015] pointer-events-none z-0"
@@ -112,7 +112,7 @@ export default function DashboardLayout({
         <Sidebar isCollapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       )}
       <div
-        className="flex-1 flex flex-col relative z-10"
+        className="flex-1 flex flex-col relative z-10 min-w-0 overflow-x-hidden"
         style={{
           marginLeft: isMobile || sidebarHidden ? '0' : (sidebarCollapsed ? '64px' : '256px'),
           transition: 'margin-left 0.3s ease-in-out'
@@ -128,8 +128,8 @@ export default function DashboardLayout({
         )}
         
         {/* Conteúdo principal com padding-top para compensar o header */}
-        <main className="flex-1 overflow-y-auto">
-          <div className={isMobile ? "px-0 pt-0 pb-0 page-transition" : "px-6 pt-6 pb-6 page-transition"} style={isMobile ? {} : { paddingTop: 'calc(68px + 24px)' }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div className={isMobile ? "px-0 pt-0 pb-0 page-transition w-full min-w-0 overflow-x-hidden" : "px-6 pt-6 pb-6 page-transition"} style={isMobile ? {} : { paddingTop: 'calc(68px + 24px)' }}>
             {children}
           </div>
         </main>

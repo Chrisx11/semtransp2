@@ -69,29 +69,29 @@ function SaidasMobileView({
   setFormOpen: (open: boolean) => void
 }) {
   return (
-    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
-      <div className="w-[75%] mb-4 pl-0 pr-0">
+    <div className="w-full min-w-0 px-2 py-3 space-y-3 overflow-x-hidden box-border">
+      <div className="w-full min-w-0">
         <MobileBackButton />
       </div>
       
       {/* Busca e Filtros */}
-      <div className="flex flex-col gap-3 mb-4 w-[75%] pl-0 pr-0">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex flex-col gap-3 w-full min-w-0">
+        <div className="relative w-full min-w-0">
+          <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar saídas..."
-            className="pl-10 h-11 text-base w-full"
+            className="pl-7 text-sm w-full min-w-0 box-border"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
         <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-full h-11 text-base">
-            <div className="flex items-center min-w-0">
-              <Filter className="mr-2 h-4 w-4 flex-shrink-0" />
-              <SelectValue placeholder="Filtrar por data" className="truncate" />
+          <SelectTrigger className="w-full text-sm min-w-0 box-border">
+            <div className="flex items-center min-w-0 w-full">
+              <Filter className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
+              <SelectValue placeholder="Filtrar por data" className="truncate min-w-0" />
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -102,21 +102,21 @@ function SaidasMobileView({
           </SelectContent>
         </Select>
 
-        <Button className="w-full btn-gradient h-11 text-base font-medium shadow-md" onClick={() => setFormOpen(true)}>
-          <Plus className="mr-2 h-5 w-5" /> Nova Saída
+        <Button className="w-full min-w-0 btn-gradient shadow-md text-sm h-9 box-border" onClick={() => setFormOpen(true)}>
+          <Plus className="mr-1 h-3.5 w-3.5" /> Nova Saída
         </Button>
       </div>
 
       {/* Loading State */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-16 w-[75%] pl-0 pr-0">
+        <div className="flex justify-center items-center py-12 w-full min-w-0">
           <div className="flex flex-col items-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
-            <p className="text-sm text-muted-foreground">Carregando saídas...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mb-2"></div>
+            <p className="text-xs text-muted-foreground">Carregando saídas...</p>
           </div>
         </div>
       ) : paginatedData.length > 0 ? (
-        <div className="space-y-3 w-[75%] pl-0 pr-0">
+        <div className="space-y-2 w-full min-w-0">
           {paginatedData.map((saida) => {
             // Buscar o produto correspondente
             const produto = produtos.find((p) => p.id === saida.produtoId)
@@ -126,22 +126,22 @@ function SaidasMobileView({
               : []
             
             return (
-              <Card key={saida.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 min-w-0">
+              <Card key={saida.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full min-w-0 overflow-hidden box-border">
+                <CardContent className="px-2 py-2 space-y-2 w-full min-w-0 box-border">
+                  <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
                     <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Produto e Info Principal */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                          <Package className="h-4 w-4 text-primary" />
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <div className="bg-primary/10 p-1.5 rounded-lg flex-shrink-0">
+                          <Package className="h-3.5 w-3.5 text-primary" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-lg text-primary truncate">{saida.produtoNome}</div>
-                          <div className="text-sm text-muted-foreground truncate">
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                          <div className="font-semibold text-sm text-primary truncate w-full">{saida.produtoNome}</div>
+                          <div className="text-[10px] text-muted-foreground truncate w-full">
                             {saida.categoria || "-"}
                           </div>
                           {similares.length > 0 && (
-                            <div className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                            <div className="text-[9px] text-blue-600 dark:text-blue-300 mt-0.5 truncate w-full">
                               Similares: {similares.map((s) => s.descricao).join(", ")}
                             </div>
                           )}
@@ -149,29 +149,29 @@ function SaidasMobileView({
                       </div>
 
                       {/* Informações */}
-                      <div className="flex flex-col gap-2 mt-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                      <div className="flex flex-col gap-1.5 mt-2 w-full min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap w-full min-w-0">
+                          <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto whitespace-nowrap">
                             Qtd: {saida.quantidade}
                           </Badge>
                           {saida.valorUnitario !== undefined && (
                             <>
-                              <Badge variant="outline" className="text-xs px-2 py-1 h-auto">
+                              <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto whitespace-nowrap">
                                 Unit: R$ {saida.valorUnitario.toFixed(2)}
                               </Badge>
-                              <Badge variant="outline" className="text-xs px-2 py-1 h-auto font-semibold text-red-700 dark:text-red-400 border-red-300 dark:border-red-600">
+                              <Badge variant="outline" className="text-[8px] px-1 py-0 h-auto font-semibold text-red-700 dark:text-red-400 border-red-300 dark:border-red-600 whitespace-nowrap">
                                 Total: R$ {(saida.valorUnitario * saida.quantidade).toFixed(2)}
                               </Badge>
                             </>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          <div>Responsável: {saida.responsavelNome}</div>
-                          <div>Data: {formatDate(saida.data)}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1 w-full min-w-0">
+                          <div className="truncate w-full">Responsável: {saida.responsavelNome}</div>
+                          <div className="truncate w-full">Data: {formatDate(saida.data)}</div>
                           {saida.veiculoPlaca && saida.veiculoModelo && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Car className="h-3 w-3" />
-                              <span>{saida.veiculoPlaca} - {saida.veiculoModelo}</span>
+                            <div className="flex items-center gap-1 mt-0.5 truncate w-full">
+                              <Car className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{saida.veiculoPlaca} - {saida.veiculoModelo}</span>
                             </div>
                           )}
                         </div>
@@ -179,23 +179,23 @@ function SaidasMobileView({
                     </div>
                     
                     {/* Menu de Ações */}
-                    <div className="flex gap-2 flex-shrink-0">
+                    <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 w-9 p-0"
+                        className="h-7 w-7 p-0"
                         onClick={() => handleEditClick(saida.id)}
                       >
-                        <Pencil className="h-4 w-4" />
+                        <Pencil className="h-3.5 w-3.5" />
                         <span className="sr-only">Editar</span>
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-9 w-9 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
+                        className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
                         onClick={() => handleDeleteClick(saida.id)}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-3.5 w-3.5" />
                         <span className="sr-only">Excluir</span>
                       </Button>
                     </div>
@@ -206,12 +206,12 @@ function SaidasMobileView({
           })}
         </div>
       ) : (
-        <div className="text-center py-16 text-muted-foreground w-[75%] pl-0 pr-0">
-          <Package className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-base font-medium mb-1">
+        <div className="text-center py-12 text-muted-foreground w-full min-w-0">
+          <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
+          <p className="text-sm font-medium mb-1">
             {searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"}
           </p>
-          <p className="text-sm">
+          <p className="text-xs">
             {searchTerm || dateFilter !== "all"
               ? "Tente usar termos diferentes na busca ou remover os filtros"
               : "Adicione uma nova saída para começar"}
@@ -221,8 +221,8 @@ function SaidasMobileView({
 
       {/* Paginação */}
       {processedData.length > 0 && (
-        <div className="flex flex-col gap-3 mt-6 w-[75%] pl-0 pr-0">
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col gap-1.5 mt-4 w-full min-w-0 overflow-x-hidden box-border">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground w-full min-w-0 flex-wrap">
             <Select
               value={itemsPerPage}
               onValueChange={(value) => {
@@ -230,7 +230,7 @@ function SaidasMobileView({
                 setCurrentPage(1)
               }}
             >
-              <SelectTrigger className="w-[70px] h-9 text-sm">
+              <SelectTrigger className="w-[60px] h-8 text-xs box-border">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -240,14 +240,14 @@ function SaidasMobileView({
                 <SelectItem value="50">50</SelectItem>
               </SelectContent>
             </Select>
-            <span className="text-sm">
-              Mostrando {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
+            <span className="text-xs whitespace-nowrap min-w-0">
+              {Math.min(processedData.length, (currentPage - 1) * Number.parseInt(itemsPerPage) + 1)}-
               {Math.min(processedData.length, currentPage * Number.parseInt(itemsPerPage))} de {processedData.length}
             </span>
           </div>
 
-          <Pagination>
-            <PaginationContent className="flex-wrap">
+          <Pagination className="w-full min-w-0 overflow-x-hidden box-border">
+            <PaginationContent className="flex-wrap gap-1 w-full min-w-0">
               <PaginationItem>
                 <PaginationPrevious
                   href="#"
@@ -255,7 +255,7 @@ function SaidasMobileView({
                     e.preventDefault()
                     if (currentPage > 1) setCurrentPage(currentPage - 1)
                   }}
-                  className={currentPage <= 1 ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
 
@@ -271,7 +271,7 @@ function SaidasMobileView({
                         e.preventDefault()
                         setCurrentPage(pageNumber)
                       }}
-                      className="min-w-[40px]"
+                      className="min-w-[28px] h-8 text-xs"
                     >
                       {pageNumber}
                     </PaginationLink>
@@ -286,7 +286,7 @@ function SaidasMobileView({
                     e.preventDefault()
                     if (currentPage < totalPages) setCurrentPage(currentPage + 1)
                   }}
-                  className={currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}
+                  className={`text-xs h-8 ${currentPage >= totalPages ? "pointer-events-none opacity-50" : ""}`}
                 />
               </PaginationItem>
             </PaginationContent>
