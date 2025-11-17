@@ -712,6 +712,7 @@ export default function ConfiguracoesPage() {
     { id: "ordemServico", name: "Ordem de Serviço" },
     { id: "planejamento", name: "Planejamento" },
     { id: "trocaOleo", name: "Troca de Óleo" },
+    { id: "trocaPneu", name: "Troca de Pneu" },
     { id: "historico", name: "Histórico" },
     { id: "custoVeiculo", name: "Custo por Veículo" },
     { id: "borracharia", name: "Borracharia" },
