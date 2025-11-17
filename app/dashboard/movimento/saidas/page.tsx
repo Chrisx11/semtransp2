@@ -18,8 +18,19 @@ import {
 import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { EmptyState } from "@/components/empty-state"
 import { SaidaFormDialog } from "@/components/saida-form-dialog"
-import { getSaidasSupabase, deleteSaidaSupabase, type Saida } from "@/services/saida-service"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, Car } from "lucide-react"
+import { getSaidasSupabase, deleteSaidaSupabase, updateSaidaSupabase, type Saida } from "@/services/saida-service"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, Car, MoreVertical, Calendar as CalendarIcon, DollarSign } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -42,11 +53,15 @@ function SaidasMobileView({
   setSearchTerm,
   dateFilter,
   setDateFilter,
+  placaFilter,
+  setPlacaFilter,
   isLoading,
   produtos,
   formatDate,
   handleEditClick,
   handleDeleteClick,
+  handleEditDataClick,
+  handleEditValorClick,
   setFormOpen,
 }: {
   paginatedData: Saida[]
@@ -61,11 +76,15 @@ function SaidasMobileView({
   setSearchTerm: (value: string) => void
   dateFilter: string
   setDateFilter: (value: string) => void
+  placaFilter: string
+  setPlacaFilter: (value: string) => void
   isLoading: boolean
   produtos: Produto[]
   formatDate: (dateString: string) => string
   handleEditClick: (id: string) => void
   handleDeleteClick: (id: string) => void
+  handleEditDataClick: (saida: Saida) => void
+  handleEditValorClick: (saida: Saida) => void
   setFormOpen: (open: boolean) => void
 }) {
   return (
@@ -87,20 +106,51 @@ function SaidasMobileView({
           />
         </div>
 
-        <Select value={dateFilter} onValueChange={setDateFilter}>
-          <SelectTrigger className="w-full text-sm min-w-0 box-border">
-            <div className="flex items-center min-w-0 w-full">
-              <Filter className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
-              <SelectValue placeholder="Filtrar por data" className="truncate min-w-0" />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full text-sm min-w-0 box-border justify-start text-left font-normal"
+            >
+              <CalendarIcon className="mr-1 h-3.5 w-3.5 flex-shrink-0" />
+              {dateFilter ? (
+                format(dateFilter, "dd/MM/yyyy", { locale: ptBR })
+              ) : (
+                <span className="text-muted-foreground">Filtrar por data</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateFilter}
+              onSelect={setDateFilter}
+              locale={ptBR}
+              initialFocus
+            />
+            <div className="p-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setDateFilter(undefined)}
+              >
+                Limpar filtro
+              </Button>
             </div>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as datas</SelectItem>
-            <SelectItem value="today">Hoje</SelectItem>
-            <SelectItem value="week">Esta semana</SelectItem>
-            <SelectItem value="month">Este mês</SelectItem>
-          </SelectContent>
-        </Select>
+          </PopoverContent>
+        </Popover>
+
+        <div className="relative w-full min-w-0">
+          <Car className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Filtrar por placa..."
+            className="pl-7 text-sm w-full min-w-0 box-border"
+            value={placaFilter}
+            onChange={(e) => setPlacaFilter(e.target.value)}
+          />
+        </div>
 
         <Button className="w-full min-w-0 btn-gradient shadow-md text-sm h-9 box-border" onClick={() => setFormOpen(true)}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Nova Saída
@@ -179,25 +229,41 @@ function SaidasMobileView({
                     </div>
                     
                     {/* Menu de Ações */}
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={() => handleEditClick(saida.id)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        <span className="sr-only">Editar</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 w-7 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400"
-                        onClick={() => handleDeleteClick(saida.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span className="sr-only">Excluir</span>
-                      </Button>
+                    <div className="flex-shrink-0">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                          >
+                            <MoreVertical className="h-3.5 w-3.5" />
+                            <span className="sr-only">Abrir menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40 text-xs">
+                          <DropdownMenuItem onClick={() => handleEditClick(saida.id)}>
+                            <Pencil className="mr-1.5 h-3 w-3" />
+                            Editar Completo
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditDataClick(saida)}>
+                            <Calendar className="mr-1.5 h-3 w-3" />
+                            Editar Data
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditValorClick(saida)}>
+                            <DollarSign className="mr-1.5 h-3 w-3" />
+                            Editar Valor
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteClick(saida.id)}
+                            className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                          >
+                            <Trash2 className="mr-1.5 h-3 w-3" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardContent>
@@ -209,10 +275,10 @@ function SaidasMobileView({
         <div className="text-center py-12 text-muted-foreground w-full min-w-0">
           <Package className="h-10 w-10 text-muted-foreground/50 mx-auto mb-2" />
           <p className="text-sm font-medium mb-1">
-            {searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"}
+            {searchTerm || dateFilter || placaFilter ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"}
           </p>
           <p className="text-xs">
-            {searchTerm || dateFilter !== "all"
+            {searchTerm || dateFilter || placaFilter
               ? "Tente usar termos diferentes na busca ou remover os filtros"
               : "Adicione uma nova saída para começar"}
           </p>
@@ -308,7 +374,15 @@ export default function SaidasPage() {
 
   // Estado para pesquisa e filtro
   const [searchTerm, setSearchTerm] = useState("")
-  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined)
+  const [placaFilter, setPlacaFilter] = useState<string>("")
+  
+  // Estados para diálogos de edição rápida
+  const [editDataDialogOpen, setEditDataDialogOpen] = useState(false)
+  const [editValorDialogOpen, setEditValorDialogOpen] = useState(false)
+  const [saidaParaEditar, setSaidaParaEditar] = useState<Saida | null>(null)
+  const [novaData, setNovaData] = useState("")
+  const [novoValor, setNovoValor] = useState("")
 
   // Estado para o modal de formulário
   const [formOpen, setFormOpen] = useState(false)
@@ -463,7 +537,7 @@ export default function SaidasPage() {
     }
   }
 
-  // Filtrar dados com base na pesquisa e no filtro de data
+  // Filtrar dados com base na pesquisa e nos filtros
   const filteredData = useMemo(() => {
     let result = [...saidas]
 
@@ -474,31 +548,33 @@ export default function SaidasPage() {
         (e) =>
           e.produtoNome.toLowerCase().includes(lowerQuery) ||
           e.responsavelNome.toLowerCase().includes(lowerQuery) ||
-          (e.veiculoPlaca && e.veiculoPlaca.toLowerCase().includes(lowerQuery)) ||
           (e.veiculoModelo && e.veiculoModelo.toLowerCase().includes(lowerQuery))
       )
     }
 
-    // Aplicar filtro de data
-    if (dateFilter && dateFilter !== "all") {
-      const today = new Date()
-      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    // Aplicar filtro de placa
+    if (placaFilter) {
+      const lowerPlaca = placaFilter.toLowerCase()
+      result = result.filter(
+        (e) => e.veiculoPlaca && e.veiculoPlaca.toLowerCase().includes(lowerPlaca)
+      )
+    }
 
-      if (dateFilter === "today") {
-        result = result.filter((e) => new Date(e.data) >= startOfToday)
-      } else if (dateFilter === "week") {
-        const startOfWeek = new Date(today)
-        startOfWeek.setDate(today.getDate() - today.getDay())
-        startOfWeek.setHours(0, 0, 0, 0)
-        result = result.filter((e) => new Date(e.data) >= startOfWeek)
-      } else if (dateFilter === "month") {
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-        result = result.filter((e) => new Date(e.data) >= startOfMonth)
-      }
+    // Aplicar filtro de data
+    if (dateFilter) {
+      const selectedDate = new Date(dateFilter)
+      selectedDate.setHours(0, 0, 0, 0)
+      const endOfDay = new Date(selectedDate)
+      endOfDay.setHours(23, 59, 59, 999)
+      
+      result = result.filter((e) => {
+        const saidaDate = new Date(e.data)
+        return saidaDate >= selectedDate && saidaDate <= endOfDay
+      })
     }
 
     return result
-  }, [saidas, searchTerm, dateFilter])
+  }, [saidas, searchTerm, dateFilter, placaFilter])
 
   // Aplicar ordenação aos dados filtrados
   const processedData = useMemo(() => {
@@ -586,7 +662,87 @@ export default function SaidasPage() {
   // Resetar para a primeira página quando os filtros mudarem
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, dateFilter])
+  }, [searchTerm, dateFilter, placaFilter])
+
+  // Funções para edição rápida
+  const handleEditDataClick = (saida: Saida) => {
+    setSaidaParaEditar(saida)
+    // Converter data ISO para formato YYYY-MM-DD
+    const dataObj = new Date(saida.data)
+    const year = dataObj.getFullYear()
+    const month = String(dataObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dataObj.getDate()).padStart(2, '0')
+    setNovaData(`${year}-${month}-${day}`)
+    setEditDataDialogOpen(true)
+  }
+
+  const handleEditValorClick = (saida: Saida) => {
+    setSaidaParaEditar(saida)
+    setNovoValor(saida.valorUnitario?.toString() || "")
+    setEditValorDialogOpen(true)
+  }
+
+  const handleSaveData = async () => {
+    if (!saidaParaEditar || !novaData) return
+
+    try {
+      // Converter data para formato ISO
+      const dataISO = new Date(novaData + 'T00:00:00').toISOString()
+      await updateSaidaSupabase(saidaParaEditar.id, { data: dataISO })
+      
+      toast({
+        title: "Data atualizada",
+        description: "A data da saída foi atualizada com sucesso.",
+      })
+      
+      loadData()
+      setEditDataDialogOpen(false)
+      setSaidaParaEditar(null)
+      setNovaData("")
+    } catch (error) {
+      console.error("Erro ao atualizar data:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a data.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleSaveValor = async () => {
+    if (!saidaParaEditar) return
+
+    try {
+      const valor = parseFloat(novoValor)
+      if (isNaN(valor) || valor < 0) {
+        toast({
+          title: "Erro",
+          description: "Por favor, insira um valor válido.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      await updateSaidaSupabase(saidaParaEditar.id, { valorUnitario: valor })
+      
+      toast({
+        title: "Valor atualizado",
+        description: "O valor unitário da saída foi atualizado com sucesso.",
+      })
+      
+      loadData()
+      setEditValorDialogOpen(false)
+      setSaidaParaEditar(null)
+      setNovoValor("")
+    } catch (error) {
+      console.error("Erro ao atualizar valor:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o valor.",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Função para fechar o formulário e limpar o ID de edição
   const handleFormClose = (open: boolean) => {
@@ -614,11 +770,15 @@ export default function SaidasPage() {
           setSearchTerm={setSearchTerm}
           dateFilter={dateFilter}
           setDateFilter={setDateFilter}
+          placaFilter={placaFilter}
+          setPlacaFilter={setPlacaFilter}
           isLoading={isLoading}
           produtos={produtos}
           formatDate={formatDate}
           handleEditClick={handleEditClick}
           handleDeleteClick={handleDeleteClick}
+          handleEditDataClick={handleEditDataClick}
+          handleEditValorClick={handleEditValorClick}
           setFormOpen={setFormOpen}
         />
         
@@ -661,20 +821,54 @@ export default function SaidasPage() {
 
               {/* Filtro por data */}
               <div className="w-full md:w-auto">
-                <Select value={dateFilter} onValueChange={setDateFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <div className="flex items-center">
-                      <Filter className="mr-2 h-4 w-4" />
-                      <SelectValue placeholder="Filtrar por data" />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full md:w-[180px] justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateFilter ? (
+                        format(dateFilter, "dd/MM/yyyy", { locale: ptBR })
+                      ) : (
+                        <span className="text-muted-foreground">Filtrar por data</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={dateFilter}
+                      onSelect={setDateFilter}
+                      locale={ptBR}
+                      initialFocus
+                    />
+                    <div className="p-2 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setDateFilter(undefined)}
+                      >
+                        Limpar filtro
+                      </Button>
                     </div>
-                  </SelectTrigger>
-                  <SelectContent position="popper" side="top">
-                    <SelectItem value="all">Todas as datas</SelectItem>
-                    <SelectItem value="today">Hoje</SelectItem>
-                    <SelectItem value="week">Esta semana</SelectItem>
-                    <SelectItem value="month">Este mês</SelectItem>
-                  </SelectContent>
-                </Select>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Filtro de placa */}
+              <div className="w-full md:w-auto">
+                <div className="relative">
+                  <Car className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Filtrar por placa..."
+                    className="pl-8 w-full md:w-[200px]"
+                    value={placaFilter}
+                    onChange={(e) => setPlacaFilter(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -746,26 +940,40 @@ export default function SaidasPage() {
                             : "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900 dark:hover:text-blue-400 transition-colors"
-                              onClick={() => handleEditClick(saida.id)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                              <span className="sr-only">Editar</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400 transition-colors"
-                              onClick={() => handleDeleteClick(saida.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Excluir</span>
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Abrir menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => handleEditClick(saida.id)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar Completo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditDataClick(saida)}>
+                                <Calendar className="mr-2 h-4 w-4" />
+                                Editar Data
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditValorClick(saida)}>
+                                <DollarSign className="mr-2 h-4 w-4" />
+                                Editar Valor
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteClick(saida.id)}
+                                className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     )
@@ -774,10 +982,10 @@ export default function SaidasPage() {
                   <EmptyState
                     colSpan={8}
                     title={
-                      searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"
+                      searchTerm || dateFilter || placaFilter ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"
                     }
                     description={
-                      searchTerm || dateFilter !== "all"
+                      searchTerm || dateFilter || placaFilter
                         ? "Tente usar termos diferentes na busca ou remover os filtros"
                         : "Adicione uma nova saída para começar"
                     }
@@ -881,6 +1089,79 @@ export default function SaidasPage() {
         title="Excluir saída"
         description="Tem certeza que deseja excluir esta saída? Esta ação não pode ser desfeita e o estoque será atualizado."
       />
+
+      {/* Diálogo para editar data */}
+      <Dialog open={editDataDialogOpen} onOpenChange={setEditDataDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Data</DialogTitle>
+            <DialogDescription>
+              Altere a data da saída do produto {saidaParaEditar?.produtoNome}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="data">Nova Data</Label>
+              <Input
+                id="data"
+                type="date"
+                value={novaData}
+                onChange={(e) => setNovaData(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDataDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveData}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para editar valor */}
+      <Dialog open={editValorDialogOpen} onOpenChange={setEditValorDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Valor Unitário</DialogTitle>
+            <DialogDescription>
+              Altere o valor unitário da saída do produto {saidaParaEditar?.produtoNome}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="valor">Novo Valor Unitário (R$)</Label>
+              <Input
+                id="valor"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={novoValor}
+                onChange={(e) => setNovoValor(e.target.value)}
+              />
+            </div>
+            {saidaParaEditar && (
+              <div className="text-sm text-muted-foreground">
+                Quantidade: {saidaParaEditar.quantidade} | 
+                Valor Total: R$ {novoValor && !isNaN(parseFloat(novoValor)) 
+                  ? (parseFloat(novoValor) * saidaParaEditar.quantidade).toFixed(2)
+                  : '0.00'}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditValorDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveValor}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
