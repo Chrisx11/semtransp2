@@ -14,9 +14,11 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench } from "lucide-react"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
 
 // Interfaces para os dados
 interface VeiculoBase {
@@ -112,43 +114,88 @@ function isTrocaOleo(tipoServico: string) {
 
 // Adicionar função auxiliar para mobile
 function DashboardMobileView() {
+  const { verificarPermissao } = useAuth()
+  const router = useRouter()
+  const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
+  
+  const handleNavigation = (href: string) => {
+    setNavigatingTo(href)
+    // Pequeno delay para mostrar a animação antes de navegar
+    setTimeout(() => {
+      router.push(href)
+    }, 150)
+  }
+  
+  const atalhos = [
+    // Cadastros
+    { href: "/dashboard/colaboradores", title: "Colaboradores", icon: Users, desc: "Gerenciar colaboradores" },
+    { href: "/dashboard/veiculos", title: "Veículos", icon: Car, desc: "Gerenciar veículos" },
+    { href: "/dashboard/produtos", title: "Produtos", icon: Package, desc: "Gerenciar produtos" },
+    { href: "/dashboard/filtros", title: "Filtros", icon: Oil, desc: "Gerenciar filtros" },
+    // Movimento
+    { href: "/dashboard/movimento/entradas", title: "Entradas", icon: ArrowRight, desc: "Registrar entradas" },
+    { href: "/dashboard/movimento/saidas", title: "Saídas", icon: ArrowLeft, desc: "Registrar saídas" },
+    // Manutenções
+    { href: "/dashboard/manutencoes/painel", title: "Painel", icon: BarChart3, desc: "Painel de manutenções" },
+    { href: "/dashboard/manutencoes/tela", title: "Tela", icon: AlertTriangle, desc: "Tela de manutenções" },
+    { href: "/dashboard/manutencoes/ordem-servico", title: "Ordem de Serviço", icon: FileText, desc: "Abrir, visualizar e atualizar O.S." },
+    { href: "/dashboard/manutencoes/planejamento", title: "Planejamento", icon: CalendarRange, desc: "Planejamento de manutenções" },
+    { href: "/dashboard/manutencoes/troca-oleo", title: "Atualizar Km", icon: Droplets, desc: "Registrar ou acompanhar trocas" },
+    { href: "/dashboard/manutencoes/troca-pneu", title: "Troca de Pneu", icon: Disc, desc: "Registrar trocas de pneu" },
+    { href: "/dashboard/manutencoes/historicos", title: "Históricos", icon: History, desc: "Histórico de manutenções" },
+    // Serviços
+    { href: "/dashboard/custo-veiculo", title: "Custo por Veículo", icon: BarChart3, desc: "Custos por veículo" },
+    { href: "/dashboard/servico-externo/borracharia", title: "Borracharia", icon: Disc, desc: "Serviços de borracharia" },
+    { href: "/dashboard/servico-externo/lavador", title: "Lavador", icon: Droplets, desc: "Serviços de lavador" },
+    // Outros
+    { href: "/dashboard/configuracoes", title: "Configurações", icon: Settings, desc: "Configurações do sistema" },
+  ]
+
+  // Filtrar atalhos baseado nas permissões do usuário
+  const atalhosPermitidos = atalhos.filter(atalho => verificarPermissao(atalho.href))
+
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-6 pb-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-primary">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-primary">Início</h1>
         <p className="text-sm text-muted-foreground">Escolha um atalho para continuar</p>
       </div>
 
-      <div className="grid gap-4">
-        <Link href="/dashboard/manutencoes/ordem-servico" className="block">
-          <Card className="border border-primary/30 shadow-sm hover:shadow-md transition-all duration-200">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Atalho rápido</p>
-                <h2 className="text-lg font-semibold">Ordem de Serviço</h2>
-                <p className="text-xs text-muted-foreground">Abrir, visualizar e atualizar O.S.</p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-full text-primary">
-                <Wrench className="h-6 w-6" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/manutencoes/troca-oleo" className="block">
-          <Card className="border border-primary/30 shadow-sm hover:shadow-md transition-all duration-200">
-            <CardContent className="p-5 flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">Atalho rápido</p>
-                <h2 className="text-lg font-semibold">Atualizar Quilometragem</h2>
-                <p className="text-xs text-muted-foreground">Registrar ou acompanhar trocas</p>
-              </div>
-              <div className="p-3 bg-primary/10 rounded-full text-primary">
-                <Droplets className="h-6 w-6" />
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
+      <div className="grid gap-3">
+        {atalhosPermitidos.map((atalho) => {
+          const Icon = atalho.icon
+          const isNavigating = navigatingTo === atalho.href
+          return (
+            <div
+              key={atalho.href}
+              onClick={() => handleNavigation(atalho.href)}
+              className="block cursor-pointer"
+            >
+              <Card className={`border-l-4 border-l-primary border border-primary/20 shadow-sm hover:shadow-md hover:bg-accent/50 transition-all duration-200 active:scale-[0.95] bg-gradient-to-r from-primary/5 via-primary/3 to-transparent ${
+                isNavigating ? 'opacity-75 scale-95' : ''
+              }`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl text-primary flex-shrink-0 shadow-sm transition-transform duration-200 ${
+                      isNavigating ? 'scale-110 rotate-3' : ''
+                    }`}>
+                      <Icon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-bold text-primary truncate mb-1">{atalho.title}</h2>
+                      <p className="text-sm text-muted-foreground truncate">{atalho.desc}</p>
+                    </div>
+                    {isNavigating && (
+                      <div className="flex-shrink-0">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

@@ -15,6 +15,8 @@ import { FuelIcon as Oil, Car, BadgeCheck, Trash2, RotateCcw, Search, Calendar, 
 import { supabase } from "@/lib/supabase"
 import { getEstatisticasTrocasOleo } from "@/services/troca-oleo-service"
 import { Progress } from "@/components/ui/progress"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 const FILTER_HEADERS = [
   "Filtro de Óleo",
@@ -109,7 +111,352 @@ async function removeFiltroRegistradoSupabase(veiculoId: string, categoria: stri
   }
 }
 
+// Componente Mobile View
+function FiltrosMobileView({
+  veiculosFiltrados,
+  filtrosPorVeiculo,
+  veiculosProntosParaTroca,
+  estatisticasTrocaOleo,
+  searchTerm,
+  setSearchTerm,
+  statusFilter,
+  setStatusFilter,
+  progressoFilter,
+  setProgressoFilter,
+  contadores,
+  contadoresProgresso,
+  isRefreshing,
+  handleRefresh,
+  handleOpenModal,
+  handleOpenRegisterModal,
+  getCorProgresso,
+}: {
+  veiculosFiltrados: Veiculo[]
+  filtrosPorVeiculo: Record<string, number>
+  veiculosProntosParaTroca: Record<string, boolean>
+  estatisticasTrocaOleo: Record<string, { kmAtual: number; kmProxTroca: number; progresso: number }>
+  searchTerm: string
+  setSearchTerm: (value: string) => void
+  statusFilter: 'all' | 'pronto' | 'nao-pronto' | 'sem-cadastro'
+  setStatusFilter: (value: 'all' | 'pronto' | 'nao-pronto' | 'sem-cadastro') => void
+  progressoFilter: 'all' | 'verde' | 'amarelo' | 'vermelho' | 'sem-registro'
+  setProgressoFilter: (value: 'all' | 'verde' | 'amarelo' | 'vermelho' | 'sem-registro') => void
+  contadores: { pronto: number; naoPronto: number; semCadastro: number }
+  contadoresProgresso: { verde: number; amarelo: number; vermelho: number; semRegistro: number }
+  isRefreshing: boolean
+  handleRefresh: () => void
+  handleOpenModal: (veiculo: Veiculo) => void
+  handleOpenRegisterModal: (veiculo: Veiculo) => void
+  getCorProgresso: (progresso: number) => string
+}) {
+  return (
+    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
+      <div className="w-[80%] mb-4 pl-0 pr-0">
+        <MobileBackButton />
+      </div>
+      
+      {/* Busca e Atualizar */}
+      <div className="flex flex-col gap-3 mb-4 w-[80%] pl-0 pr-0">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar veículo por placa, modelo..."
+            className="pl-10 h-11 text-base w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="w-full h-11 text-base"
+        >
+          <RotateCcw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Atualizando..." : "Atualizar"}
+        </Button>
+      </div>
+
+      {/* Filtros de Status */}
+      <div className="w-[80%] mb-4 pl-0 pr-0">
+        <Card className="p-4">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Filter className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-foreground/90">Status dos Filtros</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={statusFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('all')}
+                className="flex items-center gap-1.5 h-8 px-3 text-xs"
+              >
+                Todos ({veiculosFiltrados.length})
+              </Button>
+              <Button
+                variant={statusFilter === 'pronto' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('pronto')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  statusFilter === 'pronto' 
+                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm' 
+                    : 'border-green-500/50 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${statusFilter === 'pronto' ? 'bg-white' : 'bg-green-500'}`}></div>
+                Prontos ({contadores.pronto})
+              </Button>
+              <Button
+                variant={statusFilter === 'nao-pronto' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('nao-pronto')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  statusFilter === 'nao-pronto' 
+                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm' 
+                    : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${statusFilter === 'nao-pronto' ? 'bg-white' : 'bg-red-500'}`}></div>
+                Não Prontos ({contadores.naoPronto})
+              </Button>
+              <Button
+                variant={statusFilter === 'sem-cadastro' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setStatusFilter('sem-cadastro')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  statusFilter === 'sem-cadastro' 
+                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm' 
+                    : 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 hover:border-yellow-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${statusFilter === 'sem-cadastro' ? 'bg-white' : 'bg-yellow-500'}`}></div>
+                Sem Cadastro ({contadores.semCadastro})
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Filtros de Progresso */}
+      <div className="w-[80%] mb-4 pl-0 pr-0">
+        <Card className="p-4">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Gauge className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-foreground/90">Progresso de Troca de Óleo</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={progressoFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setProgressoFilter('all')}
+                className="flex items-center gap-1.5 h-8 px-3 text-xs"
+              >
+                Todos
+              </Button>
+              <Button
+                variant={progressoFilter === 'verde' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setProgressoFilter('verde')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  progressoFilter === 'verde' 
+                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm' 
+                    : 'border-green-500/50 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'verde' ? 'bg-white' : 'bg-green-500'}`}></div>
+                Verde ({contadoresProgresso.verde})
+              </Button>
+              <Button
+                variant={progressoFilter === 'amarelo' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setProgressoFilter('amarelo')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  progressoFilter === 'amarelo' 
+                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm' 
+                    : 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 hover:border-yellow-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'amarelo' ? 'bg-white' : 'bg-yellow-500'}`}></div>
+                Amarelo ({contadoresProgresso.amarelo})
+              </Button>
+              <Button
+                variant={progressoFilter === 'vermelho' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setProgressoFilter('vermelho')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  progressoFilter === 'vermelho' 
+                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm' 
+                    : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'vermelho' ? 'bg-white' : 'bg-red-500'}`}></div>
+                Vermelho ({contadoresProgresso.vermelho})
+              </Button>
+              <Button
+                variant={progressoFilter === 'sem-registro' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setProgressoFilter('sem-registro')}
+                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
+                  progressoFilter === 'sem-registro' 
+                    ? 'bg-gray-500 hover:bg-gray-600 text-white border-gray-500 shadow-sm' 
+                    : 'border-gray-500/50 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-950/20 hover:border-gray-500'
+                }`}
+              >
+                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'sem-registro' ? 'bg-white' : 'bg-gray-500'}`}></div>
+                Sem Registro ({contadoresProgresso.semRegistro})
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Lista de Veículos */}
+      {veiculosFiltrados.length > 0 ? (
+        <div className="space-y-3 w-[80%] pl-0 pr-0">
+          {veiculosFiltrados.map((veiculo) => {
+            const totalFiltros = filtrosPorVeiculo[veiculo.id] || 0
+            const prontoParaTroca = veiculosProntosParaTroca[veiculo.id] || false
+            
+            return (
+              <Card
+                key={veiculo.id}
+                className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3 min-w-0">
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      {/* Header com placa e status */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="bg-primary/10 p-2 rounded-lg">
+                          <Car className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="font-medium text-sm border-primary/20 bg-primary/5">
+                              {veiculo.placa}
+                            </Badge>
+                            <Badge 
+                              variant={veiculo.status === "Ativo" ? "default" : "destructive"}
+                              className="text-xs"
+                            >
+                              {veiculo.status}
+                            </Badge>
+                            {totalFiltros === 0 ? (
+                              <div className="bg-yellow-400/90 rounded-full p-1.5" title="Nenhum filtro registrado">
+                                <Oil className="h-3 w-3 text-white" />
+                              </div>
+                            ) : prontoParaTroca ? (
+                              <div className="bg-green-400/90 rounded-full p-1.5" title="Pronto para troca">
+                                <Oil className="h-3 w-3 text-white" />
+                              </div>
+                            ) : (
+                              <div className="bg-red-400/90 rounded-full p-1.5" title="Não está pronto">
+                                <Oil className="h-3 w-3 text-white" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground mt-1 truncate">
+                            {veiculo.modelo} • {veiculo.marca} • {veiculo.ano}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                            {veiculo.secretaria}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Informações de filtros */}
+                      {totalFiltros > 0 && (
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+                          <Filter className="h-3.5 w-3.5 text-primary/70" />
+                          <span className="text-xs font-normal text-primary/80">
+                            {totalFiltros} {totalFiltros === 1 ? 'filtro registrado' : 'filtros registrados'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Informações de Troca de Óleo */}
+                      {estatisticasTrocaOleo[veiculo.id] && (estatisticasTrocaOleo[veiculo.id].kmAtual > 0 || estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0) && (
+                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground/80">
+                            <Gauge className="h-3.5 w-3.5 opacity-60" />
+                            <span className="font-normal">Troca de Óleo</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Km Atual:</span>
+                              <span className="ml-1 font-medium">
+                                {estatisticasTrocaOleo[veiculo.id].kmAtual > 0 
+                                  ? estatisticasTrocaOleo[veiculo.id].kmAtual.toLocaleString('pt-BR') 
+                                  : '-'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Próx. Troca:</span>
+                              <span className="ml-1 font-medium">
+                                {estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0 
+                                  ? estatisticasTrocaOleo[veiculo.id].kmProxTroca.toLocaleString('pt-BR') 
+                                  : '-'}
+                              </span>
+                            </div>
+                          </div>
+                          {estatisticasTrocaOleo[veiculo.id].kmAtual > 0 && estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0 && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Progresso</span>
+                                <span className="font-medium">{estatisticasTrocaOleo[veiculo.id].progresso}%</span>
+                              </div>
+                              <Progress 
+                                value={estatisticasTrocaOleo[veiculo.id].progresso} 
+                                className="h-2"
+                                indicatorClassName={estatisticasTrocaOleo[veiculo.id].progresso > 0 ? getCorProgresso(estatisticasTrocaOleo[veiculo.id].progresso) : "bg-green-500"}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="flex gap-2 pt-0 pb-4 px-4">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 flex gap-2 items-center text-xs h-9" 
+                    onClick={() => handleOpenModal(veiculo)}
+                  >
+                    <BadgeCheck className="h-3.5 w-3.5" /> 
+                    Ver Filtros
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    className="flex-1 flex gap-2 items-center text-xs h-9 shadow-sm" 
+                    onClick={() => handleOpenRegisterModal(veiculo)}
+                  >
+                    <Oil className="h-3.5 w-3.5" /> 
+                    Registrar
+                  </Button>
+                </CardFooter>
+              </Card>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground w-[80%] pl-0 pr-0">
+          <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-base font-medium mb-1">Nenhum veículo encontrado</p>
+          <p className="text-sm">Tente usar termos diferentes na busca ou remover os filtros</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function FiltrosPage() {
+  const isMobile = useIsMobile()
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [selectedVeiculo, setSelectedVeiculo] = useState<Veiculo | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -307,7 +654,7 @@ export default function FiltrosPage() {
     
     // Atualizar contagem de filtros e verificar prontidão
     const filtrosAtualizados = await getFiltrosDoVeiculoSupabase(registerVeiculo.id)
-    const pronto = await verificarProntoParaTroca(registerVeiculo.id, todosProdutos)
+    const pronto = verificarProntoParaTroca(filtrosAtualizados, todosProdutos)
     
     setFiltrosPorVeiculo(prev => ({
       ...prev,
@@ -333,7 +680,7 @@ export default function FiltrosPage() {
          const updatedFiltros = await getFiltrosDoVeiculoSupabase(veiculoId);
          updateState(updatedFiltros);
          // Atualizar contagem de filtros e verificar prontidão
-         const pronto = await verificarProntoParaTroca(veiculoId, todosProdutos)
+         const pronto = verificarProntoParaTroca(updatedFiltros, todosProdutos)
          
          setFiltrosPorVeiculo(prev => ({
            ...prev,
@@ -519,6 +866,203 @@ export default function FiltrosPage() {
     } finally {
       setIsRefreshing(false)
     }
+  }
+
+  if (isMobile) {
+    return (
+      <>
+        <FiltrosMobileView
+          veiculosFiltrados={veiculosFiltrados}
+          filtrosPorVeiculo={filtrosPorVeiculo}
+          veiculosProntosParaTroca={veiculosProntosParaTroca}
+          estatisticasTrocaOleo={estatisticasTrocaOleo}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          statusFilter={statusFilter}
+          setStatusFilter={setStatusFilter}
+          progressoFilter={progressoFilter}
+          setProgressoFilter={setProgressoFilter}
+          contadores={contadores}
+          contadoresProgresso={contadoresProgresso}
+          isRefreshing={isRefreshing}
+          handleRefresh={handleRefresh}
+          handleOpenModal={handleOpenModal}
+          handleOpenRegisterModal={handleOpenRegisterModal}
+          getCorProgresso={getCorProgresso}
+        />
+        
+        {/* Modais - compartilhados entre mobile e desktop */}
+        <Dialog open={modalOpen} onOpenChange={handleCloseModal}>
+          <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Filter className="h-5 w-5 text-primary" />
+                Filtros do Veículo
+              </DialogTitle>
+              {selectedVeiculo && (
+                <div className="flex items-center gap-3 mt-2">
+                  <Badge variant="outline" className="font-medium text-sm tracking-wide border-primary/20 bg-primary/5 text-foreground/90">
+                    {selectedVeiculo.placa}
+                  </Badge>
+                  <span className="text-muted-foreground text-sm">
+                    {selectedVeiculo.modelo} • {selectedVeiculo.marca} • {selectedVeiculo.ano}
+                  </span>
+                </div>
+              )}
+            </DialogHeader>
+            
+            <div className="mt-4 space-y-4">
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">
+                  {filtrosRegistrados.length > 0 
+                    ? `${filtrosRegistrados.length} ${filtrosRegistrados.length === 1 ? 'filtro registrado' : 'filtros registrados'}`
+                    : 'Nenhum filtro registrado ainda'}
+                </p>
+                <Button 
+                  variant={editMode ? "secondary" : "outline"} 
+                  size="sm" 
+                  onClick={() => setEditMode(e => !e)}
+                  className="flex items-center gap-2"
+                >
+                  {editMode ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Concluir Edição
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4" />
+                      Editar Lista
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {FILTER_HEADERS.map((header) => {
+                  const filtros = filtrosRegistrados.filter(f => f.categoria === header)
+                  const temFiltros = filtros.length > 0
+                  
+                  return (
+                    <Card key={header} className={`border ${temFiltros ? 'border-primary/20 bg-primary/5' : 'border-border/50 bg-muted/30'}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-medium text-sm text-foreground/90">{header}</h3>
+                          {temFiltros && (
+                            <Badge variant="secondary" className="text-xs font-normal bg-primary/10 text-primary/80 border-0">
+                              {filtros.length} {filtros.length === 1 ? 'item' : 'itens'}
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        {!temFiltros ? (
+                          <div className="flex flex-col items-center justify-center py-6 text-center">
+                            <XCircle className="h-6 w-6 text-muted-foreground/40 mb-2" />
+                            <span className="text-xs text-muted-foreground/70">Nenhum filtro registrado</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {filtros.map(filtro => {
+                              const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+                              const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                              const emEstoque = estoque > 0
+                              return (
+                                <div
+                                  key={filtro.produtoId + filtro.categoria}
+                                  className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-all duration-200 ${
+                                    emEstoque 
+                                      ? "bg-green-50/80 dark:bg-green-950/10 text-green-700/90 dark:text-green-400/90 border border-green-200/50 dark:border-green-800/30" 
+                                      : "bg-red-50/80 dark:bg-red-950/10 text-red-700/90 dark:text-red-400/90 border border-red-200/50 dark:border-red-800/30"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    {emEstoque ? (
+                                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-medium truncate block" title={filtro.produtoDescricao}>
+                                        {filtro.produtoDescricao}
+                                      </span>
+                                      <span className={`text-xs mt-0.5 font-normal ${emEstoque ? 'text-green-600/80 dark:text-green-500/80' : 'text-red-600/80 dark:text-red-500/80'}`}>
+                                        Estoque: {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {editMode && (
+                                    <button
+                                      type="button"
+                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                                      onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId, setFiltrosRegistrados)}
+                                      title="Remover filtro"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+            
+            <div className="flex justify-end mt-6">
+              <DialogClose asChild>
+                <Button variant="secondary">Fechar</Button>
+              </DialogClose>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de registro de filtro */}
+        <Dialog open={registerModalOpen} onOpenChange={handleCloseRegisterModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Registrar Filtro</DialogTitle>
+              <div className="text-muted-foreground text-sm mt-1">
+                {registerVeiculo && `${registerVeiculo.placa} - ${registerVeiculo.modelo} (${registerVeiculo.marca})`}
+              </div>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Categoria do Filtro</label>
+                <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FILTER_HEADERS.map((header) => (
+                      <SelectItem key={header} value={header}>{header}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Produto</label>
+                <Button variant="outline" className="w-full" onClick={() => setProdutoDialogOpen(true)}>
+                  {selectedProduto ? selectedProduto.descricao : "Selecionar Produto"}
+                </Button>
+              </div>
+              <Button onClick={handleRegister} disabled={!selectedCategoria || !selectedProduto} className="w-full">
+                Registrar Filtro
+              </Button>
+            </div>
+            <SelecionarProdutoDialog
+              open={produtoDialogOpen}
+              onOpenChange={setProdutoDialogOpen}
+              onSelect={setSelectedProduto}
+            />
+          </DialogContent>
+        </Dialog>
+      </>
+    )
   }
 
   return (

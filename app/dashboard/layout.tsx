@@ -10,6 +10,7 @@ import { DashboardHeader } from "@/components/dashboard-header"
 import { Toaster } from "@/components/ui/toaster"
 import { toast } from "@/hooks/use-toast"
 import { GlobalNotifications } from "@/components/global-notifications"
+import { useIsMobile } from "@/components/ui/use-mobile"
 
 export default function DashboardLayout({
   children,
@@ -19,6 +20,7 @@ export default function DashboardLayout({
   const { user, isAuthenticated, logout, verificarPermissao, loading } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const isMobile = useIsMobile()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -106,26 +108,28 @@ export default function DashboardLayout({
           backgroundSize: '40px 40px'
         }}
       />
-      {!sidebarHidden && (
+      {!sidebarHidden && !isMobile && (
         <Sidebar isCollapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       )}
       <div
         className="flex-1 flex flex-col relative z-10"
         style={{
-          marginLeft: sidebarHidden ? '0' : (sidebarCollapsed ? '64px' : '256px'),
+          marginLeft: isMobile || sidebarHidden ? '0' : (sidebarCollapsed ? '64px' : '256px'),
           transition: 'margin-left 0.3s ease-in-out'
         }}
       >
         {/* Header fixo no topo */}
-        <DashboardHeader 
-          sidebarCollapsed={sidebarCollapsed} 
-          sidebarHidden={sidebarHidden}
-          onToggleSidebarVisibility={toggleSidebarVisibility}
-        />
+        {!isMobile && (
+          <DashboardHeader 
+            sidebarCollapsed={sidebarCollapsed} 
+            sidebarHidden={sidebarHidden}
+            onToggleSidebarVisibility={toggleSidebarVisibility}
+          />
+        )}
         
         {/* Conteúdo principal com padding-top para compensar o header */}
         <main className="flex-1 overflow-y-auto">
-          <div className="px-6 pt-6 pb-6 page-transition" style={{ paddingTop: 'calc(68px + 24px)' }}>
+          <div className={isMobile ? "px-0 pt-0 pb-0 page-transition" : "px-6 pt-6 pb-6 page-transition"} style={isMobile ? {} : { paddingTop: 'calc(68px + 24px)' }}>
             {children}
           </div>
         </main>

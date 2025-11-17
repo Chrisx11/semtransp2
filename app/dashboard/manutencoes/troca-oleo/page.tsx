@@ -25,6 +25,7 @@ import { format, parse } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useAuth } from "@/lib/auth-context"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 interface Veiculo {
   id: string
@@ -1256,33 +1257,7 @@ function TrocaOleoMobileView({
 
   return (
     <div className="p-4 space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-primary">Troca de Óleo</h1>
-        <p className="text-sm text-muted-foreground">Visão rápida para dispositivos móveis</p>
-      </div>
-
-      <Card className="border-primary/20">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 gap-4 text-center text-sm font-medium">
-            <div>
-              <p className="text-muted-foreground">Em dia</p>
-              <p className="text-lg font-semibold text-green-600">{emDia}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Próximo</p>
-              <p className="text-lg font-semibold text-yellow-500">{proximo}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Vencido</p>
-              <p className="text-lg font-semibold text-red-500">{vencido}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Sem registro</p>
-              <p className="text-lg font-semibold text-muted-foreground">{nunca}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <MobileBackButton />
 
       <div className="relative">
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
