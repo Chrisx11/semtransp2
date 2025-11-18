@@ -46,9 +46,11 @@ function CustoVeiculoMobileView({
   setDateFilters,
   autorizacoesBorracharia,
   autorizacoesLavador,
+  servicosExternos,
   totalCard,
   custoBorracharia,
   custoLavador,
+  custoServicoExterno,
   custoTotalGeral,
 }: {
   listaPorSecretaria: CustoVeiculoItem[]
@@ -76,97 +78,86 @@ function CustoVeiculoMobileView({
   custoServicoExterno: number
   custoTotalGeral: number
 }) {
+  const [cardsExpanded, setCardsExpanded] = useState(true)
+
   return (
-    <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
-      <div className="w-[80%] mb-4 pl-0 pr-0">
+    <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
+      <div className="w-[98%] mb-4">
         <MobileBackButton />
       </div>
 
       {/* Cards de Resumo */}
-      <div className="grid grid-cols-1 gap-3 mb-4 w-[80%] pl-0 pr-0">
-        <Card>
-          <CardContent className="py-3 px-4">
-            <div className="text-xs text-muted-foreground">
-              {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Custo Total de Peças e Consumíveis"}
-              {cardStartDate && cardEndDate ? (
-                <div className="mt-1">
-                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                </div>
-              ) : (
-                <div className="mt-1">Mês atual</div>
-              )}
+      <div className="grid grid-cols-2 gap-2.5 mb-4 w-[98%]">
+        <Card className="col-span-2 border-2 border-primary bg-primary/5">
+          <CardContent className="py-3 px-3">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <div className="text-[10px] text-muted-foreground mb-1">Custo Total Geral</div>
+                <div className="text-lg font-bold text-primary">R$ {custoTotalGeral.toFixed(2)}</div>
+                {cardStartDate && cardEndDate ? (
+                  <div className="text-[9px] text-muted-foreground mt-1">
+                    {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-muted-foreground mt-1">Mês atual</div>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCardsExpanded(!cardsExpanded)}
+                className="h-8 w-8 p-0 flex-shrink-0"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${cardsExpanded ? "rotate-180" : ""}`} />
+              </Button>
             </div>
-            <div className="text-lg font-bold">R$ {totalCard.toFixed(2)}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="py-3 px-4">
-            <div className="text-xs text-muted-foreground">
-              Custo Total Borracharia
-              {cardStartDate && cardEndDate ? (
-                <div className="mt-1">
-                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+        {cardsExpanded && (
+          <>
+            <Card className="col-span-2">
+              <CardContent className="py-3 px-3">
+                <div className="text-[10px] text-muted-foreground mb-1">
+                  {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Peças e Consumíveis"}
                 </div>
-              ) : (
-                <div className="mt-1">Mês atual</div>
-              )}
-            </div>
-            <div className="text-lg font-bold">R$ {custoBorracharia.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+                <div className="text-base font-bold">R$ {totalCard.toFixed(2)}</div>
+                {cardStartDate && cardEndDate ? (
+                  <div className="text-[9px] text-muted-foreground mt-1">
+                    {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                  </div>
+                ) : (
+                  <div className="text-[9px] text-muted-foreground mt-1">Mês atual</div>
+                )}
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="py-3 px-4">
-            <div className="text-xs text-muted-foreground">
-              Custo Total Lavadores
-              {cardStartDate && cardEndDate ? (
-                <div className="mt-1">
-                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                </div>
-              ) : (
-                <div className="mt-1">Mês atual</div>
-              )}
-            </div>
-            <div className="text-lg font-bold">R$ {custoLavador.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="py-2.5 px-3">
+                <div className="text-[10px] text-muted-foreground mb-1">Borracharia</div>
+                <div className="text-sm font-bold">R$ {custoBorracharia.toFixed(2)}</div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="py-3 px-4">
-            <div className="text-xs text-muted-foreground">
-              Custo Total Serviço Externo
-              {cardStartDate && cardEndDate ? (
-                <div className="mt-1">
-                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                </div>
-              ) : (
-                <div className="mt-1">Mês atual</div>
-              )}
-            </div>
-            <div className="text-lg font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="py-2.5 px-3">
+                <div className="text-[10px] text-muted-foreground mb-1">Lavadores</div>
+                <div className="text-sm font-bold">R$ {custoLavador.toFixed(2)}</div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-2 border-primary">
-          <CardContent className="py-3 px-4">
-            <div className="text-xs text-muted-foreground">
-              Custo Total Geral
-              {cardStartDate && cardEndDate ? (
-                <div className="mt-1">
-                  {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
-                </div>
-              ) : (
-                <div className="mt-1">Mês atual</div>
-              )}
-            </div>
-            <div className="text-lg font-bold text-primary">R$ {custoTotalGeral.toFixed(2)}</div>
-          </CardContent>
-        </Card>
+            <Card>
+              <CardContent className="py-2.5 px-3">
+                <div className="text-[10px] text-muted-foreground mb-1">Serviço Externo</div>
+                <div className="text-sm font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filtros */}
-      <div className="flex flex-col gap-3 mb-4 w-[80%] pl-0 pr-0">
+      <div className="flex flex-col gap-3 mb-4 w-[98%]">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -193,20 +184,19 @@ function CustoVeiculoMobileView({
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2">
           <Input
             type="date"
             value={cardStartDate}
             onChange={(e) => setCardStartDate(e.target.value)}
-            className="flex-1 h-11 text-base"
+            className="w-full h-11 text-base"
             placeholder="Data inicial"
           />
-          <span className="text-muted-foreground text-sm">até</span>
           <Input
             type="date"
             value={cardEndDate}
             onChange={(e) => setCardEndDate(e.target.value)}
-            className="flex-1 h-11 text-base"
+            className="w-full h-11 text-base"
             placeholder="Data final"
           />
         </div>
@@ -228,20 +218,20 @@ function CustoVeiculoMobileView({
 
       {/* Lista de Veículos */}
       {isLoading ? (
-        <div className="flex justify-center items-center py-16 w-[80%] pl-0 pr-0">
+        <div className="flex justify-center items-center py-16 w-[98%]">
           <div className="flex flex-col items-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
             <p className="text-sm text-muted-foreground">Carregando dados...</p>
           </div>
         </div>
       ) : listaPorSecretaria.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground w-[80%] pl-0 pr-0">
+        <div className="text-center py-16 text-muted-foreground w-[98%]">
           <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
           <p className="text-base font-medium mb-1">Nenhum veículo encontrado</p>
           <p className="text-sm">Tente usar termos diferentes na busca ou remover os filtros</p>
         </div>
       ) : (
-        <div className="space-y-3 w-[80%] pl-0 pr-0">
+        <div className="space-y-3 w-[98%]">
           {listaPorSecretaria.map((v) => {
             const isOpen = expandedIds.includes(v.id)
             const start = dateFilters[v.id]?.start
@@ -265,35 +255,47 @@ function CustoVeiculoMobileView({
 
             return (
               <Card key={v.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3 min-w-0">
+                <CardContent className="p-3">
+                  <div className="flex items-start justify-between gap-2 min-w-0">
                     <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Placa e Info Principal */}
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="bg-primary/10 p-2 rounded-lg">
+                        <div className="bg-primary/10 p-1.5 rounded-lg flex-shrink-0">
                           <Car className="h-4 w-4 text-primary" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="font-bold text-lg text-primary truncate">{v.placa}</div>
-                          <div className="text-sm text-muted-foreground truncate">
+                          <div className="font-bold text-base text-primary truncate">{v.placa}</div>
+                          <div className="text-xs text-muted-foreground truncate">
                             {v.modelo} • {v.marca}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          <div className="text-[10px] text-muted-foreground mt-0.5 truncate">
                             {v.secretaria}
                           </div>
                         </div>
                       </div>
 
                       {/* Custo Total */}
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <div className="font-bold text-lg text-primary mb-1">
-                          Total: R$ {totalComExtras.toFixed(2)}
+                      <div className="mt-2 pt-2 border-t border-border/50">
+                        <div className="font-bold text-base text-primary mb-1">
+                          R$ {totalComExtras.toFixed(2)}
                         </div>
-                        <div className="text-xs text-muted-foreground space-y-0.5">
-                          <div>Manutenções: R$ {v.custoMensal.toFixed(2)}</div>
-                          <div>Borracharia: R$ {borras.toFixed(2)}</div>
-                          <div>Lavador: R$ {lavs.toFixed(2)}</div>
-                          <div>Serviço Externo: R$ {servicosExt.toFixed(2)}</div>
+                        <div className="text-[10px] text-muted-foreground space-y-0.5">
+                          <div className="flex justify-between">
+                            <span>Manutenções:</span>
+                            <span className="font-medium">R$ {v.custoMensal.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Borracharia:</span>
+                            <span className="font-medium">R$ {borras.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Lavador:</span>
+                            <span className="font-medium">R$ {lavs.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Serviço Externo:</span>
+                            <span className="font-medium">R$ {servicosExt.toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -303,7 +305,7 @@ function CustoVeiculoMobileView({
                       variant="ghost" 
                       size="sm" 
                       onClick={() => toggleExpand(v.id)} 
-                      className="h-9 w-9 p-0 flex-shrink-0"
+                      className="h-8 w-8 p-0 flex-shrink-0"
                     >
                       <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
                     </Button>
@@ -311,73 +313,72 @@ function CustoVeiculoMobileView({
 
                   {/* Conteúdo Expandido */}
                   {isOpen && (
-                    <div className="mt-4 pt-4 border-t border-border/50 space-y-4">
+                    <div className="mt-3 pt-3 border-t border-border/50 space-y-3">
                       {/* Filtros de Data do Veículo */}
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-col gap-2">
                         <Input 
                           type="date" 
                           value={start || ""} 
                           onChange={(e) => handleDateChange(v.id, 'start', e.target.value)}
-                          className="flex-1 h-9 text-sm"
+                          className="w-full h-9 text-xs"
                         />
-                        <span className="text-muted-foreground text-xs">até</span>
                         <Input 
                           type="date" 
                           value={end || ""} 
                           onChange={(e) => handleDateChange(v.id, 'end', e.target.value)}
-                          className="flex-1 h-9 text-sm"
+                          className="w-full h-9 text-xs"
                         />
                         <Button 
                           variant="outline" 
                           size="sm" 
                           onClick={() => setDateFilters((prev: any) => ({ ...prev, [v.id]: { start: undefined, end: undefined } }))}
-                          className="h-9 text-xs"
+                          className="w-full h-9 text-[10px]"
                         >
-                          Limpar
+                          Limpar Filtros
                         </Button>
                       </div>
 
                       {/* Saídas */}
                       {filteredSaidas.length > 0 ? (
                         <div className="space-y-2">
-                          <div className="font-semibold text-sm mb-2">Saídas de Produtos</div>
+                          <div className="font-semibold text-xs mb-2 pb-1 border-b border-border/50">Saídas de Produtos</div>
                           {filteredSaidas.map((s) => (
-                            <Card key={s.id} className="p-3 bg-muted/30">
-                              <div className="space-y-1 text-sm">
-                                <div className="font-medium">{s.produtoNome}</div>
-                                <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                            <Card key={s.id} className="p-2 bg-muted/30">
+                              <div className="space-y-1">
+                                <div className="font-medium text-xs">{s.produtoNome}</div>
+                                <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground">
                                   <span>Qtd: {s.quantidade}</span>
                                   <span>•</span>
                                   <span>Unit: R$ {typeof s.valorUnitario === 'number' ? s.valorUnitario.toFixed(2) : '-'}</span>
                                   <span>•</span>
                                   <span className="font-semibold text-primary">Total: R$ {(s.quantidade * (s.valorUnitario ?? 0)).toFixed(2)}</span>
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] text-muted-foreground">
                                   {s.data ? new Date(s.data).toLocaleDateString('pt-BR') : '-'} • {s.responsavelNome}
                                 </div>
                               </div>
                             </Card>
                           ))}
-                          <div className="font-bold text-right mt-2 text-sm">
+                          <div className="font-bold text-right mt-2 text-xs pt-2 border-t border-border/50">
                             Total: R$ {totalFiltrado.toFixed(2)}
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center text-muted-foreground text-sm py-4">
+                        <div className="text-center text-muted-foreground text-xs py-3">
                           Sem registros de saídas no período
                         </div>
                       )}
 
                       {/* Borracharia */}
                       <div>
-                        <div className="font-semibold text-sm mb-2">Custos de Borracharia</div>
+                        <div className="font-semibold text-xs mb-2 pb-1 border-b border-border/50">Custos de Borracharia</div>
                         {autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
-                              <Card key={a.id} className="p-3 bg-muted/30">
-                                <div className="space-y-1 text-sm">
-                                  <div className="font-medium">R$ {a.preco?.toFixed(2) ?? '-'}</div>
-                                  <div className="text-xs text-muted-foreground">
+                              <Card key={a.id} className="p-2 bg-muted/30">
+                                <div className="space-y-0.5">
+                                  <div className="font-medium text-xs">R$ {a.preco?.toFixed(2) ?? '-'}</div>
+                                  <div className="text-[10px] text-muted-foreground">
                                     {new Date(a.dataAutorizacao).toLocaleDateString('pt-BR')} • {a.autorizadoPorNome}
                                   </div>
                                 </div>
@@ -385,7 +386,7 @@ function CustoVeiculoMobileView({
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center text-muted-foreground text-sm py-4">
+                          <div className="text-center text-muted-foreground text-xs py-3">
                             Sem registros no período
                           </div>
                         )}
@@ -393,14 +394,14 @@ function CustoVeiculoMobileView({
 
                       {/* Lavador */}
                       <div>
-                        <div className="font-semibold text-sm mb-2">Custos de Lavador</div>
+                        <div className="font-semibold text-xs mb-2 pb-1 border-b border-border/50">Custos de Lavador</div>
                         {autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
-                              <Card key={a.id} className="p-3 bg-muted/30">
-                                <div className="space-y-1 text-sm">
-                                  <div className="font-medium">R$ {a.preco?.toFixed(2) ?? '-'}</div>
-                                  <div className="text-xs text-muted-foreground">
+                              <Card key={a.id} className="p-2 bg-muted/30">
+                                <div className="space-y-0.5">
+                                  <div className="font-medium text-xs">R$ {a.preco?.toFixed(2) ?? '-'}</div>
+                                  <div className="text-[10px] text-muted-foreground">
                                     {new Date(a.dataAutorizacao).toLocaleDateString('pt-BR')} • {a.autorizadoPorNome}
                                   </div>
                                 </div>
@@ -408,7 +409,7 @@ function CustoVeiculoMobileView({
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center text-muted-foreground text-sm py-4">
+                          <div className="text-center text-muted-foreground text-xs py-3">
                             Sem registros no período
                           </div>
                         )}
@@ -416,17 +417,17 @@ function CustoVeiculoMobileView({
 
                       {/* Serviço Externo */}
                       <div>
-                        <div className="font-semibold text-sm mb-2">Custos de Serviço Externo</div>
+                        <div className="font-semibold text-xs mb-2 pb-1 border-b border-border/50">Custos de Serviço Externo</div>
                         {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).length > 0 ? (
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(s => (
-                              <Card key={s.id} className="p-3 bg-muted/30">
-                                <div className="space-y-1 text-sm">
-                                  <div className="font-medium">R$ {s.valor?.toFixed(2) ?? '0.00'}</div>
-                                  <div className="text-xs text-muted-foreground">
+                              <Card key={s.id} className="p-2 bg-muted/30">
+                                <div className="space-y-0.5">
+                                  <div className="font-medium text-xs">R$ {s.valor?.toFixed(2) ?? '0.00'}</div>
+                                  <div className="text-[10px] text-muted-foreground">
                                     {new Date(s.dataAutorizacao).toLocaleDateString('pt-BR')} • {s.fornecedorNome}
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
+                                  <div className="text-[10px] text-muted-foreground">
                                     OS: {s.ordemServicoNumero}
                                   </div>
                                 </div>
@@ -434,7 +435,7 @@ function CustoVeiculoMobileView({
                             ))}
                           </div>
                         ) : (
-                          <div className="text-center text-muted-foreground text-sm py-4">
+                          <div className="text-center text-muted-foreground text-xs py-3">
                             Sem registros no período
                           </div>
                         )}

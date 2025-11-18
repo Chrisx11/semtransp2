@@ -392,13 +392,13 @@ export default function LavadorPage() {
     setLavadoresDialogOpen: (open: boolean) => void
   }) {
     return (
-      <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
-        <div className="w-[92%] mb-4 pl-0 pr-0">
+      <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
+        <div className="w-[98%] mb-4">
           <MobileBackButton />
         </div>
         
         {/* Busca e Filtros */}
-        <div className="flex flex-col gap-3 mb-4 w-[92%] pl-0 pr-0">
+        <div className="flex flex-col gap-3 mb-4 w-[98%]">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -439,14 +439,14 @@ export default function LavadorPage() {
 
         {/* Loading State */}
         {isLoading ? (
-          <div className="flex justify-center items-center py-16 w-[92%] pl-0 pr-0">
+          <div className="flex justify-center items-center py-16 w-[98%]">
             <div className="flex flex-col items-center">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-3"></div>
               <p className="text-sm text-muted-foreground">Carregando autorizações...</p>
             </div>
           </div>
         ) : paginatedData.length > 0 ? (
-          <div className="space-y-3 w-[92%] pl-0 pr-0">
+          <div className="space-y-3 w-[98%]">
             {paginatedData.map((autorizacao) => (
               <Card key={autorizacao.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full">
                 <CardContent className="p-4">
@@ -541,7 +541,7 @@ export default function LavadorPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 text-muted-foreground w-[92%] pl-0 pr-0">
+          <div className="text-center py-16 text-muted-foreground w-[98%]">
             <FileCheck className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
             <p className="text-base font-medium mb-1">
               {searchTerm || statusFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma autorização cadastrada"}
@@ -556,7 +556,7 @@ export default function LavadorPage() {
 
         {/* Paginação */}
         {processedData.length > 0 && (
-          <div className="flex flex-col gap-3 mt-6 w-[92%] pl-0 pr-0">
+          <div className="flex flex-col gap-3 mt-6 w-[98%]">
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Select
                 value={itemsPerPage}

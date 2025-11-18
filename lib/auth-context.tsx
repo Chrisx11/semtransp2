@@ -46,6 +46,7 @@ export const rotasPermissoes: Record<string, {
   "/dashboard/custo-veiculo": { modulo: "custoVeiculo", acao: "visualizar" },
   "/dashboard/servico-externo/borracharia": { modulo: "borracharia", acao: "visualizar" },
   "/dashboard/servico-externo/lavador": { modulo: "lavador", acao: "visualizar" },
+  "/dashboard/servico-externo/servico-externo": { modulo: "servicoExterno", acao: "visualizar" },
   "/dashboard/configuracoes": { modulo: "configuracoes", acao: "visualizar" },
 }
 
@@ -88,7 +89,10 @@ const permissoesPreDefinidas: Record<string, Permissoes> = {
       submodulos: ["todos", "painel", "ordem-servico", "troca-oleo", "troca-pneu", "historicos", "planejamento"]
     },
     relatorios: ["visualizar", "criar"],
-    configuracoes: ["visualizar", "criar", "editar", "excluir"]
+    configuracoes: ["visualizar", "criar", "editar", "excluir"],
+    servicoExterno: ["visualizar", "criar", "editar", "excluir"],
+    borracharia: ["visualizar", "criar", "editar", "excluir"],
+    lavador: ["visualizar", "criar", "editar", "excluir"]
   },
   gestor: {
     dashboard: ["visualizar"],
@@ -355,6 +359,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Se não há usuário, não tem permissão
     if (!user) return false
     
+    // Admin tem acesso a tudo
+    if (user.perfil === "admin") return true;
+    
     // Se o usuário tem permissões customizadas, usar essas permissões
     if (user.permissoes_customizadas) {
       // Obter configuração da rota
@@ -419,16 +426,74 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Para outros módulos, verificar se tem permissão
       const moduloPerms = user.permissoes_customizadas[modulo];
       
+      // Se o módulo não existe nas permissões customizadas, permite acesso (compatibilidade)
+      // Isso permite que novos módulos funcionem mesmo sem estar explicitamente nas permissões
+      if (moduloPerms === undefined || moduloPerms === null) {
+        // Se não encontrou o módulo, permite acesso (compatibilidade com novos módulos)
+        return true;
+      }
+      
       // Verificar se é um array e se contém a ação
       if (Array.isArray(moduloPerms)) {
         return moduloPerms.includes(acao);
       }
       
-      // Se não for array, pode ser undefined ou null, então não tem permissão
+      // Se não for array e não for undefined/null, pode ser um objeto
+      if (moduloPerms && typeof moduloPerms === 'object') {
+        // Verificar se tem ações no objeto
+        if (moduloPerms.acoes && Array.isArray(moduloPerms.acoes)) {
+          return moduloPerms.acoes.includes(acao);
+        }
+      }
+      
+      // Se não encontrou permissão, nega acesso
       return false;
     }
     
-    // Se não tem permissões customizadas, nega acesso
+    // Se não tem permissões customizadas, verificar perfis predefinidos
+    // Obter configuração da rota
+    let rotaConfig = rotasPermissoes[caminho];
+    if (!rotaConfig) {
+      // Verificar se o caminho começa com alguma das rotas registradas
+      const rotaBase = Object.keys(rotasPermissoes).find(r => 
+        caminho.startsWith(r) && (caminho === r || caminho[r.length] === '/')
+      );
+      if (rotaBase) {
+        rotaConfig = rotasPermissoes[rotaBase];
+      }
+    }
+    
+    // Se não houver configuração para esta rota, permite acesso (compatibilidade)
+    if (!rotaConfig) return true;
+    
+    // Obter permissões do perfil predefinido
+    const permissoes = permissoesPreDefinidas[user.perfil] || permissoesPreDefinidas.basico;
+    const { modulo, acao } = rotaConfig;
+    
+    // Verificar se o módulo existe nas permissões do perfil
+    const moduloPerms = permissoes[modulo];
+    
+    // Se o módulo não existe nas permissões predefinidas, verificar se é admin
+    // (admin já foi verificado antes, mas aqui é para garantir compatibilidade)
+    if (!moduloPerms) {
+      // Se não houver configuração para esta rota, permite acesso (compatibilidade)
+      return true;
+    }
+    
+    // Verificar se é um array e se contém a ação
+    if (Array.isArray(moduloPerms)) {
+      return moduloPerms.includes(acao);
+    }
+    
+    // Se não for array, pode ser um objeto (como ordemServico ou manutencoes)
+    if (moduloPerms && typeof moduloPerms === 'object') {
+      // Para módulos com estrutura de objeto, verificar ações
+      if (moduloPerms.acoes && Array.isArray(moduloPerms.acoes)) {
+        return moduloPerms.acoes.includes(acao);
+      }
+    }
+    
+    // Se não encontrou permissão, nega acesso
     return false;
     
     /* CÓDIGO ORIGINAL - COMENTADO PARA REFATORAÇÃO

@@ -53,6 +53,8 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion"
 import { Input } from "@/components/ui/input"
+import { useIsMobile } from "@/components/ui/use-mobile"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 // Componente para o card de status
 interface StatusCardProps {
@@ -293,6 +295,7 @@ const sortByPrioridade = (
 
 // Página principal do painel
 export default function PainelManutencaoPage() {
+  const isMobile = useIsMobile()
   const [ordens, setOrdens] = useState<OrdemServico[]>([])
   const [mecanicosComOrdens, setMecanicosComOrdens] = useState<{ [key: string]: OrdemServico[] }>({})
   const [loading, setLoading] = useState(true)
@@ -797,6 +800,12 @@ export default function PainelManutencaoPage() {
 
   return (
     <div className="space-y-6">
+      {/* Botão de voltar no mobile */}
+      {isMobile && (
+        <div className="w-[96%] pl-3 pr-0">
+          <MobileBackButton />
+        </div>
+      )}
       {/* Resumo de estatísticas */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="transition-transform duration-200 hover:scale-[1.03] hover:shadow-lg cursor-pointer" onClick={openPeriodoModal}>

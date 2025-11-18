@@ -151,12 +151,12 @@ function FiltrosMobileView({
 }) {
   return (
     <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
-      <div className="w-[80%] mb-4 pl-0 pr-0">
+      <div className="w-[96%] mb-4 pl-0 pr-0">
         <MobileBackButton />
       </div>
       
       {/* Busca e Atualizar */}
-      <div className="flex flex-col gap-3 mb-4 w-[80%] pl-0 pr-0">
+      <div className="flex flex-col gap-3 mb-4 w-[96%] pl-0 pr-0">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -180,143 +180,148 @@ function FiltrosMobileView({
       </div>
 
       {/* Filtros de Status */}
-      <div className="w-[80%] mb-4 pl-0 pr-0">
-        <Card className="p-4">
+      <div className="w-[96%] mb-4 pl-0 pr-0">
+        <Card className="p-4 shadow-sm">
           <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <Filter className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground/90">Status dos Filtros</span>
+              <span className="text-sm font-semibold text-foreground">Status dos Filtros</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={statusFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('all')}
-                className="flex items-center gap-1.5 h-8 px-3 text-xs"
-              >
-                Todos ({veiculosFiltrados.length})
-              </Button>
-              <Button
-                variant={statusFilter === 'pronto' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('pronto')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  statusFilter === 'pronto' 
-                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm' 
-                    : 'border-green-500/50 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${statusFilter === 'pronto' ? 'bg-white' : 'bg-green-500'}`}></div>
-                Prontos ({contadores.pronto})
-              </Button>
-              <Button
-                variant={statusFilter === 'nao-pronto' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('nao-pronto')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  statusFilter === 'nao-pronto' 
-                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm' 
-                    : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${statusFilter === 'nao-pronto' ? 'bg-white' : 'bg-red-500'}`}></div>
-                Não Prontos ({contadores.naoPronto})
-              </Button>
-              <Button
-                variant={statusFilter === 'sem-cadastro' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setStatusFilter('sem-cadastro')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  statusFilter === 'sem-cadastro' 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm' 
-                    : 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 hover:border-yellow-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${statusFilter === 'sem-cadastro' ? 'bg-white' : 'bg-yellow-500'}`}></div>
-                Sem Cadastro ({contadores.semCadastro})
-              </Button>
-            </div>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as typeof statusFilter)}>
+              <SelectTrigger className="w-full h-12 text-base">
+                <div className="flex items-center gap-2 min-w-0">
+                  {statusFilter === 'all' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-primary flex-shrink-0"></div>
+                      <span className="truncate">Todos ({veiculosFiltrados.length})</span>
+                    </>
+                  )}
+                  {statusFilter === 'pronto' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
+                      <span className="truncate">Prontos ({contadores.pronto})</span>
+                    </>
+                  )}
+                  {statusFilter === 'nao-pronto' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></div>
+                      <span className="truncate">Não Prontos ({contadores.naoPronto})</span>
+                    </>
+                  )}
+                  {statusFilter === 'sem-cadastro' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-yellow-500 flex-shrink-0"></div>
+                      <span className="truncate">Sem Cadastro ({contadores.semCadastro})</span>
+                    </>
+                  )}
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-primary"></div>
+                    <span>Todos ({veiculosFiltrados.length})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="pronto">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Prontos ({contadores.pronto})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="nao-pronto">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span>Não Prontos ({contadores.naoPronto})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="sem-cadastro">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span>Sem Cadastro ({contadores.semCadastro})</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </Card>
       </div>
 
       {/* Filtros de Progresso */}
-      <div className="w-[80%] mb-4 pl-0 pr-0">
-        <Card className="p-4">
+      <div className="w-[96%] mb-4 pl-0 pr-0">
+        <Card className="p-4 shadow-sm">
           <div className="space-y-3">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
               <Gauge className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground/90">Progresso de Troca de Óleo</span>
+              <span className="text-sm font-semibold text-foreground">Progresso de Troca de Óleo</span>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={progressoFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setProgressoFilter('all')}
-                className="flex items-center gap-1.5 h-8 px-3 text-xs"
-              >
-                Todos
-              </Button>
-              <Button
-                variant={progressoFilter === 'verde' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setProgressoFilter('verde')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  progressoFilter === 'verde' 
-                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm' 
-                    : 'border-green-500/50 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'verde' ? 'bg-white' : 'bg-green-500'}`}></div>
-                Verde ({contadoresProgresso.verde})
-              </Button>
-              <Button
-                variant={progressoFilter === 'amarelo' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setProgressoFilter('amarelo')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  progressoFilter === 'amarelo' 
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm' 
-                    : 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 hover:border-yellow-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'amarelo' ? 'bg-white' : 'bg-yellow-500'}`}></div>
-                Amarelo ({contadoresProgresso.amarelo})
-              </Button>
-              <Button
-                variant={progressoFilter === 'vermelho' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setProgressoFilter('vermelho')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  progressoFilter === 'vermelho' 
-                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm' 
-                    : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'vermelho' ? 'bg-white' : 'bg-red-500'}`}></div>
-                Vermelho ({contadoresProgresso.vermelho})
-              </Button>
-              <Button
-                variant={progressoFilter === 'sem-registro' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setProgressoFilter('sem-registro')}
-                className={`flex items-center gap-1.5 h-8 px-3 text-xs ${
-                  progressoFilter === 'sem-registro' 
-                    ? 'bg-gray-500 hover:bg-gray-600 text-white border-gray-500 shadow-sm' 
-                    : 'border-gray-500/50 text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-950/20 hover:border-gray-500'
-                }`}
-              >
-                <div className={`w-2 h-2 rounded-full ${progressoFilter === 'sem-registro' ? 'bg-white' : 'bg-gray-500'}`}></div>
-                Sem Registro ({contadoresProgresso.semRegistro})
-              </Button>
-            </div>
+            <Select value={progressoFilter} onValueChange={(value) => setProgressoFilter(value as typeof progressoFilter)}>
+              <SelectTrigger className="w-full h-12 text-base">
+                <div className="flex items-center gap-2 min-w-0">
+                  {progressoFilter === 'all' && <span className="truncate">Todos</span>}
+                  {progressoFilter === 'verde' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
+                      <span className="truncate">Verde ({contadoresProgresso.verde})</span>
+                    </>
+                  )}
+                  {progressoFilter === 'amarelo' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-yellow-500 flex-shrink-0"></div>
+                      <span className="truncate">Amarelo ({contadoresProgresso.amarelo})</span>
+                    </>
+                  )}
+                  {progressoFilter === 'vermelho' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></div>
+                      <span className="truncate">Vermelho ({contadoresProgresso.vermelho})</span>
+                    </>
+                  )}
+                  {progressoFilter === 'sem-registro' && (
+                    <>
+                      <div className="w-3 h-3 rounded-full bg-gray-500 flex-shrink-0"></div>
+                      <span className="truncate">Sem Registro ({contadoresProgresso.semRegistro})</span>
+                    </>
+                  )}
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <span>Todos</span>
+                </SelectItem>
+                <SelectItem value="verde">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span>Verde ({contadoresProgresso.verde})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="amarelo">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <span>Amarelo ({contadoresProgresso.amarelo})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="vermelho">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <span>Vermelho ({contadoresProgresso.vermelho})</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="sem-registro">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-gray-500"></div>
+                    <span>Sem Registro ({contadoresProgresso.semRegistro})</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </Card>
       </div>
 
       {/* Lista de Veículos */}
       {veiculosFiltrados.length > 0 ? (
-        <div className="space-y-3 w-[80%] pl-0 pr-0">
+        <div className="space-y-3 w-[96%] pl-0 pr-0">
           {veiculosFiltrados.map((veiculo) => {
             const totalFiltros = filtrosPorVeiculo[veiculo.id] || 0
             const prontoParaTroca = veiculosProntosParaTroca[veiculo.id] || false
@@ -330,40 +335,40 @@ function FiltrosMobileView({
                   <div className="flex items-start justify-between gap-3 min-w-0">
                     <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Header com placa e status */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                          <Car className="h-4 w-4 text-primary" />
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
+                          <Car className="h-5 w-5 text-primary" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="font-medium text-sm border-primary/20 bg-primary/5">
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <Badge variant="outline" className="font-bold text-base border-primary/30 bg-primary/10 px-2.5 py-1">
                               {veiculo.placa}
                             </Badge>
                             <Badge 
                               variant={veiculo.status === "Ativo" ? "default" : "destructive"}
-                              className="text-xs"
+                              className="text-xs px-2 py-0.5"
                             >
                               {veiculo.status}
                             </Badge>
                             {totalFiltros === 0 ? (
-                              <div className="bg-yellow-400/90 rounded-full p-1.5" title="Nenhum filtro registrado">
-                                <Oil className="h-3 w-3 text-white" />
+                              <div className="bg-yellow-500 rounded-full p-1.5 shadow-sm" title="Nenhum filtro registrado">
+                                <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             ) : prontoParaTroca ? (
-                              <div className="bg-green-400/90 rounded-full p-1.5" title="Pronto para troca">
-                                <Oil className="h-3 w-3 text-white" />
+                              <div className="bg-green-500 rounded-full p-1.5 shadow-sm" title="Pronto para troca">
+                                <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             ) : (
-                              <div className="bg-red-400/90 rounded-full p-1.5" title="Não está pronto">
-                                <Oil className="h-3 w-3 text-white" />
+                              <div className="bg-red-500 rounded-full p-1.5 shadow-sm" title="Não está pronto">
+                                <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             )}
                           </div>
-                          <div className="text-sm text-muted-foreground mt-1 truncate">
-                            {veiculo.modelo} • {veiculo.marca} • {veiculo.ano}
+                          <div className="text-sm font-medium text-foreground mb-1">
+                            {veiculo.modelo} • {veiculo.marca}
                           </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {veiculo.secretaria}
+                          <div className="text-xs text-muted-foreground">
+                            {veiculo.ano} • {veiculo.secretaria}
                           </div>
                         </div>
                       </div>
@@ -371,8 +376,8 @@ function FiltrosMobileView({
                       {/* Informações de filtros */}
                       {totalFiltros > 0 && (
                         <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
-                          <Filter className="h-3.5 w-3.5 text-primary/70" />
-                          <span className="text-xs font-normal text-primary/80">
+                          <Filter className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-medium text-primary">
                             {totalFiltros} {totalFiltros === 1 ? 'filtro registrado' : 'filtros registrados'}
                           </span>
                         </div>
@@ -380,38 +385,38 @@ function FiltrosMobileView({
 
                       {/* Informações de Troca de Óleo */}
                       {estatisticasTrocaOleo[veiculo.id] && (estatisticasTrocaOleo[veiculo.id].kmAtual > 0 || estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0) && (
-                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground/80">
-                            <Gauge className="h-3.5 w-3.5 opacity-60" />
-                            <span className="font-normal">Troca de Óleo</span>
+                        <div className="mt-3 pt-3 border-t border-border/50 space-y-2.5">
+                          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                            <Gauge className="h-4 w-4 text-primary" />
+                            <span>Troca de Óleo</span>
                           </div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="grid grid-cols-2 gap-3 text-sm">
                             <div>
-                              <span className="text-muted-foreground">Km Atual:</span>
-                              <span className="ml-1 font-medium">
+                              <span className="text-muted-foreground text-xs">Km Atual:</span>
+                              <div className="font-semibold text-foreground mt-0.5">
                                 {estatisticasTrocaOleo[veiculo.id].kmAtual > 0 
                                   ? estatisticasTrocaOleo[veiculo.id].kmAtual.toLocaleString('pt-BR') 
                                   : '-'}
-                              </span>
+                              </div>
                             </div>
                             <div>
-                              <span className="text-muted-foreground">Próx. Troca:</span>
-                              <span className="ml-1 font-medium">
+                              <span className="text-muted-foreground text-xs">Próx. Troca:</span>
+                              <div className="font-semibold text-foreground mt-0.5">
                                 {estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0 
                                   ? estatisticasTrocaOleo[veiculo.id].kmProxTroca.toLocaleString('pt-BR') 
                                   : '-'}
-                              </span>
+                              </div>
                             </div>
                           </div>
                           {estatisticasTrocaOleo[veiculo.id].kmAtual > 0 && estatisticasTrocaOleo[veiculo.id].kmProxTroca > 0 && (
-                            <div className="space-y-1">
+                            <div className="space-y-1.5 mt-2">
                               <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Progresso</span>
-                                <span className="font-medium">{estatisticasTrocaOleo[veiculo.id].progresso}%</span>
+                                <span className="text-muted-foreground font-medium">Progresso</span>
+                                <span className="font-bold text-foreground">{estatisticasTrocaOleo[veiculo.id].progresso}%</span>
                               </div>
                               <Progress 
                                 value={estatisticasTrocaOleo[veiculo.id].progresso} 
-                                className="h-2"
+                                className="h-2.5"
                                 indicatorClassName={estatisticasTrocaOleo[veiculo.id].progresso > 0 ? getCorProgresso(estatisticasTrocaOleo[veiculo.id].progresso) : "bg-green-500"}
                               />
                             </div>
@@ -425,18 +430,18 @@ function FiltrosMobileView({
                 <CardFooter className="flex gap-2 pt-0 pb-4 px-4">
                   <Button 
                     variant="outline" 
-                    className="flex-1 flex gap-2 items-center text-xs h-9" 
+                    className="flex-1 flex gap-2 items-center text-sm h-10 font-medium" 
                     onClick={() => handleOpenModal(veiculo)}
                   >
-                    <BadgeCheck className="h-3.5 w-3.5" /> 
+                    <BadgeCheck className="h-4 w-4" /> 
                     Ver Filtros
                   </Button>
                   <Button 
                     variant="default" 
-                    className="flex-1 flex gap-2 items-center text-xs h-9 shadow-sm" 
+                    className="flex-1 flex gap-2 items-center text-sm h-10 font-medium shadow-sm" 
                     onClick={() => handleOpenRegisterModal(veiculo)}
                   >
-                    <Oil className="h-3.5 w-3.5" /> 
+                    <Oil className="h-4 w-4" /> 
                     Registrar
                   </Button>
                 </CardFooter>
@@ -445,7 +450,7 @@ function FiltrosMobileView({
           })}
         </div>
       ) : (
-        <div className="text-center py-16 text-muted-foreground w-[80%] pl-0 pr-0">
+        <div className="text-center py-16 text-muted-foreground w-[96%] pl-0 pr-0">
           <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
           <p className="text-base font-medium mb-1">Nenhum veículo encontrado</p>
           <p className="text-sm">Tente usar termos diferentes na busca ou remover os filtros</p>

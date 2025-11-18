@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { UserPlus, Edit, Trash2, Loader2, Save } from "lucide-react"
 import { supabase } from "@/lib/supabase"
@@ -94,6 +95,7 @@ export default function ConfiguracoesPage() {
       { id: "configuracoes", name: "Configurações", view: false, full: false },
       { id: "borracharia", name: "Borracharia", view: false, full: false },
       { id: "lavador", name: "Serviços de Lavagem", view: false, full: false },
+      { id: "servicoExterno", name: "Serviço Externo", view: false, full: false },
     ],
     ordemServico: {
       id: "ordemServico",
@@ -717,6 +719,7 @@ export default function ConfiguracoesPage() {
     { id: "custoVeiculo", name: "Custo por Veículo" },
     { id: "borracharia", name: "Borracharia" },
     { id: "lavador", name: "Serviços de Lavagem" },
+    { id: "servicoExterno", name: "Serviço Externo" },
     { id: "configuracoes", name: "Configurações" },
   ]
 
@@ -934,59 +937,95 @@ export default function ConfiguracoesPage() {
                   <p className="text-sm">Crie o primeiro usuário clicando em "Novo"</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {users.map((user) => (
-                    <Card key={user.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-3 min-w-0">
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <div className="font-bold text-lg text-primary truncate">{user.name}</div>
-                            <div className="text-sm text-muted-foreground truncate">{user.username}</div>
-                            <div className="mt-2">
-                              <Badge variant={user.active ? "default" : "secondary"} className="text-xs">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-base font-medium">Selecione o usuário</Label>
+                    <Select
+                      value={selectedUserForPermissions || ""}
+                      onValueChange={(value) => onSelectUserForPermissions(value)}
+                    >
+                      <SelectTrigger className="w-full h-11 text-base">
+                        <SelectValue placeholder="Selecione um usuário">
+                          {selectedUserForPermissions
+                            ? (() => {
+                                const selectedUser = users.find((u) => u.id === selectedUserForPermissions)
+                                return selectedUser ? selectedUser.name : "Selecione um usuário"
+                              })()
+                            : "Selecione um usuário"}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.id} className="py-2">
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">{user.name}</div>
+                                <div className="text-xs text-muted-foreground truncate">{user.username}</div>
+                              </div>
+                              <Badge
+                                variant={user.active ? "default" : "secondary"}
+                                className="flex-shrink-0 text-[10px]"
+                              >
                                 {user.active ? "Ativo" : "Inativo"}
                               </Badge>
                             </div>
-                          </div>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-9 w-9 p-0 flex-shrink-0">
-                                <MoreVertical className="h-5 w-5" />
-                                <span className="sr-only">Abrir menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48">
-                              <DropdownMenuItem
-                                onClick={() => onToggleStatus(user.id)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedUserForPermissions && (() => {
+                    const selectedUser = users.find((u) => u.id === selectedUserForPermissions)
+                    if (!selectedUser) return null
+                    
+                    return (
+                      <Card className="border-l-4 border-l-primary shadow-sm">
+                        <CardContent className="p-4">
+                          <div className="space-y-4">
+                            <div>
+                              <div className="font-bold text-lg text-primary">{selectedUser.name}</div>
+                              <div className="text-sm text-muted-foreground">{selectedUser.username}</div>
+                              <div className="mt-2">
+                                <Badge variant={selectedUser.active ? "default" : "secondary"} className="text-xs">
+                                  {selectedUser.active ? "Ativo" : "Inativo"}
+                                </Badge>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2 pt-2 border-t">
+                              <Button
+                                variant="outline"
+                                onClick={() => onToggleStatus(selectedUser.id)}
                                 disabled={isProcessing}
-                                className="cursor-pointer"
+                                className="w-full justify-start"
                               >
-                                {user.active ? "Desativar" : "Ativar"}
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => onEditUser(user)}
+                                {selectedUser.active ? "Desativar" : "Ativar"}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => onEditUser(selectedUser)}
                                 disabled={isProcessing}
-                                className="cursor-pointer"
+                                className="w-full justify-start"
                               >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => onDeleteUser(user)}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => onDeleteUser(selectedUser)}
                                 disabled={isProcessing}
-                                className="text-red-600 focus:text-red-600 cursor-pointer"
+                                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Excluir
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })()}
                 </div>
               )}
             </TabsContent>
@@ -1006,31 +1045,39 @@ export default function ConfiguracoesPage() {
                     Nenhum usuário encontrado. Crie um usuário primeiro na aba "Usuários".
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {users.map((user) => (
-                      <Card
-                        key={user.id}
-                        className={`cursor-pointer transition-all ${
-                          selectedUserForPermissions === user.id
-                            ? 'border-2 border-primary bg-primary/5'
-                            : 'hover:border-primary/50'
-                        }`}
-                        onClick={() => onSelectUserForPermissions(user.id)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
+                  <Select
+                    value={selectedUserForPermissions || ""}
+                    onValueChange={(value) => onSelectUserForPermissions(value)}
+                  >
+                    <SelectTrigger className="w-full h-11 text-base">
+                      <SelectValue placeholder="Selecione um usuário">
+                        {selectedUserForPermissions
+                          ? (() => {
+                              const selectedUser = users.find((u) => u.id === selectedUserForPermissions)
+                              return selectedUser ? selectedUser.name : "Selecione um usuário"
+                            })()
+                          : "Selecione um usuário"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id} className="py-2">
+                          <div className="flex items-center justify-between w-full gap-2">
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium truncate">{user.name}</p>
-                              <p className="text-sm text-muted-foreground truncate">{user.username}</p>
+                              <div className="font-medium truncate">{user.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{user.username}</div>
                             </div>
-                            <Badge variant={user.active ? "default" : "secondary"} className="ml-2 flex-shrink-0">
+                            <Badge
+                              variant={user.active ? "default" : "secondary"}
+                              className="flex-shrink-0 text-[10px]"
+                            >
                               {user.active ? "Ativo" : "Inativo"}
                             </Badge>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
 
                 {selectedUserForPermissions && (

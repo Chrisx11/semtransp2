@@ -31,18 +31,29 @@ export interface TrocaOleoCreate {
 
 // Buscar todas as trocas de óleo de um veículo
 export async function getTrocasOleo(veiculoId: string): Promise<TrocaOleo[]> {
-  const { data, error } = await supabase
-    .from("trocas_oleo")
-    .select("*")
-    .eq("veiculo_id", veiculoId)
-    .order("data_troca", { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from("trocas_oleo")
+      .select("*")
+      .eq("veiculo_id", veiculoId)
+      .order("data_troca", { ascending: false })
   
-  if (error) {
-    console.error("Erro ao buscar trocas de óleo:", error)
-    throw error
+    if (error) {
+      console.error("Erro ao buscar trocas de óleo:", error)
+      throw error
+    }
+  
+    return data || []
+  } catch (err) {
+    // Tratar especificamente erros de rede/fetch
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      console.warn(`⚠️ Erro de conexão ao buscar trocas de óleo para veículo ${veiculoId}. Verifique a conexão com o Supabase.`)
+      // Retornar array vazio em caso de erro de rede para não quebrar a aplicação
+      return []
+    }
+    // Re-lançar outros erros
+    throw err
   }
-  
-  return data || []
 }
 
 // Buscar última troca de óleo de um veículo

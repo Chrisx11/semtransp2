@@ -130,73 +130,188 @@ function DashboardMobileView() {
     }, 150)
   }
   
-  const atalhos = [
-    // Cadastros
-    { href: "/dashboard/colaboradores", title: "Colaboradores", icon: Users, desc: "Gerenciar colaboradores" },
-    { href: "/dashboard/veiculos", title: "Veículos", icon: Car, desc: "Gerenciar veículos" },
-    { href: "/dashboard/produtos", title: "Produtos", icon: Package, desc: "Gerenciar produtos" },
-    { href: "/dashboard/filtros", title: "Filtros", icon: Oil, desc: "Gerenciar filtros" },
-    // Movimento
-    { href: "/dashboard/movimento/entradas", title: "Entradas", icon: ArrowRight, desc: "Registrar entradas" },
-    { href: "/dashboard/movimento/saidas", title: "Saídas", icon: ArrowLeft, desc: "Registrar saídas" },
-    // Manutenções
-    { href: "/dashboard/manutencoes/painel", title: "Painel", icon: BarChart3, desc: "Painel de manutenções" },
-    { href: "/dashboard/manutencoes/tela", title: "Tela", icon: AlertTriangle, desc: "Tela de manutenções" },
-    { href: "/dashboard/manutencoes/ordem-servico", title: "Ordem de Serviço", icon: FileText, desc: "Abrir, visualizar e atualizar O.S." },
-    { href: "/dashboard/manutencoes/planejamento", title: "Planejamento", icon: CalendarRange, desc: "Planejamento de manutenções" },
-    { href: "/dashboard/manutencoes/troca-oleo", title: "Atualizar Km", icon: Droplets, desc: "Registrar ou acompanhar trocas" },
-    { href: "/dashboard/manutencoes/troca-pneu", title: "Troca de Pneu", icon: Disc, desc: "Registrar trocas de pneu" },
-    { href: "/dashboard/manutencoes/historicos", title: "Históricos", icon: History, desc: "Histórico de manutenções" },
-    // Serviços
-    { href: "/dashboard/custo-veiculo", title: "Custo por Veículo", icon: BarChart3, desc: "Custos por veículo" },
-    { href: "/dashboard/servico-externo/borracharia", title: "Borracharia", icon: Disc, desc: "Serviços de borracharia" },
-    { href: "/dashboard/servico-externo/lavador", title: "Lavador", icon: Droplets, desc: "Serviços de lavador" },
-    // Outros
-    { href: "/dashboard/configuracoes", title: "Configurações", icon: Settings, desc: "Configurações do sistema" },
+  const categorias = [
+    {
+      nome: "Cadastros",
+      cor: "blue",
+      icon: FolderOpen,
+      atalhos: [
+        { href: "/dashboard/colaboradores", title: "Colaboradores", icon: Users, desc: "Gerenciar colaboradores" },
+        { href: "/dashboard/veiculos", title: "Veículos", icon: Car, desc: "Gerenciar veículos" },
+        { href: "/dashboard/produtos", title: "Produtos", icon: Package, desc: "Gerenciar produtos" },
+        { href: "/dashboard/filtros", title: "Filtros", icon: Oil, desc: "Gerenciar filtros" },
+      ]
+    },
+    {
+      nome: "Movimento",
+      cor: "green",
+      icon: Activity,
+      atalhos: [
+        { href: "/dashboard/movimento/entradas", title: "Entradas", icon: ArrowRight, desc: "Registrar entradas" },
+        { href: "/dashboard/movimento/saidas", title: "Saídas", icon: ArrowLeft, desc: "Registrar saídas" },
+      ]
+    },
+    {
+      nome: "Manutenções",
+      cor: "orange",
+      icon: Wrench,
+      atalhos: [
+        { href: "/dashboard/manutencoes/painel", title: "Painel", icon: BarChart3, desc: "Painel de manutenções" },
+        { href: "/dashboard/manutencoes/tela", title: "Tela", icon: AlertTriangle, desc: "Tela de manutenções" },
+        { href: "/dashboard/manutencoes/ordem-servico", title: "Ordem de Serviço", icon: FileText, desc: "Abrir, visualizar e atualizar O.S." },
+        { href: "/dashboard/manutencoes/planejamento", title: "Planejamento", icon: CalendarRange, desc: "Planejamento de manutenções" },
+        { href: "/dashboard/manutencoes/troca-oleo", title: "Atualizar Km", icon: Droplets, desc: "Registrar ou acompanhar trocas" },
+        { href: "/dashboard/manutencoes/troca-pneu", title: "Troca de Pneu", icon: Disc, desc: "Registrar trocas de pneu" },
+        { href: "/dashboard/manutencoes/historicos", title: "Históricos", icon: History, desc: "Histórico de manutenções" },
+      ]
+    },
+    {
+      nome: "Serviços",
+      cor: "purple",
+      icon: ClipboardList,
+      atalhos: [
+        { href: "/dashboard/custo-veiculo", title: "Custo por Veículo", icon: BarChart3, desc: "Custos por veículo" },
+        { href: "/dashboard/servico-externo/borracharia", title: "Borracharia", icon: Disc, desc: "Serviços de borracharia" },
+        { href: "/dashboard/servico-externo/lavador", title: "Lavador", icon: Droplets, desc: "Serviços de lavador" },
+        { href: "/dashboard/servico-externo/servico-externo", title: "Serviço Externo", icon: Wrench, desc: "Gerenciar serviços externos" },
+      ]
+    },
+    {
+      nome: "Sistema",
+      cor: "gray",
+      icon: Settings,
+      atalhos: [
+        { href: "/dashboard/configuracoes", title: "Configurações", icon: Settings, desc: "Configurações do sistema" },
+      ]
+    },
   ]
 
   // Filtrar atalhos baseado nas permissões do usuário
-  const atalhosPermitidos = atalhos.filter(atalho => verificarPermissao(atalho.href))
+  const categoriasFiltradas = categorias.map(categoria => ({
+    ...categoria,
+    atalhos: categoria.atalhos.filter(atalho => verificarPermissao(atalho.href))
+  })).filter(categoria => categoria.atalhos.length > 0)
+
+  const getColorClasses = (cor: string) => {
+    const colors = {
+      blue: {
+        border: "border-blue-500",
+        bg: "bg-blue-500/10",
+        iconBg: "bg-blue-500/20",
+        text: "text-blue-600 dark:text-blue-400",
+        hover: "hover:bg-blue-500/15"
+      },
+      green: {
+        border: "border-green-500",
+        bg: "bg-green-500/10",
+        iconBg: "bg-green-500/20",
+        text: "text-green-600 dark:text-green-400",
+        hover: "hover:bg-green-500/15"
+      },
+      orange: {
+        border: "border-orange-500",
+        bg: "bg-orange-500/10",
+        iconBg: "bg-orange-500/20",
+        text: "text-orange-600 dark:text-orange-400",
+        hover: "hover:bg-orange-500/15"
+      },
+      purple: {
+        border: "border-purple-500",
+        bg: "bg-purple-500/10",
+        iconBg: "bg-purple-500/20",
+        text: "text-purple-600 dark:text-purple-400",
+        hover: "hover:bg-purple-500/15"
+      },
+      gray: {
+        border: "border-gray-500",
+        bg: "bg-gray-500/10",
+        iconBg: "bg-gray-500/20",
+        text: "text-gray-600 dark:text-gray-400",
+        hover: "hover:bg-gray-500/15"
+      }
+    }
+    return colors[cor as keyof typeof colors] || colors.blue
+  }
 
   return (
-    <div className="p-4 space-y-6 pb-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-primary">Início</h1>
-        <p className="text-sm text-muted-foreground">Escolha um atalho para continuar</p>
+    <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
+      {/* Header */}
+      <div className="w-[98%] mb-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+              <Activity className="h-6 w-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-primary">Início</h1>
+              <p className="text-xs text-muted-foreground">Escolha um atalho para continuar</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-3">
-        {atalhosPermitidos.map((atalho) => {
-          const Icon = atalho.icon
-          const isNavigating = navigatingTo === atalho.href
+      {/* Categorias e Atalhos */}
+      <div className="w-[98%] space-y-5">
+        {categoriasFiltradas.map((categoria) => {
+          const CategoryIcon = categoria.icon
+          const colors = getColorClasses(categoria.cor)
+          
           return (
-            <div
-              key={atalho.href}
-              onClick={() => handleNavigation(atalho.href)}
-              className="block cursor-pointer"
-            >
-              <Card className={`border-l-4 border-l-primary border border-primary/20 shadow-sm hover:shadow-md hover:bg-accent/50 transition-all duration-200 active:scale-[0.95] bg-gradient-to-r from-primary/5 via-primary/3 to-transparent ${
-                isNavigating ? 'opacity-75 scale-95' : ''
-              }`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl text-primary flex-shrink-0 shadow-sm transition-transform duration-200 ${
-                      isNavigating ? 'scale-110 rotate-3' : ''
-                    }`}>
-                      <Icon className="h-6 w-6" />
+            <div key={categoria.nome} className="space-y-2.5">
+              {/* Título da Categoria */}
+              <div className="flex items-center gap-2 px-1">
+                <div className={`p-1.5 ${colors.iconBg} rounded-lg`}>
+                  <CategoryIcon className={`h-4 w-4 ${colors.text}`} />
+                </div>
+                <h2 className={`text-base font-bold ${colors.text}`}>{categoria.nome}</h2>
+                <div className="flex-1 h-px bg-border/50"></div>
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                  {categoria.atalhos.length}
+                </Badge>
+              </div>
+
+              {/* Cards de Atalhos */}
+              <div className="grid gap-2.5">
+                {categoria.atalhos.map((atalho) => {
+                  const Icon = atalho.icon
+                  const isNavigating = navigatingTo === atalho.href
+                  
+                  return (
+                    <div
+                      key={atalho.href}
+                      onClick={() => handleNavigation(atalho.href)}
+                      className="block cursor-pointer"
+                    >
+                      <Card className={`border-l-4 ${colors.border} border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.97] ${colors.bg} ${colors.hover} ${
+                        isNavigating ? 'opacity-75 scale-95' : ''
+                      }`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`p-2.5 ${colors.iconBg} rounded-lg flex-shrink-0 transition-transform duration-200 ${
+                              isNavigating ? 'scale-110 rotate-3' : ''
+                            }`}>
+                              <Icon className={`h-5 w-5 ${colors.text}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className={`text-sm font-bold ${colors.text} truncate mb-0.5`}>{atalho.title}</h3>
+                              <p className="text-[11px] text-muted-foreground truncate leading-snug">{atalho.desc}</p>
+                            </div>
+                            {isNavigating ? (
+                              <div className="flex-shrink-0">
+                                <div className={`animate-spin rounded-full h-4 w-4 border-2 ${colors.border} border-t-transparent`}></div>
+                              </div>
+                            ) : (
+                              <div className="flex-shrink-0">
+                                <ArrowRight className={`h-4 w-4 ${colors.text} opacity-50`} />
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-bold text-primary truncate mb-1">{atalho.title}</h2>
-                      <p className="text-sm text-muted-foreground truncate">{atalho.desc}</p>
-                    </div>
-                    {isNavigating && (
-                      <div className="flex-shrink-0">
-                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  )
+                })}
+              </div>
             </div>
           )
         })}
@@ -283,7 +398,12 @@ export default function DashboardPage() {
             }
           })
         } catch (err) {
-          console.error(`Erro ao buscar histórico do veículo ${v.id}:`, err)
+          // Tratar especificamente erros de rede/fetch
+          if (err instanceof TypeError && err.message === 'Failed to fetch') {
+            console.warn(`⚠️ Erro de conexão ao buscar histórico do veículo ${v.id}. Verifique a conexão com o Supabase.`)
+          } else {
+            console.error(`Erro ao buscar histórico do veículo ${v.id}:`, err)
+          }
           return []
         }
       })

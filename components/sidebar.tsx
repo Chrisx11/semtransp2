@@ -581,7 +581,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
               Prefeitura Municipal de Italva
             </p>
             <p className={cn("text-xs font-medium", isDarkTheme ? "text-slate-600" : "text-white/80")}>
-              Secretaria Municipal de Transporte
+              Secretaria Municipal de Transportes
             </p>
           </div>
         </div>

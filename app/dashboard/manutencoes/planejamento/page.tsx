@@ -15,6 +15,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 // Componente Mobile View
 function PlanejamentoMobileView({
@@ -79,9 +80,8 @@ function PlanejamentoMobileView({
 
   return (
     <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
-      <div className="space-y-1 px-1">
-        <h1 className="text-xl font-bold text-primary">Planejamento</h1>
-        <p className="text-xs text-muted-foreground">Ordens organizadas por mecânico</p>
+      <div className="w-[96%] pl-3 pr-0 mb-2">
+        <MobileBackButton />
       </div>
 
       <Accordion type="single" collapsible className="w-full space-y-2">

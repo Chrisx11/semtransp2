@@ -24,6 +24,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { MobileBackButton } from '@/components/mobile-back-button'
 
 // Mapa de cores pastel para secretarias
 const secretariaColors: Record<string, string> = {
@@ -1016,9 +1017,8 @@ export default function HistoricosPage() {
   function HistoricosMobileView() {
     return (
       <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
-        <div className="space-y-1 px-1">
-          <h1 className="text-xl font-bold text-primary">Históricos</h1>
-          <p className="text-xs text-muted-foreground">Visualize o histórico completo dos veículos</p>
+        <div className="w-[96%] pl-3 pr-0 mb-2">
+          <MobileBackButton />
         </div>
 
         <div className="relative">
