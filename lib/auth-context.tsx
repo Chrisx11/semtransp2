@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { supabase } from "./supabase"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Session } from "@supabase/supabase-js"
 
 // Submódulos específicos para Ordem de Serviço
@@ -199,6 +199,142 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Função para atualizar as permissões do usuário do banco de dados
+  const refreshUserPermissions = async (userId: string) => {
+    try {
+      // Buscar dados atualizados do usuário
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", userId)
+        .single()
+
+      if (userError || !userData) {
+        console.error("Erro ao buscar usuário:", userError)
+        return false
+      }
+
+      // Verificar se o usuário está ativo
+      if (!userData.active) {
+        // Se o usuário foi desativado, fazer logout
+        setUser(null)
+        localStorage.removeItem("authUser")
+        document.cookie = "semtransp_auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Strict"
+        router.push("/")
+        return false
+      }
+
+      // Buscar permissões atualizadas
+      const { data: modulePermissions, error: moduleError } = await supabase
+        .from('user_module_permissions')
+        .select('*, module:modules(*)')
+        .eq('user_id', userId)
+      
+      if (moduleError) {
+        console.error("Erro ao buscar permissões:", moduleError)
+        return false
+      }
+      
+      // Buscar permissões de abas de OS
+      const { data: osTabPermissions, error: osTabError } = await supabase
+        .from('user_os_tab_permissions')
+        .select('*, os_tab:os_tabs(*)')
+        .eq('user_id', userId)
+      
+      if (osTabError) {
+        console.error("Erro ao buscar permissões de OS:", osTabError)
+        return false
+      }
+
+      // Formatar as permissões (mesma lógica do login)
+      const formattedPermissions: any = {}
+      
+      const allModules = [
+        'dashboard', 'colaboradores', 'veiculos', 'produtos', 'filtros', 'entradas', 'saidas',
+        'painel', 'tela', 'planejamento', 'trocaOleo', 'trocaPneu', 'historico', 'custoVeiculo',
+        'configuracoes', 'borracharia', 'lavador', 'servicoExterno', 'ordemServico'
+      ]
+      
+      allModules.forEach(moduleId => {
+        const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId)
+        if (modulePerm?.can_view) {
+          formattedPermissions[moduleId] = ['visualizar']
+          if (modulePerm.can_edit) {
+            formattedPermissions[moduleId].push('criar', 'editar', 'excluir')
+          }
+        }
+      })
+      
+      // Adicionar estrutura especial para ordem de serviço
+      const osModule = modulePermissions.find((p: any) => p.module?.id === 'ordemServico')
+      if (osModule) {
+        formattedPermissions.ordemServico = {
+          acoes: osModule.can_view ? ['visualizar'] : [],
+          submodulos: osTabPermissions
+            .filter((p: any) => p.has_access)
+            .map((p: any) => p.os_tab?.id)
+            .filter(Boolean)
+        }
+        if (osModule.can_edit) {
+          formattedPermissions.ordemServico.acoes.push('criar', 'editar', 'excluir')
+        }
+      }
+      
+      // Adicionar estrutura especial para manutenções
+      const manutencaoModules = {
+        'painel': 'painel',
+        'tela': 'tela',
+        'trocaOleo': 'troca-oleo',
+        'trocaPneu': 'troca-pneu',
+        'planejamento': 'planejamento',
+        'historico': 'historicos',
+        'ordemServico': 'ordem-servico'
+      }
+      
+      const manutencaoSubmodulos: string[] = []
+      let hasManutencaoView = false
+      
+      Object.entries(manutencaoModules).forEach(([moduleId, submodulo]) => {
+        const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId)
+        if (modulePerm?.can_view) {
+          hasManutencaoView = true
+          manutencaoSubmodulos.push(submodulo)
+        }
+      })
+      
+      if (hasManutencaoView || manutencaoSubmodulos.length > 0) {
+        formattedPermissions.manutencoes = {
+          acoes: hasManutencaoView ? ['visualizar'] : [],
+          submodulos: manutencaoSubmodulos
+        }
+      }
+      
+      if (!formattedPermissions.relatorios) {
+        formattedPermissions.relatorios = []
+      }
+
+      // Atualizar usuário com permissões atualizadas
+      const updatedUser: AuthUser = {
+        id: userData.id,
+        nome: userData.name,
+        sobrenome: "",
+        login: userData.username,
+        perfil: "customizado",
+        ativo: userData.active,
+        permissoes_customizadas: formattedPermissions
+      }
+
+      setUser(updatedUser)
+      localStorage.setItem("authUser", JSON.stringify(updatedUser))
+      
+      return true
+    } catch (error) {
+      console.error("Erro ao atualizar permissões:", error)
+      return false
+    }
+  }
 
   // Verificar se há um usuário na sessão ao carregar
   useEffect(() => {
@@ -216,7 +352,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
+          // Atualizar permissões do banco de dados
+          await refreshUserPermissions(parsedUser.id)
+          // setUser será chamado dentro de refreshUserPermissions
 
           // Configurar cookie para persistência adicional
           document.cookie = `semtransp_auth=${parsedUser.id}; path=/; max-age=2592000; SameSite=Strict`; // 30 dias
@@ -352,6 +490,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearInterval(intervalId);
     };
   }, [])
+
+  // Atualizar permissões quando o pathname muda (navegação) ou quando a página recebe foco
+  useEffect(() => {
+    if (!user || !user.id) return
+
+    // Atualizar permissões ao navegar
+    const updateOnNavigation = async () => {
+      await refreshUserPermissions(user.id)
+    }
+
+    // Atualizar permissões quando a página recebe foco (usuário volta para a aba)
+    const handleFocus = () => {
+      updateOnNavigation()
+    }
+
+    // Atualizar permissões quando o pathname muda
+    if (pathname) {
+      updateOnNavigation()
+    }
+
+    // Adicionar listener para quando a página recebe foco
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [pathname, user?.id])
 
   // Verificar permissão para uma rota específica
   // Sistema básico de permissões - verifica se o usuário tem acesso ao módulo da rota

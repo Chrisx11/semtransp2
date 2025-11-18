@@ -16,12 +16,14 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useToast } from "@/hooks/use-toast"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown } from "lucide-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { supabase } from "@/lib/supabase"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, rotasPermissoes } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 
 // Interfaces para os dados
@@ -118,8 +120,9 @@ function isTrocaOleo(tipoServico: string) {
 
 // Adicionar função auxiliar para mobile
 function DashboardMobileView() {
-  const { verificarPermissao } = useAuth()
+  const { verificarPermissao, user, logout } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   const [navigatingTo, setNavigatingTo] = useState<string | null>(null)
   
   const handleNavigation = (href: string) => {
@@ -128,6 +131,22 @@ function DashboardMobileView() {
     setTimeout(() => {
       router.push(href)
     }, 150)
+  }
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      toast({
+        title: "Logout realizado",
+        description: "Você foi desconectado com sucesso."
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Ocorreu um erro ao fazer logout."
+      })
+    }
   }
   
   const categorias = [
@@ -187,9 +206,63 @@ function DashboardMobileView() {
   ]
 
   // Filtrar atalhos baseado nas permissões do usuário
+  // Verificação mais restritiva: apenas mostra páginas que estão explicitamente permitidas nas configurações
   const categoriasFiltradas = categorias.map(categoria => ({
     ...categoria,
-    atalhos: categoria.atalhos.filter(atalho => verificarPermissao(atalho.href))
+    atalhos: categoria.atalhos.filter(atalho => {
+      // Verificar permissão usando a função padrão
+      const temPermissao = verificarPermissao(atalho.href)
+      
+      // Se não tem permissão básica, não mostrar
+      if (!temPermissao) {
+        return false
+      }
+      
+      // Se o usuário tem permissões customizadas e não é admin, verificar se o módulo existe explicitamente
+      if (user?.permissoes_customizadas && user.perfil !== "admin") {
+        // Obter configuração da rota
+        let rotaConfig = rotasPermissoes[atalho.href]
+        if (!rotaConfig) {
+          // Tentar encontrar rota base
+          const rotaBase = Object.keys(rotasPermissoes).find(r => 
+            atalho.href.startsWith(r) && (atalho.href === r || atalho.href[r.length] === '/')
+          )
+          if (rotaBase) {
+            rotaConfig = rotasPermissoes[rotaBase]
+          }
+        }
+        
+        if (rotaConfig) {
+          const { modulo, submodulo, pagina } = rotaConfig
+          
+          // Caso especial para submódulos de manutenções
+          if (modulo === "manutencoes" && submodulo && pagina) {
+            const manutencaoPerms = user.permissoes_customizadas.manutencoes
+            if (manutencaoPerms && Array.isArray(manutencaoPerms.submodulos)) {
+              // Verificar se tem "todos" ou a página específica
+              if (!manutencaoPerms.submodulos.includes("todos") && 
+                  !manutencaoPerms.submodulos.includes(pagina)) {
+                return false
+              }
+            } else {
+              // Se não tem estrutura de submódulos, verificar se tem permissão para manutenções
+              if (!user.permissoes_customizadas.hasOwnProperty("manutencoes")) {
+                return false
+              }
+            }
+          } else {
+            // Para outros módulos, verificar se o módulo existe nas permissões customizadas
+            const moduloExiste = user.permissoes_customizadas.hasOwnProperty(modulo)
+            // Se o módulo não existe explicitamente nas permissões, não mostrar
+            if (!moduloExiste) {
+              return false
+            }
+          }
+        }
+      }
+      
+      return true
+    })
   })).filter(categoria => categoria.atalhos.length > 0)
 
   const getColorClasses = (cor: string) => {
@@ -237,16 +310,67 @@ function DashboardMobileView() {
     <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
       {/* Header */}
       <div className="w-[98%] mb-6">
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
-              <Activity className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-primary">Início</h1>
-              <p className="text-xs text-muted-foreground">Escolha um atalho para continuar</p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-primary/20 to-primary/10 rounded-xl">
+                <Activity className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-primary">Início</h1>
+                <p className="text-xs text-muted-foreground">Escolha um atalho para continuar</p>
+              </div>
             </div>
           </div>
+          
+          {/* Usuário com opção de sair */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full justify-between h-auto py-2.5 px-3 hover:bg-accent/50"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-sm font-medium text-left">
+                      {user?.nome || user?.login || "Usuário"}
+                    </span>
+                    {user?.login && user?.nome && (
+                      <span className="text-[10px] text-muted-foreground text-left">
+                        {user.login}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[calc(98vw-24px)]">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {user?.nome || user?.login || "Usuário"}
+                  </p>
+                  {user?.login && (
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user.login}
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleLogout} 
+                className="text-red-600 focus:text-red-600 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
