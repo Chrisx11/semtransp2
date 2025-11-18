@@ -116,12 +116,12 @@ function CustoVeiculoMobileView({
 
         {cardsExpanded && (
           <>
-            <Card className="col-span-2">
-              <CardContent className="py-3 px-3">
+            <Card>
+              <CardContent className="py-2.5 px-3">
                 <div className="text-[10px] text-muted-foreground mb-1">
                   {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Peças e Consumíveis"}
                 </div>
-                <div className="text-base font-bold">R$ {totalCard.toFixed(2)}</div>
+                <div className="text-sm font-bold">R$ {totalCard.toFixed(2)}</div>
                 {cardStartDate && cardEndDate ? (
                   <div className="text-[9px] text-muted-foreground mt-1">
                     {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
