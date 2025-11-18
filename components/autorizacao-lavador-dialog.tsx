@@ -145,16 +145,12 @@ export function AutorizacaoLavadorDialog({
   // Carregar dados quando necessário
   useEffect(() => {
     if (open) {
-      // Sempre limpar o formulário primeiro quando o diálogo abrir ou quando mudar o editingId/viewingId
-      resetForm()
-      
       if (isEditing || isViewing) {
-        // Aguardar um pequeno delay para garantir que o reset foi aplicado antes de carregar
-        const timer = setTimeout(() => {
-          loadAutorizacao()
-        }, 50)
-        
-        return () => clearTimeout(timer)
+        // Se estiver editando ou visualizando, carregar os dados diretamente
+        loadAutorizacao()
+      } else {
+        // Se for um novo registro, limpar o formulário
+        resetForm()
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -163,13 +159,22 @@ export function AutorizacaoLavadorDialog({
   const loadAutorizacao = async () => {
     setIsLoading(true)
     try {
-      // Limpar o formulário novamente antes de carregar para garantir que está limpo
-      resetForm()
-      
       const autorizacao = await getAutorizacaoLavadorById(editingId || viewingId || "")
       if (autorizacao) {
-        // Aguardar um pequeno delay para garantir que o reset foi processado
-        await new Promise(resolve => setTimeout(resolve, 50))
+        // Converter as strings de data para objetos Date
+        // IMPORTANTE: O serviço aplica +1 dia ao salvar para compensar timezone,
+        // então precisamos subtrair 1 dia ao carregar para reverter esse ajuste
+        const parseDate = (dateString: string): Date => {
+          if (!dateString) return new Date()
+          // Criar a data a partir da string YYYY-MM-DD
+          const date = new Date(dateString + 'T00:00:00')
+          // Subtrair 1 dia para reverter o ajuste aplicado ao salvar
+          date.setDate(date.getDate() - 1)
+          return date
+        }
+        
+        const dataAutorizacaoDate = parseDate(autorizacao.dataAutorizacao)
+        const dataPrevistaDate = parseDate(autorizacao.dataPrevista)
         
         form.reset({
           veiculoId: autorizacao.veiculoId,
@@ -183,8 +188,8 @@ export function AutorizacaoLavadorDialog({
           solicitanteNome: autorizacao.solicitanteNome,
           // Usar undefined em vez de "" quando não houver lavador para evitar erro de UUID
           lavadorId: autorizacao.lavadorId || undefined,
-          dataAutorizacao: new Date(autorizacao.dataAutorizacao),
-          dataPrevista: new Date(autorizacao.dataPrevista),
+          dataAutorizacao: dataAutorizacaoDate,
+          dataPrevista: dataPrevistaDate,
           preco: autorizacao.preco,
           observacoes: autorizacao.observacoes || "",
         })
