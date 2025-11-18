@@ -20,8 +20,13 @@ import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { EmptyState } from "@/components/empty-state"
 import { EntradaForm } from "@/components/entrada-form"
 import { getEntradasSupabase, deleteEntradaSupabase, type Entrada } from "@/services/entrada-service"
-import { getProdutosSupabase, type Produto } from "@/services/produto-service"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, MoreVertical } from "lucide-react"
+import { getProdutosSupabase, type Produto, getProdutoByIdSupabase, updateProdutoSupabase } from "@/services/produto-service"
+import { addSaidaSupabase } from "@/services/saida-service"
+import { getColaboradorByIdSupabase } from "@/services/colaborador-service"
+import { getVeiculoByIdSupabase, type Veiculo } from "@/services/veiculo-service"
+import { SelecionarVeiculoDialog } from "@/components/selecionar-veiculo-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, MoreVertical, CheckSquare, X } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -300,6 +305,11 @@ export default function EntradasPage() {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // Estado para saída rápida
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedEntradas, setSelectedEntradas] = useState<Set<string>>(new Set())
+  const [veiculoDialogOpen, setVeiculoDialogOpen] = useState(false)
+
   const { toast } = useToast()
 
   // Carregar dados do Supabase (entradas e produtos)
@@ -571,6 +581,134 @@ export default function EntradasPage() {
     return map
   }, [produtos])
 
+  // Funções para saída rápida
+  const handleToggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode)
+    setSelectedEntradas(new Set())
+  }
+
+  const handleToggleEntradaSelection = (entradaId: string) => {
+    const newSelected = new Set(selectedEntradas)
+    if (newSelected.has(entradaId)) {
+      newSelected.delete(entradaId)
+    } else {
+      newSelected.add(entradaId)
+    }
+    setSelectedEntradas(newSelected)
+  }
+
+  const handleSelectAll = () => {
+    if (selectedEntradas.size === paginatedData.length) {
+      setSelectedEntradas(new Set())
+    } else {
+      setSelectedEntradas(new Set(paginatedData.map(e => e.id)))
+    }
+  }
+
+  const handleConfirmarSaidaRapida = () => {
+    if (selectedEntradas.size === 0) {
+      toast({
+        title: "Nenhum item selecionado",
+        description: "Selecione pelo menos uma entrada para criar a saída rápida.",
+        variant: "destructive",
+      })
+      return
+    }
+    setVeiculoDialogOpen(true)
+  }
+
+  const handleVeiculoSelect = async (veiculo: Veiculo) => {
+    setVeiculoDialogOpen(false)
+    setIsLoading(true)
+
+    try {
+      const entradasSelecionadas = entradas.filter(e => selectedEntradas.has(e.id))
+      let sucesso = 0
+      let erros = 0
+
+      for (const entrada of entradasSelecionadas) {
+        try {
+          // Buscar dados necessários
+          const produto = await getProdutoByIdSupabase(entrada.produtoId)
+          if (!produto) {
+            erros++
+            continue
+          }
+
+          // Verificar estoque
+          if (produto.estoque < entrada.quantidade) {
+            toast({
+              title: "Estoque insuficiente",
+              description: `Produto ${entrada.produtoDescricao} não possui estoque suficiente. Disponível: ${produto.estoque}`,
+              variant: "destructive",
+            })
+            erros++
+            continue
+          }
+
+          const responsavel = await getColaboradorByIdSupabase(entrada.responsavelId)
+          if (!responsavel) {
+            erros++
+            continue
+          }
+
+          // Criar saída
+          await addSaidaSupabase({
+            produtoId: entrada.produtoId,
+            produtoNome: entrada.produtoDescricao,
+            categoria: produto.categoria,
+            quantidade: entrada.quantidade,
+            valorUnitario: entrada.valorUnitario,
+            data: new Date().toISOString(),
+            responsavelId: entrada.responsavelId,
+            responsavelNome: entrada.responsavelNome,
+            veiculoId: veiculo.id,
+            veiculoPlaca: veiculo.placa,
+            veiculoModelo: veiculo.modelo,
+            observacao: `Saída rápida criada a partir da entrada ${entrada.id}`,
+          })
+
+          // Atualizar estoque
+          await updateProdutoSupabase(produto.id, {
+            estoque: produto.estoque - entrada.quantidade,
+          })
+
+          sucesso++
+        } catch (error) {
+          console.error(`Erro ao criar saída para entrada ${entrada.id}:`, error)
+          erros++
+        }
+      }
+
+      if (sucesso > 0) {
+        toast({
+          title: "Saídas criadas com sucesso",
+          description: `${sucesso} saída(s) criada(s) para o veículo ${veiculo.placa}.${erros > 0 ? ` ${erros} erro(s) ocorreram.` : ''}`,
+        })
+        // Limpar seleção e desativar modo de seleção
+        setSelectedEntradas(new Set())
+        setIsSelectionMode(false)
+        // Recarregar dados
+        loadData()
+      } else {
+        toast({
+          title: "Erro",
+          description: "Não foi possível criar as saídas.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Erro ao criar saídas:", error)
+      toast({
+        title: "Erro",
+        description: "Ocorreu um erro ao criar as saídas.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const isMobile = useIsMobile()
 
   if (isMobile) {
@@ -662,6 +800,37 @@ export default function EntradasPage() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              {/* Botão saída rápida (apenas desktop) */}
+              {!isMobile && (
+                <>
+                  {!isSelectionMode ? (
+                    <Button 
+                      variant="outline" 
+                      className="w-full md:w-auto shadow-md-custom" 
+                      onClick={handleToggleSelectionMode}
+                    >
+                      <CheckSquare className="mr-2 h-4 w-4" /> Saída Rápida
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        className="shadow-md-custom" 
+                        onClick={handleToggleSelectionMode}
+                      >
+                        <X className="mr-2 h-4 w-4" /> Cancelar
+                      </Button>
+                      <Button 
+                        className="btn-gradient shadow-md-custom" 
+                        onClick={handleConfirmarSaidaRapida}
+                        disabled={selectedEntradas.size === 0}
+                      >
+                        Confirmar ({selectedEntradas.size})
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
               {/* Botão nova entrada */}
               <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={() => setFormOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Nova Entrada
@@ -675,6 +844,14 @@ export default function EntradasPage() {
               <TableCaption>Lista de entradas de produtos no estoque.</TableCaption>
               <TableHeader>
                 <TableRow>
+                  {isSelectionMode && (
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={selectedEntradas.size === paginatedData.length && paginatedData.length > 0}
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </TableHead>
+                  )}
                   <TableHead onClick={() => toggleSort("produtoDescricao")} className="cursor-pointer">
                     <div className="flex items-center">Produto {renderSortIcon("produtoDescricao")}</div>
                   </TableHead>
@@ -699,6 +876,14 @@ export default function EntradasPage() {
                 {paginatedData.length > 0 ? (
                   paginatedData.map((entrada) => (
                     <TableRow key={entrada.id}>
+                      {isSelectionMode && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedEntradas.has(entrada.id)}
+                            onCheckedChange={() => handleToggleEntradaSelection(entrada.id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">{entrada.produtoDescricao}</TableCell>
                       <TableCell>{produtoCategoriaMap[entrada.produtoId] || "-"}</TableCell>
                       <TableCell>{entrada.responsavelNome}</TableCell>
@@ -732,7 +917,7 @@ export default function EntradasPage() {
                   ))
                 ) : (
                   <EmptyState
-                    colSpan={7}
+                    colSpan={isSelectionMode ? 8 : 7}
                     title={
                       searchTerm || dateFilter !== "all" ? "Nenhum resultado encontrado" : "Nenhuma entrada cadastrada"
                     }
@@ -846,6 +1031,13 @@ export default function EntradasPage() {
         onConfirm={handleDelete}
         title="Excluir entrada"
         description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e o estoque será atualizado."
+      />
+
+      {/* Diálogo de seleção de veículo para saída rápida */}
+      <SelecionarVeiculoDialog
+        open={veiculoDialogOpen}
+        onOpenChange={setVeiculoDialogOpen}
+        onSelect={handleVeiculoSelect}
       />
     </div>
   )
