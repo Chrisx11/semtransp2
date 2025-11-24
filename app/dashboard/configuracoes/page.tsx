@@ -11,10 +11,20 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 
-import { UserPlus, Edit, Trash2, Loader2, Save } from "lucide-react"
+import { UserPlus, Edit, Trash2, Loader2, Save, Check, ChevronsUpDown } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 import { Toaster } from "@/components/ui/toaster"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
@@ -74,6 +84,7 @@ export default function ConfiguracoesPage() {
   // Estados para permissões
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<string | null>(null)
   const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({})
+  const [comboboxOpen, setComboboxOpen] = useState(false)
   
   // Toast para notificações
   const { toast } = useToast()
@@ -1494,31 +1505,82 @@ export default function ConfiguracoesPage() {
                     <Label className="text-base font-medium mb-3 block">
                       Selecione o usuário
                     </Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {users.map(user => (
-                        <Card
-                          key={user.id}
-                          className={`cursor-pointer transition-all ${
-                            selectedUserForPermissions === user.id
-                              ? 'border-2 border-primary bg-primary/5'
-                              : 'hover:border-primary/50'
-                          }`}
-                          onClick={() => loadUserPermissions(user.id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">{user.name}</p>
-                                <p className="text-sm text-muted-foreground">{user.username}</p>
-                              </div>
-                              <Badge variant={user.active ? "default" : "secondary"}>
-                                {user.active ? "Ativo" : "Inativo"}
-                              </Badge>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                    {users.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                        Nenhum usuário encontrado. Crie um usuário primeiro na aba "Usuários".
+                      </div>
+                    ) : (
+                      <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={comboboxOpen}
+                            className="w-full md:w-[400px] h-11 justify-between text-base"
+                          >
+                            {selectedUserForPermissions
+                              ? (() => {
+                                  const selectedUser = users.find((u) => u.id === selectedUserForPermissions)
+                                  return selectedUser ? (
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <span className="truncate">{selectedUser.name}</span>
+                                      <Badge
+                                        variant={selectedUser.active ? "default" : "secondary"}
+                                        className="flex-shrink-0 text-[10px]"
+                                      >
+                                        {selectedUser.active ? "Ativo" : "Inativo"}
+                                      </Badge>
+                                    </div>
+                                  ) : (
+                                    "Selecione um usuário"
+                                  )
+                                })()
+                              : "Selecione um usuário"}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-full md:w-[400px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar usuário..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
+                              <CommandGroup>
+                                {users.map((user) => (
+                                  <CommandItem
+                                    key={user.id}
+                                    value={`${user.name} ${user.username}`}
+                                    onSelect={() => {
+                                      loadUserPermissions(user.id)
+                                      setComboboxOpen(false)
+                                    }}
+                                    className="py-2"
+                                  >
+                                    <div className="flex items-center justify-between w-full gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate">{user.name}</div>
+                                        <div className="text-xs text-muted-foreground truncate">{user.username}</div>
+                                      </div>
+                                      <Badge
+                                        variant={user.active ? "default" : "secondary"}
+                                        className="flex-shrink-0 text-[10px]"
+                                      >
+                                        {user.active ? "Ativo" : "Inativo"}
+                                      </Badge>
+                                    </div>
+                                    <Check
+                                      className={cn(
+                                        "ml-2 h-4 w-4",
+                                        selectedUserForPermissions === user.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}
                   </div>
 
                   {/* Lista de permissões */}
