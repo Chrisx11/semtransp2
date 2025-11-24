@@ -84,21 +84,32 @@ const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => {
   let badgeClasses = ""
   switch (prioridade) {
     case "Baixa":
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#2563EB]" // Azul
+      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#2563EB] border-[#3B82F6]/30 shadow-sm" // Azul
       break
     case "Média":
-      badgeClasses = "bg-[#FACC15] text-black hover:bg-[#EAB308]" // Amarelo
+      badgeClasses = "bg-[#FACC15] text-black hover:bg-[#EAB308] border-[#FACC15]/30 shadow-sm" // Amarelo
       break
     case "Alta":
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#EA580C]" // Laranja
+      badgeClasses = "bg-[#F97316] text-white hover:bg-[#EA580C] border-[#F97316]/30 shadow-sm" // Laranja
       break
     case "Urgente":
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#DC2626]" // Vermelho
+      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#DC2626] border-[#EF4444]/30 shadow-sm" // Vermelho
       break
     default:
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80" // Cinza
+      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80 border-gray-500/30 shadow-sm" // Cinza
   }
-  return <Badge className={cn("font-medium text-xs px-1.5 py-0.5", badgeClasses)} variant="outline">{prioridade}</Badge>
+  return (
+    <Badge 
+      className={cn(
+        "font-semibold text-xs px-2.5 py-1 rounded-md transition-all duration-200",
+        "border backdrop-blur-sm",
+        badgeClasses
+      )} 
+      variant="outline"
+    >
+      {prioridade}
+    </Badge>
+  )
 }
 
 // Componente para exibir o status com a cor apropriada
@@ -109,56 +120,63 @@ const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "Aguardando Mecânico":
       // Cinza (#6B7280)
-      badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80"
+      badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80 border-[#6B7280]/30 shadow-sm"
       break
     case "Em Análise":
       // Amarelo Escuro (#D97706)
-      badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80"
+      badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80 border-[#D97706]/30 shadow-sm"
       break
     case "Aguardando aprovação":
       // Laranja (#F97316)
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80"
+      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"
       break
     case "Aguardando OS":
       // Azul Claro (#3B82F6)
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80"
+      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 border-[#3B82F6]/30 shadow-sm"
       break
     case "Aguardando Fornecedor":
       // Roxo (#8B5CF6)
-      badgeClasses = "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/80"
+      badgeClasses = "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/80 border-[#8B5CF6]/30 shadow-sm"
       break
     case "Serviço Externo":
       // Verde Escuro (#047857)
-      badgeClasses = "bg-[#047857] text-white hover:bg-[#047857]/80"
+      badgeClasses = "bg-[#047857] text-white hover:bg-[#047857]/80 border-[#047857]/30 shadow-sm"
       break
     case "Comprar na Rua":
       // Vermelho Claro (#EF4444)
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80"
+      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80 border-[#EF4444]/30 shadow-sm"
       break
     case "Fila de Serviço":
       // Ciano (#06B6D4)
-      badgeClasses = "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/80"
+      badgeClasses = "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/80 border-[#06B6D4]/30 shadow-sm"
       break
     case "Em Serviço":
     case "Em andamento":
       // Verde Claro (#10B981)
-      badgeClasses = "bg-[#10B981] text-white hover:bg-[#10B981]/80"
+      badgeClasses = "bg-[#10B981] text-white hover:bg-[#10B981]/80 border-[#10B981]/30 shadow-sm"
       break
     case "Finalizado":
       // Azul Escuro (#1D4ED8)
-      badgeClasses = "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80"
+      badgeClasses = "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80 border-[#1D4ED8]/30 shadow-sm"
       break
     case "Em Aprovação":
       // Laranja (#F97316) - mesmo do "Aguardando aprovação"
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80"
+      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"
       break
     default:
       // Cor padrão para status não especificados
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80"
+      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80 border-gray-500/30 shadow-sm"
   }
 
   return (
-    <Badge className={cn("font-medium text-xs px-1.5 py-0.5", badgeClasses)} variant="outline">
+    <Badge 
+      className={cn(
+        "font-semibold text-xs px-2.5 py-1 rounded-md transition-all duration-200",
+        "border backdrop-blur-sm whitespace-nowrap",
+        badgeClasses
+      )} 
+      variant="outline"
+    >
       {status}
     </Badge>
   )

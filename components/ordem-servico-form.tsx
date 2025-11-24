@@ -19,8 +19,6 @@ import { getVeiculoById } from "@/services/veiculo-service"
 import { getColaboradorById } from "@/services/colaborador-service"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
-import { addPending, syncPendings } from "@/utils/offline-sync"
-import useOnlineStatus from "@/hooks/useOnlineStatus"
 
 // Atualizar o esquema de validação do formulário para incluir o campo kmAtual
 const formSchema = z.object({
@@ -61,7 +59,6 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState("informacoes")
   const isEdicao = !!ordemExistente
-  const isOnline = useOnlineStatus();
 
   // Estados para os diálogos de seleção
   const [isVeiculoDialogOpen, setIsVeiculoDialogOpen] = useState(false)
@@ -227,23 +224,6 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
     fetchData();
   }, [ordemExistente, form, toast]);
 
-  // Sincronizar pendentes ao reconectar
-  useEffect(() => {
-    if (isOnline) {
-      syncPendings({
-        ordemServico: async (payload) => await addOrdemServicoSupabase(payload),
-        atualizarKm: async () => Promise.resolve(), // nada por enquanto
-      }).then((ok) => {
-        if (ok) {
-          toast({
-            title: "Pendências sincronizadas",
-            description: "Todas as ordens pendentes foram enviadas!",
-            variant: "success",
-          });
-        }
-      }).catch(() => {});
-    }
-  }, [isOnline, toast]);
 
   // Função para lidar com a seleção de veículo
   const handleVeiculoSelect = (veiculo: Veiculo) => {
@@ -299,17 +279,6 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
           mecanicoInfo: selectedMecanico ? formatarInfoColaborador(selectedMecanico) : "",
           status: data.status || "Aguardando Mecânico",
           pecasServicos: data.pecasServicos || "", // Garante que nunca será undefined
-        }
-
-        // NOVO: Salvar localmente se offline
-        if (!isOnline) {
-          addPending({ tipo: 'ordem-servico', data: formData });
-          toast({
-            title: "Ordem salva offline",
-            description: "A ordem foi salva no dispositivo e será enviada automaticamente quando houver conexão.",
-          });
-          onSuccess();
-          return;
         }
 
         console.log("Dados processados da ordem:", formData);

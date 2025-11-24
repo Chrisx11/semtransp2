@@ -72,11 +72,6 @@ export default function TrocaOleoPage() {
   // Estados para ordenação
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
-  // Estados para verificação de senha de administrador
-  const [senhaDialogOpen, setSenhaDialogOpen] = useState(false)
-  const [senhaInput, setSenhaInput] = useState("")
-  const [senhaErro, setSenhaErro] = useState(false)
-  const [veiculoAguardandoSenha, setVeiculoAguardandoSenha] = useState<VeiculoComDados | null>(null)
   const { toast } = useToast()
   
   useEffect(() => {
@@ -315,7 +310,6 @@ export default function TrocaOleoPage() {
   async function registrarTrocaOleoAction() {
     if (!veiculoSelecionado || !kmAtual || !kmProxTroca) return
     
-    // Senha já foi verificada antes de abrir o diálogo, então pode executar diretamente
     await executarRegistroTrocaOleo()
   }
 
@@ -522,12 +516,6 @@ export default function TrocaOleoPage() {
   }
 
   function abrirDialogTrocaOleo(veiculo: VeiculoComDados) {
-    // Pedir senha antes de abrir o diálogo
-    setVeiculoAguardandoSenha(veiculo)
-    setSenhaDialogOpen(true)
-  }
-  
-  function abrirDialogTrocaOleoAposSenha(veiculo: VeiculoComDados) {
     setVeiculoSelecionado(veiculo)
     
     const kmAtualInicial = veiculo.kmAtual.toString()
@@ -712,28 +700,6 @@ export default function TrocaOleoPage() {
     return `${ano}-${mes}-${dia}T00:00:00-03:00`
   }
 
-  const handleVerificarSenha = () => {
-    const SENHA_ADMIN = "009977"
-    
-    if (senhaInput === SENHA_ADMIN) {
-      setSenhaErro(false)
-      setSenhaDialogOpen(false)
-      setSenhaInput("")
-      
-      // Se há um veículo aguardando senha, abrir o diálogo de troca de óleo
-      if (veiculoAguardandoSenha) {
-        abrirDialogTrocaOleoAposSenha(veiculoAguardandoSenha)
-        setVeiculoAguardandoSenha(null)
-      }
-    } else {
-      setSenhaErro(true)
-      toast({
-        title: "Senha incorreta",
-        description: "A senha de administrador está incorreta.",
-        variant: "destructive",
-      })
-    }
-  }
 
   return (
     <>
@@ -1223,67 +1189,6 @@ export default function TrocaOleoPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de verificação de senha de administrador */}
-      <Dialog open={senhaDialogOpen} onOpenChange={(open) => {
-        setSenhaDialogOpen(open)
-        if (!open) {
-          setSenhaInput("")
-          setSenhaErro(false)
-          setVeiculoAguardandoSenha(null)
-        }
-      }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Senha de Administrador</DialogTitle>
-            <DialogDescription>
-              Por favor, insira a senha de administrador para registrar a troca de óleo.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Senha</label>
-              <Input
-                type="password"
-                value={senhaInput}
-                onChange={(e) => {
-                  setSenhaInput(e.target.value)
-                  setSenhaErro(false)
-                }}
-                placeholder="Digite a senha"
-                className={senhaErro ? "border-destructive" : ""}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleVerificarSenha()
-                  }
-                }}
-              />
-              {senhaErro && (
-                <p className="text-sm text-destructive">Senha incorreta. Tente novamente.</p>
-              )}
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSenhaDialogOpen(false)
-                setSenhaInput("")
-                setSenhaErro(false)
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleVerificarSenha}
-              disabled={!senhaInput}
-            >
-              Verificar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }

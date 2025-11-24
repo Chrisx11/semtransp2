@@ -149,7 +149,6 @@ function FiltrosMobileView({
   handleOpenModal: (veiculo: Veiculo) => void
   handleOpenRegisterModal: (veiculo: Veiculo) => void
   getCorProgresso: (progresso: number) => string
-  onOpenRelatorio: () => void
 }) {
   return (
     <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
@@ -178,15 +177,6 @@ function FiltrosMobileView({
         >
           <RotateCcw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? "Atualizando..." : "Atualizar"}
-        </Button>
-
-        <Button
-          variant="default"
-          onClick={onOpenRelatorio}
-          className="w-full h-11 text-base"
-        >
-          <FileText className="h-4 w-4 mr-2" />
-          Relatório
         </Button>
       </div>
 
@@ -1266,7 +1256,6 @@ export default function FiltrosPage() {
           handleOpenModal={handleOpenModal}
           handleOpenRegisterModal={handleOpenRegisterModal}
           getCorProgresso={getCorProgresso}
-          onOpenRelatorio={() => setMargemDialogOpen(true)}
         />
         
         {/* Modais - compartilhados entre mobile e desktop */}

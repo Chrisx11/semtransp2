@@ -15,8 +15,6 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import type { HistoricoItem } from "./historico-trocas-dialog"
-import { addPending, syncPendings } from "@/utils/offline-sync"
-import useOnlineStatus from "@/hooks/useOnlineStatus"
 
 interface AtualizarKmDialogProps {
   isOpen: boolean
@@ -37,26 +35,7 @@ interface AtualizarKmDialogProps {
 export function AtualizarKmDialog({ isOpen, onClose, veiculo, onSuccess }: AtualizarKmDialogProps) {
   const [kmAtual, setKmAtual] = useState(veiculo.kmAtual !== undefined ? veiculo.kmAtual.toString() : "")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const isOnline = useOnlineStatus();
-
-  // Sincroniza pendências ao reconnectar
-  const { toast } = useToast();
-  React.useEffect(() => {
-    if (isOnline) {
-      syncPendings({
-        ordemServico: async () => Promise.resolve(),
-        atualizarKm: async (payload) => Promise.resolve(), // adapta depois!
-      }).then((ok) => {
-        if (ok) {
-          toast({
-            title: "Pendências sincronizadas",
-            description: "Atualizações de KM pendentes foram enviadas!",
-            variant: "success",
-          });
-        }
-      }).catch(() => {});
-    }
-  }, [isOnline, toast]);
+  const { toast } = useToast()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -81,21 +60,6 @@ export function AtualizarKmDialog({ isOpen, onClose, veiculo, onSuccess }: Atual
       return
     }
 
-    // NOVO: Salvar local se offline
-    if (!isOnline) {
-      addPending({ tipo: 'atualizacao-km', data: {
-        veiculoId: veiculo.id, novoKm: kmAtualNum, timestamp: Date.now(),
-      }});
-      toast({
-        title: "Atualização salva offline",
-        description: "A atualização de Km foi salva e será enviada automaticamente assim que houver conexão.",
-      });
-      setIsSubmitting(false);
-      onSuccess(kmAtualNum);
-      onClose();
-      return;
-    }
-    
     try {
       // Chamar o callback com o novo valor de km
       onSuccess(kmAtualNum);

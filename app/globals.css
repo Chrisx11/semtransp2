@@ -4,95 +4,111 @@
 
 @layer base {
   :root {
-    /* Paleta para o tema claro - refinada para maior contraste e harmonia */
-    --background: 220 33% 98%;
-    --foreground: 224 71% 4%;
+    /* Paleta profissional - tema claro */
+    /* Background neutro e limpo */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 224 71% 4%;
+    --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71% 4%;
+    --popover-foreground: 222 47% 11%;
 
-    /* Cor primária mais vibrante */
-    --primary: 227 57% 38%;
+    /* Azul corporativo profissional - confiável e moderno */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 16% 92%;
-    --secondary-foreground: 224 71% 4%;
+    /* Cinza neutro para elementos secundários */
+    --secondary: 210 20% 98%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 220 16% 90%;
-    --muted-foreground: 220 8% 46%;
+    /* Muted com tom neutro suave */
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 220 26% 90%;
-    --accent-foreground: 224 71% 4%;
+    /* Accent sutil e elegante */
+    --accent: 210 20% 96%;
+    --accent-foreground: 222 47% 11%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    /* Destructive - vermelho profissional */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 86%;
-    --input: 220 13% 86%;
-    --ring: 227 57% 38%;
+    /* Bordas e inputs com contraste adequado */
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
 
-    /* Variáveis de cores refinadas para maior harmonia */
-    --primary-light: 227 57% 48%;
-    --primary-dark: 227 57% 28%;
-    --success: 142 76% 36%;
+    /* Variáveis de cores profissionais */
+    --primary-light: 217 91% 70%;
+    --primary-dark: 217 91% 50%;
+    /* Success - verde corporativo */
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
+    /* Warning - laranja profissional */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
+    /* Info - azul informativo */
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
+    /* Superfícies com variação sutil */
     --surface-1: 0 0% 100%;
-    --surface-2: 220 33% 97%;
-    --surface-3: 220 33% 94%;
+    --surface-2: 210 20% 99%;
+    --surface-3: 210 20% 97%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
   }
 
   .dark {
-    /* Paleta para o tema escuro - refinada para maior legibilidade e contraste */
-    --background: 224 71% 4%;
-    --foreground: 220 33% 98%;
+    /* Paleta profissional - tema escuro */
+    /* Background escuro neutro e confortável */
+    --background: 222 47% 11%;
+    --foreground: 213 31% 91%;
 
-    --card: 224 71% 7%;
-    --card-foreground: 220 33% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 213 31% 91%;
 
-    --popover: 224 71% 7%;
-    --popover-foreground: 220 33% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 213 31% 91%;
 
-    /* Cor primária mais vibrante também no modo escuro */
-    --primary: 227 57% 62%;
+    /* Azul primário mais claro no modo escuro para contraste */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 28% 17%;
-    --secondary-foreground: 220 33% 98%;
+    /* Secondary com tom escuro mas legível */
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 213 31% 91%;
 
-    --muted: 215 28% 17%;
-    --muted-foreground: 220 16% 70%;
+    /* Muted com contraste adequado */
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 215 28% 17%;
-    --accent-foreground: 220 33% 98%;
+    /* Accent consistente */
+    --accent: 217 33% 17%;
+    --accent-foreground: 213 31% 91%;
 
+    /* Destructive ajustado para modo escuro */
     --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 215 28% 25%;
-    --input: 215 28% 25%;
-    --ring: 227 57% 62%;
+    /* Bordas com visibilidade adequada */
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 217 91% 60%;
 
-    /* Variáveis de cores para o tema escuro - ajustadas para maior contraste */
-    --primary-light: 227 57% 72%;
-    --primary-dark: 227 57% 52%;
-    --success: 142 76% 36%;
+    /* Variáveis de cores para o tema escuro */
+    --primary-light: 217 91% 70%;
+    --primary-dark: 217 91% 50%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
-    --surface-1: 224 71% 7%;
-    --surface-2: 224 71% 9%;
-    --surface-3: 224 71% 12%;
+    --surface-1: 222 47% 11%;
+    --surface-2: 217 33% 15%;
+    --surface-3: 217 33% 20%;
   }
 }
 
@@ -212,11 +228,11 @@
   }
 
   .gradient-sidebar {
-    background: linear-gradient(180deg, hsl(224, 71%, 9%) 0%, hsl(224, 71%, 6%) 100%);
+    background: linear-gradient(180deg, hsl(222, 47%, 11%) 0%, hsl(217, 33%, 15%) 100%);
   }
 
   .gradient-sidebar-accent {
-    background: linear-gradient(180deg, hsl(227, 57%, 66%) 0%, hsl(227, 57%, 58%) 100%);
+    background: linear-gradient(180deg, hsl(217, 91%, 60%) 0%, hsl(217, 91%, 50%) 100%);
   }
 
   /* Transições e animações aprimoradas */

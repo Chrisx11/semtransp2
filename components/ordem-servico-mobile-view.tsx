@@ -20,33 +20,40 @@ const StatusBadge = ({ status }: { status: string }) => {
 
   switch (status) {
     case "Aguardando Mecânico":
-      badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80"; break
+      badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80 border-[#6B7280]/30 shadow-sm"; break
     case "Em Análise":
-      badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80"; break
+      badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80 border-[#D97706]/30 shadow-sm"; break
     case "Aguardando aprovação":
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80"; break
+      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"; break
     case "Aguardando OS":
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80"; break
+      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 border-[#3B82F6]/30 shadow-sm"; break
     case "Aguardando Fornecedor":
-      badgeClasses = "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/80"; break
+      badgeClasses = "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/80 border-[#8B5CF6]/30 shadow-sm"; break
     case "Serviço Externo":
-      badgeClasses = "bg-[#047857] text-white hover:bg-[#047857]/80"; break
+      badgeClasses = "bg-[#047857] text-white hover:bg-[#047857]/80 border-[#047857]/30 shadow-sm"; break
     case "Comprar na Rua":
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80"; break
+      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80 border-[#EF4444]/30 shadow-sm"; break
     case "Fila de Serviço":
-      badgeClasses = "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/80"; break
+      badgeClasses = "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/80 border-[#06B6D4]/30 shadow-sm"; break
     case "Em Serviço":
     case "Em andamento":
-      badgeClasses = "bg-[#10B981] text-white hover:bg-[#10B981]/80"; break
+      badgeClasses = "bg-[#10B981] text-white hover:bg-[#10B981]/80 border-[#10B981]/30 shadow-sm"; break
     case "Finalizado":
-      badgeClasses = "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80"; break
+      badgeClasses = "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80 border-[#1D4ED8]/30 shadow-sm"; break
     case "Em Aprovação":
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80"; break
+      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"; break
     default:
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80"
+      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80 border-gray-500/30 shadow-sm"
   }
 
-  return <Badge className={`text-xs px-2 py-0.5 mt-0.5 mb-1 ${badgeClasses}`}>{status}</Badge>
+  return (
+    <Badge 
+      className={`font-semibold text-xs px-2.5 py-1 rounded-md transition-all duration-200 border backdrop-blur-sm whitespace-nowrap mt-0.5 mb-1 ${badgeClasses}`}
+      variant="outline"
+    >
+      {status}
+    </Badge>
+  )
 }
 
 const getSetorAtualDoHistorico = (historico: any[] | undefined): "Oficina" | "Almoxarifado" | "Compras" | "Finalizado" => {
