@@ -290,8 +290,7 @@ export default function TrocaPneuPage() {
       }
       
       setTrocasPneu(data || [])
-      // Calcular progresso após carregar trocas
-      calcularProgressoTodosVeiculos(data || [])
+      // O progresso será recalculado automaticamente pelo useEffect quando trocasPneu mudar
     } catch (error) {
       console.error("Erro ao carregar trocas de pneu:", error)
       setTrocasPneu([])
@@ -417,18 +416,52 @@ export default function TrocaPneuPage() {
     setProgressoPorVeiculo(progresso)
   }
   
-  // Carregar dados iniciais
+  // Carregar dados iniciais em paralelo
   useEffect(() => {
-    carregarVeiculos()
-    carregarTiposPneu()
-    carregarTrocasPneu()
-    verificarEstruturaBancoDados()
+    const carregarDadosIniciais = async () => {
+      setLoading(true)
+      try {
+        // Carregar todos os dados em paralelo para melhor performance
+        await Promise.all([
+          carregarVeiculos(true),
+          carregarTiposPneu(),
+          carregarTrocasPneu(),
+          verificarEstruturaBancoDados()
+        ])
+      } finally {
+        setLoading(false)
+      }
+    }
+    carregarDadosIniciais()
   }, [])
   
   // Recarregar veículos quando a página ganha foco (para atualizar KM após troca de óleo)
+  // Otimizado: removido intervalos desnecessários e adicionado debounce
   useEffect(() => {
+    let debounceTimer: NodeJS.Timeout | null = null
+    let lastUpdateTime = 0
+    const DEBOUNCE_DELAY = 2000 // 2 segundos de debounce
+    const MIN_UPDATE_INTERVAL = 5000 // Mínimo de 5 segundos entre atualizações
+
+    const debouncedCarregarVeiculos = (silent: boolean) => {
+      const now = Date.now()
+      // Evitar atualizações muito frequentes
+      if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
+        return
+      }
+
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+
+      debounceTimer = setTimeout(() => {
+        lastUpdateTime = Date.now()
+        carregarVeiculos(silent)
+      }, DEBOUNCE_DELAY)
+    }
+    
     const handleFocus = () => {
-      carregarVeiculos(true) // Atualização silenciosa
+      debouncedCarregarVeiculos(true)
     }
     
     window.addEventListener('focus', handleFocus)
@@ -436,7 +469,7 @@ export default function TrocaPneuPage() {
     // Recarregar também quando a janela fica visível (útil para abas)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        carregarVeiculos(true) // Atualização silenciosa
+        debouncedCarregarVeiculos(true)
       }
     }
     
@@ -445,8 +478,7 @@ export default function TrocaPneuPage() {
     // Listener para eventos customizados de atualização de veículo
     const handleVeiculoAtualizado = (event?: CustomEvent) => {
       console.log("🚗 Evento veiculo-atualizado recebido:", event?.detail)
-      // Forçar recarregamento imediato (não silencioso para garantir atualização)
-      carregarVeiculos(false)
+      debouncedCarregarVeiculos(false)
     }
     
     window.addEventListener('veiculo-atualizado', handleVeiculoAtualizado as EventListener)
@@ -455,74 +487,40 @@ export default function TrocaPneuPage() {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'veiculo-km-atualizado' || e.key === 'troca-oleo-registrada') {
         console.log("💾 Evento storage recebido:", e.key)
-        carregarVeiculos(false) // Não silencioso para garantir atualização
+        debouncedCarregarVeiculos(false)
       }
     }
     
     window.addEventListener('storage', handleStorageChange)
     
-    // Listener customizado para mudanças no localStorage (mesma aba)
-    // Isso funciona porque setItem/removeItem dispara eventos mesmo na mesma aba
-    const handleLocalStorageChange = () => {
-      // Verificar se houve mudança recente no localStorage
-      const lastUpdate = localStorage.getItem('last-veiculo-update')
-      if (lastUpdate) {
-        const updateTime = parseInt(lastUpdate)
-        const now = Date.now()
-        // Se foi atualizado nos últimos 5 segundos, recarregar
-        if (now - updateTime < 5000) {
-          console.log("🔄 Detecção de atualização recente, recarregando veículos...")
-          carregarVeiculos(false)
-        }
-      }
-    }
-    
-    // Verificar localStorage a cada segundo
-    const localStorageCheckInterval = setInterval(() => {
-      handleLocalStorageChange()
-    }, 1000)
-    
-    // Recarregar a cada 30 segundos para manter os dados atualizados
-    const interval = setInterval(() => {
-      carregarVeiculos(true) // Atualização silenciosa
-    }, 30000)
-    
     return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('veiculo-atualizado', handleVeiculoAtualizado as EventListener)
       window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
-      clearInterval(localStorageCheckInterval)
     }
-  }, [trocasPneu]) // Adicionar trocasPneu como dependência
-  
-  // Recalcular progresso quando veículos ou trocas mudarem
-  useEffect(() => {
-    if (veiculos.length > 0) {
-      // Sempre recalcular quando veículos mudarem (incluindo quando kmAtual for atualizado)
-      calcularProgressoTodosVeiculosAtualizado(trocasPneu, veiculos)
-    }
-  }, [veiculos, trocasPneu])
+  }, []) // Removida dependência problemática
   
   // Definir mounted após a hidratação para evitar mismatch
   useEffect(() => {
     setMounted(true)
   }, [])
   
-  // Recalcular progresso quando apenas o kmAtual de algum veículo mudar
-  // Usar useMemo para criar uma string de hash dos kms
+  // Recalcular progresso quando veículos ou trocas mudarem (otimizado: apenas um useEffect)
   const kmHash = useMemo(() => {
     return veiculos.map(v => `${v.id}:${v.kmAtual ?? 0}`).join(',')
   }, [veiculos])
   
   useEffect(() => {
-    if (veiculos.length > 0 && kmHash) {
-      // Recalcular progresso quando o hash dos kms mudar
+    if (veiculos.length > 0 && trocasPneu.length >= 0) {
+      // Recalcular progresso quando veículos ou trocas mudarem
       calcularProgressoTodosVeiculosAtualizado(trocasPneu, veiculos)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kmHash, trocasPneu.length])
+  }, [kmHash, trocasPneu.length]) // Usar kmHash ao invés de veiculos completo
   
   // Filtrar veículos quando o termo de busca mudar
   // Função para ordenar veículos: primeiro os que têm registros de troca de pneu
@@ -706,14 +704,7 @@ export default function TrocaPneuPage() {
       setVeiculos(veiculosOrdenados)
       setVeiculosFiltrados(veiculosOrdenados)
       
-      // Recalcular progresso após carregar veículos usando os dados recém-carregados
-      // Usar setTimeout para garantir que o estado foi atualizado antes de recalcular
-      if (novosVeiculos && novosVeiculos.length > 0) {
-        // Forçar recálculo imediato com os novos dados
-        setTimeout(() => {
-          calcularProgressoTodosVeiculosAtualizado(trocasPneu, novosVeiculos)
-        }, 50)
-      }
+      // O progresso será recalculado automaticamente pelo useEffect quando veiculos mudar
     } catch (error) {
       console.error("Erro ao carregar veículos:", error)
       

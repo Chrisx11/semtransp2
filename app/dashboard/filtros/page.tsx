@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
 import { SelecionarProdutoDialog } from "@/components/selecionar-produto-dialog"
-import { FuelIcon as Oil, Car, BadgeCheck, Trash2, RotateCcw, Search, Calendar, Building, Filter, CheckCircle2, XCircle, Gauge } from "lucide-react"
+import { FuelIcon as Oil, Car, BadgeCheck, Trash2, RotateCcw, Search, Calendar, Building, Filter, CheckCircle2, XCircle, Gauge, FileText, Download } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { getEstatisticasTrocasOleo } from "@/services/troca-oleo-service"
 import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
 
 const FILTER_HEADERS = [
   "Filtro de Óleo",
@@ -148,6 +149,7 @@ function FiltrosMobileView({
   handleOpenModal: (veiculo: Veiculo) => void
   handleOpenRegisterModal: (veiculo: Veiculo) => void
   getCorProgresso: (progresso: number) => string
+  onOpenRelatorio: () => void
 }) {
   return (
     <div className="w-full max-w-full overflow-x-hidden pl-3 pr-0 py-4 pb-6 flex flex-col items-start">
@@ -176,6 +178,15 @@ function FiltrosMobileView({
         >
           <RotateCcw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
           {isRefreshing ? "Atualizando..." : "Atualizar"}
+        </Button>
+
+        <Button
+          variant="default"
+          onClick={onOpenRelatorio}
+          className="w-full h-11 text-base"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Relatório
         </Button>
       </div>
 
@@ -482,6 +493,15 @@ export default function FiltrosPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pronto' | 'nao-pronto' | 'sem-cadastro'>('all')
   const [progressoFilter, setProgressoFilter] = useState<'all' | 'verde' | 'amarelo' | 'vermelho' | 'sem-registro'>('all')
   const [estatisticasTrocaOleo, setEstatisticasTrocaOleo] = useState<Record<string, { kmAtual: number; kmProxTroca: number; progresso: number }>>({})
+  const [relatorioDialogOpen, setRelatorioDialogOpen] = useState(false)
+  const [margemDialogOpen, setMargemDialogOpen] = useState(false)
+  const [margemPorcentagem, setMargemPorcentagem] = useState<string>("")
+  const [relatorioData, setRelatorioData] = useState<Array<{
+    veiculo: Veiculo
+    progresso: number
+    filtrosTem: Array<{ categoria: string; descricao: string; estoque: number }>
+    filtrosNaoTem: Array<{ categoria: string; descricao: string }>
+  }>>([])
 
   // Função para obter cor do progresso (mesma lógica da página de troca de óleo)
   function getCorProgresso(progresso: number) {
@@ -814,6 +834,358 @@ export default function FiltrosPage() {
   const contadores = contarVeiculosPorStatus()
   const contadoresProgresso = contarVeiculosPorProgresso()
 
+  // Função para gerar relatório
+  const gerarRelatorio = async () => {
+    const margem = parseFloat(margemPorcentagem)
+    if (isNaN(margem) || margem < 0 || margem > 100) {
+      toast({
+        title: "Margem inválida",
+        description: "Por favor, informe uma porcentagem entre 0 e 100.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Filtrar veículos com progresso >= margem e ordenar do maior para o menor
+    const veiculosFiltrados = veiculos
+      .filter(v => {
+        const stats = estatisticasTrocaOleo[v.id]
+        return stats && stats.progresso >= margem
+      })
+      .sort((a, b) => {
+        const statsA = estatisticasTrocaOleo[a.id]?.progresso || 0
+        const statsB = estatisticasTrocaOleo[b.id]?.progresso || 0
+        return statsB - statsA // Ordenar do maior para o menor
+      })
+
+    // Criar mapa de produtos para acesso rápido
+    const produtosMap = new Map(todosProdutos.map(p => [p.id, p]))
+
+    // Para cada veículo, verificar filtros em estoque e faltando
+    const relatorio: Array<{
+      veiculo: Veiculo
+      progresso: number
+      filtrosTem: Array<{ categoria: string; descricao: string; estoque: number }>
+      filtrosNaoTem: Array<{ categoria: string; descricao: string }>
+    }> = []
+
+    for (const veiculo of veiculosFiltrados) {
+      const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
+      const filtrosEmEstoque: Array<{ categoria: string; descricao: string; estoque: number }> = []
+      const filtrosFaltando: Array<{ categoria: string; descricao: string }> = []
+
+      // Agrupar filtros por categoria
+      const filtrosPorCategoria = new Map<string, FiltroRegistrado[]>()
+      for (const filtro of filtros) {
+        if (!filtrosPorCategoria.has(filtro.categoria)) {
+          filtrosPorCategoria.set(filtro.categoria, [])
+        }
+        filtrosPorCategoria.get(filtro.categoria)!.push(filtro)
+      }
+
+      // Para cada categoria que tem filtros registrados
+      for (const [categoria, filtrosCategoria] of filtrosPorCategoria.entries()) {
+        // Encontrar o primeiro produto com estoque
+        let produtoComEstoque: { categoria: string; descricao: string; estoque: number } | null = null
+        
+        for (const filtro of filtrosCategoria) {
+          const produto = produtosMap.get(filtro.produtoId)
+          if (!produto) continue
+          
+          const estoque = typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque
+          
+          if (estoque > 0) {
+            produtoComEstoque = {
+              categoria,
+              descricao: filtro.produtoDescricao,
+              estoque
+            }
+            break // Encontrou um com estoque, para de procurar
+          }
+        }
+
+        if (produtoComEstoque) {
+          // Se tem algum com estoque, adiciona apenas esse (não mostra os que estão faltando)
+          filtrosEmEstoque.push(produtoComEstoque)
+        } else {
+          // Se não tem nenhum com estoque, mostra apenas o primeiro da lista
+          if (filtrosCategoria.length > 0) {
+            filtrosFaltando.push({
+              categoria,
+              descricao: filtrosCategoria[0].produtoDescricao
+            })
+          }
+        }
+      }
+
+      const stats = estatisticasTrocaOleo[veiculo.id]
+
+      relatorio.push({
+        veiculo,
+        progresso: stats?.progresso || 0,
+        filtrosTem: filtrosEmEstoque,
+        filtrosNaoTem: filtrosFaltando
+      })
+    }
+
+    setRelatorioData(relatorio)
+    setMargemDialogOpen(false)
+    setRelatorioDialogOpen(true)
+  }
+
+  // Função para exportar relatório para Word
+  const exportarParaWord = async () => {
+    try {
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              // Título
+              new Paragraph({
+                text: "Relatório de Filtros - Veículos com Progresso ≥ " + margemPorcentagem + "%",
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 },
+              }),
+              // Data de geração
+              new Paragraph({
+                text: `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+              }),
+              // Informações gerais
+              new Paragraph({
+                text: `Total de veículos encontrados: ${relatorioData.length}`,
+                spacing: { after: 200 },
+              }),
+              new Paragraph({
+                text: "",
+                spacing: { after: 200 },
+              }),
+              // Conteúdo do relatório
+              ...relatorioData.flatMap((item, index) => [
+                new Paragraph({
+                  text: `${index + 1}. ${item.veiculo.placa} - ${item.veiculo.modelo} ${item.veiculo.marca} (${item.veiculo.ano})`,
+                  heading: HeadingLevel.HEADING_2,
+                  spacing: { before: 200, after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Status: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.status,
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Secretaria: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.secretaria,
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Progresso de Troca de Óleo: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: `${item.progresso}%`,
+                    }),
+                  ],
+                  spacing: { after: 200 },
+                }),
+                // Filtros em Estoque
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros em Estoque",
+                      bold: true,
+                      color: "008000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosTem.length > 0
+                  ? item.filtrosTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - Estoque: ${filtro.estoque.toLocaleString('pt-BR')}`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Nenhum filtro em estoque",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                // Filtros Faltando
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros Faltando",
+                      bold: true,
+                      color: "FF0000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosNaoTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosNaoTem.length > 0
+                  ? item.filtrosNaoTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria})`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Todos os filtros estão em estoque!",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                // Espaçamento entre veículos
+                new Paragraph({
+                  text: "",
+                  spacing: { after: 400 },
+                }),
+              ]),
+              // Lista consolidada de filtros faltando
+              ...((): Paragraph[] => {
+                // Consolidar todos os filtros faltando contando a quantidade
+                const filtrosFaltandoConsolidados = new Map<string, { categoria: string; descricao: string; quantidade: number }>()
+                
+                relatorioData.forEach(item => {
+                  item.filtrosNaoTem.forEach(filtro => {
+                    const key = `${filtro.categoria}-${filtro.descricao}`
+                    if (filtrosFaltandoConsolidados.has(key)) {
+                      filtrosFaltandoConsolidados.get(key)!.quantidade++
+                    } else {
+                      filtrosFaltandoConsolidados.set(key, { ...filtro, quantidade: 1 })
+                    }
+                  })
+                })
+
+                const listaConsolidada = Array.from(filtrosFaltandoConsolidados.values())
+                
+                if (listaConsolidada.length > 0) {
+                  return [
+                    new Paragraph({
+                      text: "",
+                      spacing: { before: 600, after: 200 },
+                    }),
+                    new Paragraph({
+                      text: "LISTA DE FILTROS PARA COMPRA",
+                      heading: HeadingLevel.HEADING_1,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 200 },
+                    }),
+                    new Paragraph({
+                      text: `Filtros faltando consolidados de todos os veículos do relatório (${listaConsolidada.length} ${listaConsolidada.length === 1 ? 'item' : 'itens'})`,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 400 },
+                    }),
+                    ...listaConsolidada.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - `,
+                            }),
+                            new TextRun({
+                              text: `Quantidade: ${filtro.quantidade}`,
+                              bold: true,
+                              color: "FF0000",
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    ),
+                  ]
+                }
+                return []
+              })(),
+            ],
+          },
+        ],
+      })
+
+      // Gerar o arquivo e fazer download
+      const blob = await Packer.toBlob(doc)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const today = new Date().toISOString().split("T")[0]
+      link.download = `relatorio_filtros_${margemPorcentagem}%_${today}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Relatório exportado!",
+        description: "O arquivo Word foi gerado com sucesso.",
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Erro ao exportar para Word:", error)
+      toast({
+        title: "Erro ao exportar",
+        description: "Ocorreu um erro ao gerar o arquivo Word.",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Função para atualizar os dados
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -894,6 +1266,7 @@ export default function FiltrosPage() {
           handleOpenModal={handleOpenModal}
           handleOpenRegisterModal={handleOpenRegisterModal}
           getCorProgresso={getCorProgresso}
+          onOpenRelatorio={() => setMargemDialogOpen(true)}
         />
         
         {/* Modais - compartilhados entre mobile e desktop */}
@@ -1089,16 +1462,26 @@ export default function FiltrosPage() {
                 />
               </div>
 
-              {/* Botão atualizar */}
-              <Button
-                variant="outline"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                className="flex items-center gap-2 w-full md:w-auto"
-              >
-                <RotateCcw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-                {isRefreshing ? "Atualizando..." : "Atualizar"}
-              </Button>
+              {/* Botões de ação */}
+              <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-2 w-full md:w-auto"
+                >
+                  <RotateCcw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  {isRefreshing ? "Atualizando..." : "Atualizar"}
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setMargemDialogOpen(true)}
+                  className="flex items-center gap-2 w-full md:w-auto"
+                >
+                  <FileText className="h-4 w-4" />
+                  Relatório
+                </Button>
+              </div>
             </div>
 
             {/* Filtros */}
@@ -1543,6 +1926,254 @@ export default function FiltrosPage() {
             onOpenChange={setProdutoDialogOpen}
             onSelect={setSelectedProduto}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para solicitar margem de porcentagem */}
+      <Dialog open={margemDialogOpen} onOpenChange={setMargemDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Gerar Relatório
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Margem de Porcentagem (%)
+              </label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="Ex: 60"
+                value={margemPorcentagem}
+                onChange={(e) => setMargemPorcentagem(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Informe a porcentagem mínima de progresso da troca de óleo (0-100)
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMargemDialogOpen(false)
+                  setMargemPorcentagem("")
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={gerarRelatorio} disabled={!margemPorcentagem}>
+                Gerar Relatório
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de exibição do relatório */}
+      <Dialog open={relatorioDialogOpen} onOpenChange={setRelatorioDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  Relatório de Veículos - Progresso ≥ {margemPorcentagem}%
+                </DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {relatorioData.length} {relatorioData.length === 1 ? 'veículo encontrado' : 'veículos encontrados'}
+                </p>
+              </div>
+              {relatorioData.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportarParaWord}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar Word
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+          
+          <div className="mt-4 space-y-4">
+            {relatorioData.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                <p>Nenhum veículo encontrado com progresso ≥ {margemPorcentagem}%</p>
+              </div>
+            ) : (
+              relatorioData.map((item) => (
+                <Card key={item.veiculo.id} className="border-l-4 border-l-primary">
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="font-medium text-sm">
+                            {item.veiculo.placa}
+                          </Badge>
+                          <Badge 
+                            variant={item.veiculo.status === "Ativo" ? "default" : "destructive"}
+                            className="text-xs"
+                          >
+                            {item.veiculo.status}
+                          </Badge>
+                        </div>
+                        <h3 className="font-medium text-base">
+                          {item.veiculo.modelo} • {item.veiculo.marca} • {item.veiculo.ano}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {item.veiculo.secretaria}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-muted-foreground mb-1">Progresso</div>
+                        <div className="flex items-center gap-2">
+                          <Progress 
+                            value={item.progresso} 
+                            className="h-2 w-24"
+                            indicatorClassName={getCorProgresso(item.progresso)}
+                          />
+                          <span className="font-medium text-sm">{item.progresso}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Filtros em estoque */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <h4 className="font-medium text-sm">Filtros em Estoque ({item.filtrosTem.length})</h4>
+                      </div>
+                      {item.filtrosTem.length > 0 ? (
+                        <div className="space-y-2">
+                          {item.filtrosTem.map((filtro, index) => (
+                            <div
+                              key={`${filtro.categoria}-${filtro.descricao}-${index}`}
+                              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-green-700 dark:text-green-400">
+                                  {filtro.descricao}
+                                </div>
+                                <div className="text-xs text-green-600/80 dark:text-green-500/80 mt-0.5">
+                                  {filtro.categoria} • Estoque: {filtro.estoque.toLocaleString('pt-BR')}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Nenhum filtro em estoque</p>
+                      )}
+                    </div>
+
+                    {/* Filtros faltando */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <XCircle className="h-4 w-4 text-red-500" />
+                        <h4 className="font-medium text-sm">Filtros Faltando ({item.filtrosNaoTem.length})</h4>
+                      </div>
+                      {item.filtrosNaoTem.length > 0 ? (
+                        <div className="space-y-2">
+                          {item.filtrosNaoTem.map((filtro, index) => (
+                            <div
+                              key={`${filtro.categoria}-${filtro.descricao}-${index}`}
+                              className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-red-700 dark:text-red-400">
+                                  {filtro.descricao}
+                                </div>
+                                <div className="text-xs text-red-600/80 dark:text-red-500/80 mt-0.5">
+                                  {filtro.categoria}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-green-600 dark:text-green-400">Todos os filtros estão em estoque!</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+
+            {/* Lista consolidada de filtros faltando */}
+            {relatorioData.length > 0 && (() => {
+              // Consolidar todos os filtros faltando contando a quantidade
+              const filtrosFaltandoConsolidados = new Map<string, { categoria: string; descricao: string; quantidade: number }>()
+              
+              relatorioData.forEach(item => {
+                item.filtrosNaoTem.forEach(filtro => {
+                  const key = `${filtro.categoria}-${filtro.descricao}`
+                  if (filtrosFaltandoConsolidados.has(key)) {
+                    filtrosFaltandoConsolidados.get(key)!.quantidade++
+                  } else {
+                    filtrosFaltandoConsolidados.set(key, { ...filtro, quantidade: 1 })
+                  }
+                })
+              })
+
+              const listaConsolidada = Array.from(filtrosFaltandoConsolidados.values())
+              
+              if (listaConsolidada.length > 0) {
+                return (
+                  <Card className="border-l-4 border-l-red-500 mt-6">
+                    <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-5 w-5 text-red-500" />
+                        <h3 className="font-semibold text-lg">Lista de Filtros para Compra</h3>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Filtros faltando consolidados de todos os veículos do relatório ({listaConsolidada.length} {listaConsolidada.length === 1 ? 'item' : 'itens'})
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {listaConsolidada.map((filtro, index) => (
+                          <div
+                            key={`consolidado-${filtro.categoria}-${filtro.descricao}-${index}`}
+                            className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-red-700 dark:text-red-400">
+                                {filtro.descricao}
+                              </div>
+                              <div className="text-xs text-red-600/80 dark:text-red-500/80 mt-0.5">
+                                {filtro.categoria}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0">
+                              <Badge variant="outline" className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700">
+                                Qtd: {filtro.quantidade}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              }
+              return null
+            })()}
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <DialogClose asChild>
+              <Button variant="secondary">Fechar</Button>
+            </DialogClose>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
