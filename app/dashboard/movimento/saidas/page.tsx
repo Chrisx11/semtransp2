@@ -247,7 +247,7 @@ function SaidasMobileView({
                             Editar Completo
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEditDataClick(saida)}>
-                            <Calendar className="mr-1.5 h-3 w-3" />
+                            <CalendarIcon className="mr-1.5 h-3 w-3" />
                             Editar Data
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleEditValorClick(saida)}>
@@ -957,7 +957,7 @@ export default function SaidasPage() {
                                 Editar Completo
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditDataClick(saida)}>
-                                <Calendar className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4" />
                                 Editar Data
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditValorClick(saida)}>

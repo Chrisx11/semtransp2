@@ -15,18 +15,18 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { EmptyState } from "@/components/empty-state"
 import { EntradaForm } from "@/components/entrada-form"
-import { getEntradasSupabase, deleteEntradaSupabase, type Entrada } from "@/services/entrada-service"
+import { getEntradasSupabase, deleteEntradaSupabase, updateEntradaSupabase, type Entrada } from "@/services/entrada-service"
 import { getProdutosSupabase, type Produto, getProdutoByIdSupabase, updateProdutoSupabase } from "@/services/produto-service"
 import { addSaidaSupabase } from "@/services/saida-service"
 import { getColaboradorByIdSupabase } from "@/services/colaborador-service"
 import { getVeiculoByIdSupabase, type Veiculo } from "@/services/veiculo-service"
 import { SelecionarVeiculoDialog } from "@/components/selecionar-veiculo-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, MoreVertical, CheckSquare, X } from "lucide-react"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, MoreVertical, CheckSquare, X, Calendar as CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -37,8 +37,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Label } from "@/components/ui/label"
 
 // Componente Mobile View
 function EntradasMobileView({
@@ -59,6 +61,7 @@ function EntradasMobileView({
   formatDate,
   handleEditClick,
   handleDeleteClick,
+  handleEditDataClick,
   setFormOpen,
 }: {
   paginatedData: Entrada[]
@@ -78,6 +81,7 @@ function EntradasMobileView({
   formatDate: (dateString: string) => string
   handleEditClick: (id: string) => void
   handleDeleteClick: (id: string) => void
+  handleEditDataClick: (entrada: Entrada) => void
   setFormOpen: (open: boolean) => void
 }) {
   return (
@@ -144,14 +148,22 @@ function EntradasMobileView({
                         <span className="sr-only">Abrir menu</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-32 text-sm">
+                    <DropdownMenuContent align="end" className="w-40 text-sm">
                       <DropdownMenuItem
                         onClick={() => handleEditClick(entrada.id)}
                         className="cursor-pointer"
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
-                        Editar
+                        Editar Completo
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleEditDataClick(entrada)}
+                        className="cursor-pointer"
+                      >
+                        <CalendarIcon className="mr-1 h-3.5 w-3.5" />
+                        Editar Data
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={() => handleDeleteClick(entrada.id)}
                         className="text-red-600 focus:text-red-600 cursor-pointer"
@@ -300,6 +312,11 @@ export default function EntradasPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Estado para editar data
+  const [editDataDialogOpen, setEditDataDialogOpen] = useState(false)
+  const [entradaParaEditar, setEntradaParaEditar] = useState<Entrada | null>(null)
+  const [novaData, setNovaData] = useState("")
+
   // Estado para os dados
   const [entradas, setEntradas] = useState<Entrada[]>([])
   const [produtos, setProdutos] = useState<Produto[]>([])
@@ -378,6 +395,46 @@ export default function EntradasPage() {
   const handleDeleteClick = (id: string) => {
     setDeletingId(id)
     setDeleteOpen(true)
+  }
+
+  // Função para abrir o diálogo de editar data
+  const handleEditDataClick = (entrada: Entrada) => {
+    setEntradaParaEditar(entrada)
+    // Converter data ISO para formato YYYY-MM-DD
+    const dataObj = new Date(entrada.data)
+    const year = dataObj.getFullYear()
+    const month = String(dataObj.getMonth() + 1).padStart(2, '0')
+    const day = String(dataObj.getDate()).padStart(2, '0')
+    setNovaData(`${year}-${month}-${day}`)
+    setEditDataDialogOpen(true)
+  }
+
+  // Função para salvar a nova data
+  const handleSaveData = async () => {
+    if (!entradaParaEditar || !novaData) return
+
+    try {
+      // Converter data para formato ISO
+      const dataISO = new Date(novaData + 'T00:00:00').toISOString()
+      await updateEntradaSupabase(entradaParaEditar.id, { data: dataISO })
+      
+      toast({
+        title: "Data atualizada",
+        description: "A data da entrada foi atualizada com sucesso.",
+      })
+      
+      loadData()
+      setEditDataDialogOpen(false)
+      setEntradaParaEditar(null)
+      setNovaData("")
+    } catch (error) {
+      console.error("Erro ao atualizar data:", error)
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a data.",
+        variant: "destructive",
+      })
+    }
   }
 
   // Função para excluir uma entrada (Supabase)
@@ -732,6 +789,7 @@ export default function EntradasPage() {
           formatDate={formatDate}
           handleEditClick={handleEditClick}
           handleDeleteClick={handleDeleteClick}
+          handleEditDataClick={handleEditDataClick}
           setFormOpen={setFormOpen}
         />
         
@@ -758,6 +816,37 @@ export default function EntradasPage() {
           title="Excluir entrada"
           description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e o estoque será atualizado."
         />
+
+        {/* Diálogo para editar data */}
+        <Dialog open={editDataDialogOpen} onOpenChange={setEditDataDialogOpen}>
+          <DialogContent className="max-w-[95vw] w-full mx-2">
+            <DialogHeader>
+              <DialogTitle>Editar Data</DialogTitle>
+              <DialogDescription>
+                Altere a data da entrada do produto {entradaParaEditar?.produtoDescricao}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="data-mobile">Nova Data</Label>
+                <Input
+                  id="data-mobile"
+                  type="date"
+                  value={novaData}
+                  onChange={(e) => setNovaData(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDataDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveData}>
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     )
   }
@@ -892,25 +981,37 @@ export default function EntradasPage() {
                       <TableCell>{entrada.valorUnitario !== undefined ? `R$ ${(entrada.valorUnitario * entrada.quantidade).toFixed(2)}` : '-'}</TableCell>
                       <TableCell>{formatDate(entrada.data)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900 dark:hover:text-blue-400 transition-colors"
-                            onClick={() => handleEditClick(entrada.id)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                            <span className="sr-only">Editar</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-400 transition-colors"
-                            onClick={() => handleDeleteClick(entrada.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Excluir</span>
-                          </Button>
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                                <span className="sr-only">Abrir menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem onClick={() => handleEditClick(entrada.id)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar Completo
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditDataClick(entrada)}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                Editar Data
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteClick(entrada.id)}
+                                className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1032,6 +1133,37 @@ export default function EntradasPage() {
         title="Excluir entrada"
         description="Tem certeza que deseja excluir esta entrada? Esta ação não pode ser desfeita e o estoque será atualizado."
       />
+
+      {/* Diálogo para editar data */}
+      <Dialog open={editDataDialogOpen} onOpenChange={setEditDataDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Data</DialogTitle>
+            <DialogDescription>
+              Altere a data da entrada do produto {entradaParaEditar?.produtoDescricao}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="data">Nova Data</Label>
+              <Input
+                id="data"
+                type="date"
+                value={novaData}
+                onChange={(e) => setNovaData(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDataDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveData}>
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de seleção de veículo para saída rápida */}
       <SelecionarVeiculoDialog
