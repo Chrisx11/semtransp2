@@ -27,6 +27,7 @@ const FILTER_HEADERS = [
   "Filtro de Ar 1°",
   "Filtro de Ar 2°",
   "Filtro Separador",
+  "Filtro Separador 2°",
   "Desumidificador",
   "Filtro de Transmissão"
 ]
