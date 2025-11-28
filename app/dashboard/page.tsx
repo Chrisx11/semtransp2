@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useEffect, useState } from "react"
 import { getVeiculosSupabase } from "@/services/veiculo-service"
-import { getTrocasOleo, getUltimaTrocaOleo, getEstatisticasTrocasOleo, getUltimoRegistro } from "@/services/troca-oleo-service"
+import { getTrocasOleo, getUltimaTrocaOleo, getEstatisticasTrocasOleo, getUltimoRegistro, getAllTrocasOleo } from "@/services/troca-oleo-service"
 import { getProdutosSupabase } from "@/services/produto-service"
 import { getSaidasSupabase } from "@/services/saida-service"
 import { getEntradasSupabase } from "@/services/entrada-service"
@@ -18,7 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown } from "lucide-react"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart } from "lucide-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -97,8 +98,24 @@ interface Entrada {
 
 // Helper functions
 function getMonthYear(dateStr: string) {
-  const d = new Date(dateStr)
-  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`
+  try {
+    // Garantir que a data está em formato válido
+    let dateToParse = dateStr
+    if (dateStr && !dateStr.includes('T') && dateStr.length === 10) {
+      // Formato YYYY-MM-DD, adicionar hora para garantir parsing correto
+      dateToParse = `${dateStr}T00:00:00.000Z`
+    }
+    const d = new Date(dateToParse)
+    // Verificar se a data é válida
+    if (isNaN(d.getTime())) {
+      console.warn(`Data inválida: ${dateStr}`)
+      return null
+    }
+    return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, "0")}`
+  } catch (err) {
+    console.error(`Erro ao processar data: ${dateStr}`, err)
+    return null
+  }
 }
 
 function formatarData(data: string) {
@@ -466,8 +483,9 @@ export default function DashboardPage() {
     'nunca': false
   })
   const [trocasAtrasoDialogOpen, setTrocasAtrasoDialogOpen] = useState(false)
-  const [mesOffset, setMesOffset] = useState(0) // Offset em meses para navegação no gráfico
+  const [anoOffset, setAnoOffset] = useState(0) // Offset em anos para navegação no gráfico (0 = ano atual, 1 = ano passado, etc)
   const [todasTrocas, setTodasTrocas] = useState<Historico[]>([]) // Armazenar todas as trocas para navegação
+  const [trocasMesAtual, setTrocasMesAtual] = useState(0) // Contador de trocas do mês atual
   const [veiculosSemAtualizacaoKm, setVeiculosSemAtualizacaoKm] = useState<any[]>([])
   const [veiculosComAtualizacaoKm, setVeiculosComAtualizacaoKm] = useState<any[]>([])
   const [kmAtualizacaoDialogOpen, setKmAtualizacaoDialogOpen] = useState(false)
@@ -490,6 +508,40 @@ export default function DashboardPage() {
       // Próximas trocas
       const veiculosAtivos = veiculosData.filter(v => v.status === "Ativo" && v.kmAtual !== undefined)
       
+      // OTIMIZAÇÃO: Buscar TODAS as trocas de óleo de uma vez em vez de uma por veículo
+      const todasTrocasOleo = await getAllTrocasOleo().catch(() => [])
+      
+      // Criar um mapa de trocas por veículo para acesso rápido
+      const trocasPorVeiculo = new Map<string, typeof todasTrocasOleo>()
+      todasTrocasOleo.forEach(troca => {
+        const veiculoId = troca.veiculo_id
+        if (!trocasPorVeiculo.has(veiculoId)) {
+          trocasPorVeiculo.set(veiculoId, [])
+        }
+        trocasPorVeiculo.get(veiculoId)!.push(troca)
+      })
+      
+      // Mapear todas as trocas para o formato esperado pelo componente
+      const historicos = todasTrocasOleo.map(item => {
+        // Garantir que a data está no formato correto
+        let dataStr = item.data_troca || new Date().toISOString()
+        // Se a data não estiver em formato ISO completo, converter
+        if (dataStr && !dataStr.includes('T') && dataStr.length === 10) {
+          // Formato YYYY-MM-DD, adicionar hora para garantir parsing correto
+          dataStr = `${dataStr}T00:00:00.000Z`
+        }
+        return {
+          id: item.id,
+          data: dataStr,
+          tipo: item.tipo_servico || "Troca de Óleo",
+          kmAtual: item.km_atual,
+          kmAnterior: item.km_anterior,
+          kmProxTroca: item.km_proxima_troca,
+          observacao: item.observacao,
+          veiculoId: item.veiculo_id
+        }
+      })
+      
       const proximasTrocasData = [...veiculosAtivos]
         .map(v => ({
           ...v,
@@ -499,42 +551,6 @@ export default function DashboardPage() {
         .slice(0, 5)
         
       setProximasTrocas(proximasTrocasData)
-      
-      // Históricos - carregar em paralelo para melhor performance
-      const historicosPromises = veiculosAtivos.map(async (v) => {
-        try {
-          // Usar o serviço da nova tabela trocas_oleo
-          const trocasData = await getTrocasOleo(v.id)
-          
-          // Mapear para o formato esperado pelo componente
-          return trocasData.map(item => {
-            const dataProcessada = item.data_troca ? new Date(item.data_troca) : new Date()
-            
-            return {
-              id: item.id,
-              data: dataProcessada.toISOString(), // Garantir que seja uma string ISO válida
-              tipo: item.tipo_servico || "Troca de Óleo", // Valor padrão se não estiver definido
-              kmAtual: item.km_atual,
-              kmAnterior: item.km_anterior,
-              kmProxTroca: item.km_proxima_troca,
-              observacao: item.observacao,
-              veiculoId: item.veiculo_id
-            }
-          })
-        } catch (err) {
-          // Tratar especificamente erros de rede/fetch
-          if (err instanceof TypeError && err.message === 'Failed to fetch') {
-            console.warn(`⚠️ Erro de conexão ao buscar histórico do veículo ${v.id}. Verifique a conexão com o Supabase.`)
-          } else {
-            console.error(`Erro ao buscar histórico do veículo ${v.id}:`, err)
-          }
-          return []
-        }
-      })
-      
-      // Aguardar todas as chamadas em paralelo
-      const historicosArrays = await Promise.all(historicosPromises)
-      const historicos = historicosArrays.flat()
       
       // Veículos em atraso - MOVIDO PARA DEPOIS DA INICIALIZAÇÃO DE HISTORICOS
       const atrasados = veiculosAtivos
@@ -564,11 +580,29 @@ export default function DashboardPage() {
       
       setUltimasTrocas(ultimasTrocasData)
       
-      // Trocas por mês - últimos 6 meses, incluindo meses sem trocas
+      // Trocas por mês - filtrar apenas trocas de óleo
       const trocas = historicos.filter(h => isTrocaOleo(h.tipo))
       
       // Armazenar todas as trocas para navegação
       setTodasTrocas(trocas)
+      
+      // Calcular trocas do mês atual
+      const dataAtual = new Date()
+      const anoAtual = dataAtual.getFullYear()
+      const mesAtual = dataAtual.getMonth() + 1 // 1-12
+      const mesAtualStr = `${anoAtual}-${mesAtual.toString().padStart(2, "0")}`
+      
+      const trocasMesAtualCount = trocas.filter(t => {
+        try {
+          // t.data já vem do banco no formato ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss)
+          const mesTroca = getMonthYear(t.data)
+          return mesTroca === mesAtualStr
+        } catch (err) {
+          return false
+        }
+      }).length
+      
+      setTrocasMesAtual(trocasMesAtualCount)
       
       // Calcular trocas por mês inicial (sem offset)
       const trocasPorMesData = calcularTrocasPorMes(trocas, 0)
@@ -677,78 +711,94 @@ export default function DashboardPage() {
         }))
       setVeiculosEmDia(veiculosEmDiaList)
       
-      // Após carregar veiculosData:
-      const veiculosPromises = veiculosData.map(async (veiculo) => {
-        try {
-          const estatisticas = await getEstatisticasTrocasOleo(veiculo.id)
-          return {
-            ...veiculo,
-            ultimaTroca: estatisticas.ultimaTroca,
-            kmAtual: estatisticas.kmAtual || veiculo.kmAtual || 0,
-            kmProxTroca: estatisticas.kmProxTroca || 0,
-            progresso: estatisticas.progresso
-          }
-        } catch (error) {
-          // Erro ao buscar estatísticas - usar valores padrão
-          console.warn(`Erro ao buscar estatísticas do veículo ${veiculo.id}:`, error)
-          return {
-            ...veiculo,
-            ultimaTroca: null,
-            kmAtual: veiculo.kmAtual || 0,
-            kmProxTroca: 0,
-            progresso: 0
-          }
+      // OTIMIZAÇÃO: Calcular estatísticas usando os dados já carregados em memória
+      const veiculosComDadosList = veiculosData.map((veiculo) => {
+        const trocasDoVeiculo = trocasPorVeiculo.get(veiculo.id) || []
+        
+        // Encontrar última troca de óleo (não atualização)
+        const ultimaTrocaOleo = trocasDoVeiculo
+          .filter(t => t.tipo_servico === "Troca de Óleo" || 
+                   (t.tipo_servico?.toLowerCase().includes("troca") && t.tipo_servico?.toLowerCase().includes("óleo")))
+          .sort((a, b) => new Date(b.data_troca).getTime() - new Date(a.data_troca).getTime())[0] || null
+        
+        // Último registro (pode ser troca ou atualização)
+        const ultimoRegistro = trocasDoVeiculo
+          .sort((a, b) => new Date(b.data_troca).getTime() - new Date(a.data_troca).getTime())[0] || null
+        
+        let kmAtual = veiculo.kmAtual || 0
+        let kmProxTroca = 0
+        let progresso = 0
+        let ultimaTroca = ultimaTrocaOleo ? {
+          id: ultimaTrocaOleo.id,
+          data: ultimaTrocaOleo.data_troca,
+          tipo: ultimaTrocaOleo.tipo_servico || "Troca de Óleo",
+          kmAtual: ultimaTrocaOleo.km_atual,
+          kmAnterior: ultimaTrocaOleo.km_anterior,
+          kmProxTroca: ultimaTrocaOleo.km_proxima_troca,
+          observacao: ultimaTrocaOleo.observacao,
+          veiculoId: ultimaTrocaOleo.veiculo_id
+        } : null
+        
+        if (ultimoRegistro) {
+          kmAtual = ultimoRegistro.km_atual || kmAtual
+        }
+        
+        if (ultimaTrocaOleo) {
+          kmProxTroca = ultimaTrocaOleo.km_proxima_troca
+          const kmInicial = ultimaTrocaOleo.km_atual
+          const kmFinal = ultimaTrocaOleo.km_proxima_troca
+          const totalKm = kmFinal - kmInicial
+          const kmPercorrido = kmAtual - kmInicial
+          progresso = totalKm <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((kmPercorrido / totalKm) * 100)))
+        } else if (ultimoRegistro) {
+          kmProxTroca = ultimoRegistro.km_proxima_troca || 0
+        }
+        
+        return {
+          ...veiculo,
+          ultimaTroca,
+          kmAtual,
+          kmProxTroca,
+          progresso
         }
       })
-      const veiculosComDadosList = await Promise.all(veiculosPromises)
       setVeiculosComDados(veiculosComDadosList)
       
-      // Calcular veículos que não atualizaram KM em 3 dias
+      // OTIMIZAÇÃO: Calcular veículos que não atualizaram KM usando dados já carregados
       const dataLimite = new Date()
       dataLimite.setHours(0, 0, 0, 0) // Zerar horas para comparar apenas datas
       dataLimite.setDate(dataLimite.getDate() - 3) // 3 dias atrás
       
-      const veiculosKmPromises = veiculosData
+      const veiculosComInfoKm = veiculosData
         .filter(v => v.status === "Ativo")
-        .map(async (veiculo) => {
-          try {
-            const ultimoRegistro = await getUltimoRegistro(veiculo.id)
-            // Usar created_at para saber quando o registro foi realmente criado
-            // Isso é mais confiável que data_troca que pode ser uma data passada escolhida pelo usuário
-            const dataUltimaAtualizacao = ultimoRegistro?.created_at
-              ? new Date(ultimoRegistro.created_at) 
-              : null
-            
-            // Calcular dias sem atualizar
-            let diasSemAtualizar: number | null = null
-            if (dataUltimaAtualizacao) {
-              const hoje = new Date()
-              hoje.setHours(0, 0, 0, 0)
-              const dataAtualizacao = new Date(dataUltimaAtualizacao)
-              dataAtualizacao.setHours(0, 0, 0, 0)
-              diasSemAtualizar = Math.floor((hoje.getTime() - dataAtualizacao.getTime()) / (1000 * 60 * 60 * 24))
-            }
-            
-            return {
-              ...veiculo,
-              ultimaAtualizacaoKm: dataUltimaAtualizacao,
-              diasSemAtualizar: diasSemAtualizar,
-              tipoUltimaAtualizacao: ultimoRegistro?.tipo_servico || null,
-              userId: ultimoRegistro?.user_id || null
-            }
-          } catch (error) {
-            console.warn(`Erro ao buscar último registro do veículo ${veiculo.id}:`, error)
-            return {
-              ...veiculo,
-              ultimaAtualizacaoKm: null,
-              diasSemAtualizar: null,
-              tipoUltimaAtualizacao: null,
-              userId: null
-            }
+        .map((veiculo) => {
+          const trocasDoVeiculo = trocasPorVeiculo.get(veiculo.id) || []
+          const ultimoRegistro = trocasDoVeiculo
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] || null
+          
+          // Usar created_at para saber quando o registro foi realmente criado
+          const dataUltimaAtualizacao = ultimoRegistro?.created_at
+            ? new Date(ultimoRegistro.created_at) 
+            : null
+          
+          // Calcular dias sem atualizar
+          let diasSemAtualizar: number | null = null
+          if (dataUltimaAtualizacao) {
+            const hoje = new Date()
+            hoje.setHours(0, 0, 0, 0)
+            const dataAtualizacao = new Date(dataUltimaAtualizacao)
+            dataAtualizacao.setHours(0, 0, 0, 0)
+            diasSemAtualizar = Math.floor((hoje.getTime() - dataAtualizacao.getTime()) / (1000 * 60 * 60 * 24))
+          }
+          
+          return {
+            ...veiculo,
+            ultimaAtualizacaoKm: dataUltimaAtualizacao,
+            diasSemAtualizar: diasSemAtualizar,
+            tipoUltimaAtualizacao: ultimoRegistro?.tipo_servico || null,
+            userId: ultimoRegistro?.user_id || null
           }
         })
-      
-      const veiculosComInfoKm = await Promise.all(veiculosKmPromises)
       
       // Separar veículos que não atualizaram KM em 3 dias
       // Considera que não atualizou se: nunca atualizou OU última atualização foi há mais de 3 dias
@@ -783,19 +833,16 @@ export default function DashboardPage() {
     }
   }
 
-  // Função para calcular trocas por mês com offset
-  const calcularTrocasPorMes = (trocas: Historico[], offset: number): TrocaPorMes[] => {
-    // Obter os 6 meses baseado no offset (offset de 0 = últimos 6 meses, offset de 6 = 7-12 meses atrás)
-    const meses: string[] = []
+  // Função para calcular trocas por mês do ano selecionado
+  const calcularTrocasPorMes = (trocas: Historico[], offsetAnos: number): TrocaPorMes[] => {
+    // Obter os 12 meses do ano baseado no offset (0 = ano atual, 1 = ano passado, etc)
     const dataAtual = new Date()
+    const anoSelecionado = dataAtual.getFullYear() - offsetAnos
     
-    // Começar a partir do offset
-    const mesInicial = 5 + offset
-    const mesFinal = offset
-    
-    for (let i = mesInicial; i >= mesFinal; i--) {
-      const data = new Date(dataAtual)
-      data.setMonth(dataAtual.getMonth() - i)
+    // Criar array com os 12 meses do ano selecionado
+    const meses: string[] = []
+    for (let mes = 1; mes <= 12; mes++) {
+      const data = new Date(anoSelecionado, mes - 1, 1)
       meses.push(getMonthYear(data.toISOString()))
     }
     
@@ -804,13 +851,15 @@ export default function DashboardPage() {
     trocas.forEach(t => {
       try {
         const mes = getMonthYear(t.data)
-        counts[mes] = (counts[mes] || 0) + 1
+        if (mes) {
+          counts[mes] = (counts[mes] || 0) + 1
+        }
       } catch (err) {
         console.error(`Erro ao processar troca:`, err, "Data:", t.data)
       }
     })
     
-    // Criar array com os meses, preenchendo zeros quando não houver trocas
+    // Criar array com os 12 meses, preenchendo zeros quando não houver trocas
     return meses.map(mes => {
       const quantidade = counts[mes] || 0
       const [ano, mesNum] = mes.split('-')
@@ -824,14 +873,14 @@ export default function DashboardPage() {
     })
   }
 
-  // Efeito para recalcular trocasPorMes quando o offset mudar
+  // Efeito para recalcular trocasPorMes quando o ano mudar
   useEffect(() => {
     if (todasTrocas.length > 0) {
-      const novasTrocasPorMes = calcularTrocasPorMes(todasTrocas, mesOffset)
+      const novasTrocasPorMes = calcularTrocasPorMes(todasTrocas, anoOffset)
       setTrocasPorMes(novasTrocasPorMes)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mesOffset])
+  }, [anoOffset])
 
   useEffect(() => {
     atualizarDashboard()
@@ -905,26 +954,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 pb-8 animate-fade-in">
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 dark:from-blue-900 dark:via-indigo-900 dark:to-blue-950 p-8 md:p-10 rounded-2xl shadow-2xl-custom">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-            backgroundSize: '20px 20px'
-          }}></div>
-        </div>
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-3">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl shadow-lg">
-                <Activity className="h-7 w-7 text-white" />
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">Dashboard</h1>
-            </div>
-            <p className="text-blue-100 text-base md:text-lg ml-16">Sistema Integrado de Gestão de Frotas</p>
-          </div>
-        </div>
-      </div>
-
       <div className="w-full">
           {/* Cards de resumo para visão geral rápida */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -998,12 +1027,10 @@ export default function DashboardPage() {
               <CardContent className="relative">
                 <div className="space-y-1">
                   <div className="text-4xl font-bold text-green-600 dark:text-green-400">
-                    {trocasPorMes.length > 0 
-                      ? trocasPorMes[trocasPorMes.length - 1].quantidade 
-                      : 0}
+                    {trocasMesAtual}
                   </div>
                   <p className="text-xs text-muted-foreground font-medium capitalize">
-                    {new Date().toLocaleDateString('pt-BR', {month: 'long'})}
+                    {new Date().toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'})}
                   </p>
                 </div>
               </CardContent>
@@ -1037,109 +1064,163 @@ export default function DashboardPage() {
       
           {/* Seção de indicadores-chave */}
           <div className="grid grid-cols-1 gap-6 mb-8">
-            <Card className="border-2 shadow-lg">
-              <CardHeader className="pb-4">
+            <Card className="border-2 shadow-lg bg-gradient-to-br from-white to-blue-50/30 dark:from-gray-900 dark:to-blue-950/20">
+              <CardHeader className="pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                    <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-md">
                       <BarChart3 className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl">Trocas Realizadas</CardTitle>
-                      <CardDescription className="text-sm">Histórico mensal de trocas de óleo</CardDescription>
+                      <CardTitle className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        Trocas Realizadas
+                      </CardTitle>
+                      <CardDescription className="text-sm text-muted-foreground">
+                        Histórico mensal de trocas de óleo
+                      </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-white/50 dark:bg-gray-800/50 px-3 py-1.5 rounded-lg border">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setMesOffset(mesOffset + 6)}
-                      className="h-8 w-8 p-0"
+                      onClick={() => setAnoOffset(anoOffset + 1)}
+                      className="h-7 w-7 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      title="Ano anterior"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <span className="text-xs text-muted-foreground min-w-[80px] text-center">
-                      {mesOffset === 0 ? 'Últimos 6 meses' : `${mesOffset}-${mesOffset + 5} meses atrás`}
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300 min-w-[80px] text-center">
+                      {new Date().getFullYear() - anoOffset}
                     </span>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setMesOffset(Math.max(0, mesOffset - 6))}
-                      disabled={mesOffset === 0}
-                      className="h-8 w-8 p-0"
+                      onClick={() => setAnoOffset(Math.max(0, anoOffset - 1))}
+                      disabled={anoOffset === 0}
+                      className="h-7 w-7 p-0 hover:bg-blue-100 dark:hover:bg-blue-900/30 disabled:opacity-50"
+                      title="Próximo ano"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {loading ? (
-                  <div className="h-32 flex items-center justify-center">Carregando...</div>
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-blue-500" />
+                      <span className="text-sm text-muted-foreground">Carregando...</span>
+                    </div>
+                  </div>
                 ) : trocasPorMes.length === 0 ? (
-                  <div className="h-32 flex items-center justify-center text-muted-foreground">
-                    Nenhum dado disponível
+                  <div className="h-64 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum dado disponível</p>
+                    </div>
                   </div>
                 ) : (
-                  <div className="h-64 w-full relative p-4">
-                    {/* Grade de fundo */}
-                    <div className="absolute inset-0 grid grid-cols-1 grid-rows-4 w-full h-full pointer-events-none">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="w-full border-t border-gray-200 dark:border-gray-800" />
-                      ))}
-                    </div>
-                    {/* Escala Y no lado esquerdo */}
-                    <div className="absolute left-2 inset-y-0 flex flex-col justify-between text-xs text-muted-foreground pointer-events-none">
-                      {[...Array(5)].map((_, i) => {
-                        const maxQtd = Math.max(...trocasPorMes.map(item => item.quantidade), 1)
-                        const max = maxQtd <= 2 ? 4 : maxQtd
-                        const value = Math.round((max / 4) * (4 - i))
-                        return (
-                          <div key={i} className="h-6 flex items-center">
-                            {value}
+                  <div className="space-y-4">
+                    {/* Estatísticas resumidas */}
+                    {(() => {
+                      const totalAno = trocasPorMes.reduce((acc, item) => acc + item.quantidade, 0)
+                      const mediaMensal = Math.round(totalAno / 12)
+                      const mesComMaisTrocas = trocasPorMes.reduce((max, item) => 
+                        item.quantidade > max.quantidade ? item : max, trocasPorMes[0]
+                      )
+                      return (
+                        <div className="grid grid-cols-3 gap-4 mb-4">
+                          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                            <p className="text-xs text-muted-foreground mb-1">Total do Ano</p>
+                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalAno}</p>
                           </div>
-                        )
-                      })}
-                    </div>
+                          <div className="bg-green-50 dark:bg-green-950/20 rounded-lg p-3 border border-green-200 dark:border-green-800">
+                            <p className="text-xs text-muted-foreground mb-1">Média Mensal</p>
+                            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{mediaMensal}</p>
+                          </div>
+                          <div className="bg-purple-50 dark:bg-purple-950/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+                            <p className="text-xs text-muted-foreground mb-1">Mês com Mais Trocas</p>
+                            <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                              {mesComMaisTrocas.nomeMes} ({mesComMaisTrocas.quantidade})
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })()}
+                    
                     {/* Gráfico de barras */}
-                    <div className="absolute inset-0 pl-8 pr-4 pt-4 pb-8 flex items-end">
-                      {(() => {
-                        const maxQtd = Math.max(...trocasPorMes.map(item => item.quantidade), 1)
-                        const max = maxQtd <= 2 ? 4 : maxQtd
-                        const barWidth = `calc(100% / ${trocasPorMes.length} - 12px)`
-                        const barColors = [
-                          'bg-blue-500 dark:bg-blue-400',
-                          'bg-green-500 dark:bg-green-400',
-                          'bg-yellow-400 dark:bg-yellow-300',
-                          'bg-red-500 dark:bg-red-400',
-                          'bg-purple-500 dark:bg-purple-400',
-                          'bg-gray-400 dark:bg-gray-500',
-                        ];
-                        const maxBarHeight = 180; // px
-                        return trocasPorMes.map((item, index) => {
-                          const alturaPx = item.quantidade > 0 ? (item.quantidade / max) * maxBarHeight : 8;
-                          const color = barColors[index % barColors.length];
+                    <div className="h-72 w-full relative p-4 bg-gradient-to-b from-gray-50/50 to-transparent dark:from-gray-800/20 rounded-lg border">
+                      {/* Grade de fundo */}
+                      <div className="absolute inset-0 grid grid-cols-1 grid-rows-4 w-full h-full pointer-events-none">
+                        {[0, 1, 2, 3].map((i) => (
+                          <div key={i} className="w-full border-t border-gray-200/50 dark:border-gray-700/50" />
+                        ))}
+                      </div>
+                      {/* Escala Y no lado esquerdo */}
+                      <div className="absolute left-2 inset-y-0 flex flex-col justify-between text-xs text-muted-foreground pointer-events-none font-medium">
+                        {[...Array(5)].map((_, i) => {
+                          const maxQtd = Math.max(...trocasPorMes.map(item => item.quantidade), 1)
+                          const max = maxQtd <= 2 ? 4 : maxQtd
+                          const value = Math.round((max / 4) * (4 - i))
                           return (
-                            <div key={index} className="flex-1 flex flex-col items-center justify-end" style={{ minWidth: 0 }}>
-                              <div className="mb-2 text-sm font-bold text-blue-600 dark:text-blue-400" style={{ minHeight: 24 }}>
-                                {item.quantidade > 0 ? item.quantidade : ''}
-                              </div>
-                              <div
-                                className={`rounded-t transition-all ${color}`}
-                                style={{ height: `${alturaPx}px`, width: barWidth, minWidth: 24, maxWidth: 60 }}
-                              />
+                            <div key={i} className="h-6 flex items-center">
+                              {value}
                             </div>
                           )
-                        })
-                      })()}
-                    </div>
-                    {/* Rótulos do eixo X (meses) */}
-                    <div className="absolute inset-x-8 bottom-0 flex justify-between text-xs font-medium pointer-events-none">
-                      {trocasPorMes.map((item, index) => (
-                        <div key={index} className="flex-1 text-center">
-                          {item.nomeMes}
-                        </div>
-                      ))}
+                        })}
+                      </div>
+                      {/* Gráfico de barras */}
+                      <div className="absolute inset-0 pl-10 pr-4 pt-4 pb-10 flex items-end gap-1.5">
+                        {(() => {
+                          const maxQtd = Math.max(...trocasPorMes.map(item => item.quantidade), 1)
+                          const max = maxQtd <= 2 ? 4 : maxQtd
+                          const barWidth = `calc((100% - 16.5px) / ${trocasPorMes.length})`
+                          const barColors = [
+                            'bg-gradient-to-t from-blue-600 to-blue-400 dark:from-blue-500 dark:to-blue-300',
+                            'bg-gradient-to-t from-green-600 to-green-400 dark:from-green-500 dark:to-green-300',
+                            'bg-gradient-to-t from-yellow-500 to-yellow-300 dark:from-yellow-400 dark:to-yellow-200',
+                            'bg-gradient-to-t from-red-600 to-red-400 dark:from-red-500 dark:to-red-300',
+                            'bg-gradient-to-t from-purple-600 to-purple-400 dark:from-purple-500 dark:to-purple-300',
+                            'bg-gradient-to-t from-pink-600 to-pink-400 dark:from-pink-500 dark:to-pink-300',
+                            'bg-gradient-to-t from-indigo-600 to-indigo-400 dark:from-indigo-500 dark:to-indigo-300',
+                            'bg-gradient-to-t from-teal-600 to-teal-400 dark:from-teal-500 dark:to-teal-300',
+                            'bg-gradient-to-t from-orange-600 to-orange-400 dark:from-orange-500 dark:to-orange-300',
+                            'bg-gradient-to-t from-cyan-600 to-cyan-400 dark:from-cyan-500 dark:to-cyan-300',
+                            'bg-gradient-to-t from-lime-600 to-lime-400 dark:from-lime-500 dark:to-lime-300',
+                            'bg-gradient-to-t from-gray-500 to-gray-400 dark:from-gray-400 dark:to-gray-300',
+                          ];
+                          const maxBarHeight = 200; // px
+                          return trocasPorMes.map((item, index) => {
+                            const alturaPx = item.quantidade > 0 ? (item.quantidade / max) * maxBarHeight : 8;
+                            const color = barColors[index % barColors.length];
+                            return (
+                              <div key={index} className="flex flex-col items-center justify-end group" style={{ minWidth: 0, width: barWidth }}>
+                                <div className="mb-1 text-xs font-bold text-blue-700 dark:text-blue-300 opacity-0 group-hover:opacity-100 transition-opacity" style={{ minHeight: 20 }}>
+                                  {item.quantidade > 0 ? item.quantidade : ''}
+                                </div>
+                                <div
+                                  className={`rounded-t-lg transition-all duration-300 ${color} w-full shadow-md hover:shadow-lg hover:scale-105 cursor-pointer`}
+                                  style={{ 
+                                    height: `${alturaPx}px`, 
+                                    minHeight: item.quantidade > 0 ? '4px' : '2px' 
+                                  }}
+                                  title={`${item.nomeMes}: ${item.quantidade} troca${item.quantidade !== 1 ? 's' : ''}`}
+                                />
+                              </div>
+                            )
+                          })
+                        })()}
+                      </div>
+                      {/* Rótulos do eixo X (meses) */}
+                      <div className="absolute inset-x-10 bottom-0 flex justify-between text-[10px] font-medium pointer-events-none gap-1.5">
+                        {trocasPorMes.map((item, index) => (
+                          <div key={index} className="flex-1 text-center" style={{ width: `calc((100% - 16.5px) / ${trocasPorMes.length})` }}>
+                            {item.nomeMes}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1149,228 +1230,28 @@ export default function DashboardPage() {
           
           {/* Alertas e próximas trocas */}
           <div className="grid grid-cols-1 gap-6">
-            <Card className="border-2 shadow-lg">
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg">
-                      <Droplets className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl">Troca de Óleo</CardTitle>
-                      <CardDescription className="text-sm">Status das trocas de óleo da frota</CardDescription>
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="em-dia" value={abaTrocaOleo} onValueChange={setAbaTrocaOleo} className="w-full">
-                  <TabsList className="grid w-full grid-cols-4">
-                    <TabsTrigger value="em-dia" className="text-green-600 data-[state=active]:font-bold">Em Dia</TabsTrigger>
-                    <TabsTrigger value="proximo" className="text-yellow-600 data-[state=active]:font-bold">Próximo do Prazo</TabsTrigger>
-                    <TabsTrigger value="vencido" className="text-red-600 data-[state=active]:font-bold">Vencido</TabsTrigger>
-                    <TabsTrigger value="nunca" className="text-gray-500 data-[state=active]:font-bold">Nunca Registrado</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="em-dia" className="mt-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr>
-                            <th className="px-4 py-2 text-left">Placa</th>
-                            <th className="px-4 py-2 text-left">Modelo</th>
-                            <th className="px-4 py-2 text-left">Marca</th>
-                            <th className="px-4 py-2 text-left">Km Atual</th>
-                            <th className="px-4 py-2 text-left">Km Próx. Troca</th>
-                            <th className="px-4 py-2 text-left">Faltam (km)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca)
-                            .slice(0, verMais['em-dia'] ? undefined : 10)
-                            .map(v => (
-                              <tr key={v.id} className="border-b">
-                                <td className="px-4 py-2">{v.placa}</td>
-                                <td className="px-4 py-2">{v.modelo}</td>
-                                <td className="px-4 py-2">{v.marca}</td>
-                                <td className="px-4 py-2">{v.kmAtual.toLocaleString()}</td>
-                                <td className="px-4 py-2">{v.kmProxTroca.toLocaleString()}</td>
-                                <td className="px-4 py-2">{(v.kmProxTroca - v.kmAtual).toLocaleString()}</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length > 10 && (
-                        <div className="flex justify-center mt-4">
-                          <button
-                            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-                            onClick={() => setVerMais(prev => ({ ...prev, 'em-dia': !prev['em-dia'] }))}
-                          >
-                            {verMais['em-dia'] ? 'Ver menos' : 'Ver mais'}
-                          </button>
-                        </div>
-                      )}
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length === 0 && (
-                        <div className="h-64 flex items-center justify-center text-muted-foreground">
-                          Nenhum veículo em dia
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="proximo" className="mt-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr>
-                            <th className="px-4 py-2 text-left">Placa</th>
-                            <th className="px-4 py-2 text-left">Modelo</th>
-                            <th className="px-4 py-2 text-left">Marca</th>
-                            <th className="px-4 py-2 text-left">Km Atual</th>
-                            <th className="px-4 py-2 text-left">Km Próx. Troca</th>
-                            <th className="px-4 py-2 text-left">Faltam (km)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca)
-                            .slice(0, verMais['proximo'] ? undefined : 10)
-                            .map(v => (
-                              <tr key={v.id} className="border-b">
-                                <td className="px-4 py-2">{v.placa}</td>
-                                <td className="px-4 py-2">{v.modelo}</td>
-                                <td className="px-4 py-2">{v.marca}</td>
-                                <td className="px-4 py-2">{v.kmAtual.toLocaleString()}</td>
-                                <td className="px-4 py-2">{v.kmProxTroca.toLocaleString()}</td>
-                                <td className="px-4 py-2">{(v.kmProxTroca - v.kmAtual).toLocaleString()}</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length > 10 && (
-                        <div className="flex justify-center mt-4">
-                          <button
-                            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-                            onClick={() => setVerMais(prev => ({ ...prev, 'proximo': !prev['proximo'] }))}
-                          >
-                            {verMais['proximo'] ? 'Ver menos' : 'Ver mais'}
-                          </button>
-                        </div>
-                      )}
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length === 0 && (
-                        <div className="h-64 flex items-center justify-center text-muted-foreground">
-                          Nenhum veículo próximo do prazo
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="vencido" className="mt-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr>
-                            <th className="px-4 py-2 text-left">Placa</th>
-                            <th className="px-4 py-2 text-left">Modelo</th>
-                            <th className="px-4 py-2 text-left">Marca</th>
-                            <th className="px-4 py-2 text-left">Km Atual</th>
-                            <th className="px-4 py-2 text-left">Km Próx. Troca</th>
-                            <th className="px-4 py-2 text-left">Faltam (km)</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca)
-                            .slice(0, verMais['vencido'] ? undefined : 10)
-                            .map(v => (
-                              <tr key={v.id} className="border-b">
-                                <td className="px-4 py-2">{v.placa}</td>
-                                <td className="px-4 py-2">{v.modelo}</td>
-                                <td className="px-4 py-2">{v.marca}</td>
-                                <td className="px-4 py-2">{v.kmAtual.toLocaleString()}</td>
-                                <td className="px-4 py-2">{v.kmProxTroca.toLocaleString()}</td>
-                                <td className="px-4 py-2">{(v.kmProxTroca - v.kmAtual).toLocaleString()}</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length > 10 && (
-                        <div className="flex justify-center mt-4">
-                          <button
-                            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-                            onClick={() => setVerMais(prev => ({ ...prev, 'vencido': !prev['vencido'] }))}
-                          >
-                            {verMais['vencido'] ? 'Ver menos' : 'Ver mais'}
-                          </button>
-                        </div>
-                      )}
-                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length === 0 && (
-                        <div className="h-64 flex items-center justify-center text-muted-foreground">
-                          Nenhum veículo vencido
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="nunca" className="mt-6">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr>
-                            <th className="px-4 py-2 text-left">Placa</th>
-                            <th className="px-4 py-2 text-left">Modelo</th>
-                            <th className="px-4 py-2 text-left">Marca</th>
-                            <th className="px-4 py-2 text-left">Km Atual</th>
-                            <th className="px-4 py-2 text-left">Km Próx. Troca</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca)
-                            .slice(0, verMais['nunca'] ? undefined : 10)
-                            .map(v => (
-                              <tr key={v.id} className="border-b">
-                                <td className="px-4 py-2">{v.placa}</td>
-                                <td className="px-4 py-2">{v.modelo}</td>
-                                <td className="px-4 py-2">{v.marca}</td>
-                                <td className="px-4 py-2">{v.kmAtual.toLocaleString()}</td>
-                                <td className="px-4 py-2">{v.kmProxTroca.toLocaleString()}</td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
-                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length > 10 && (
-                        <div className="flex justify-center mt-4">
-                          <button
-                            className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
-                            onClick={() => setVerMais(prev => ({ ...prev, 'nunca': !prev['nunca'] }))}
-                          >
-                            {verMais['nunca'] ? 'Ver menos' : 'Ver mais'}
-                          </button>
-                        </div>
-                      )}
-                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length === 0 && (
-                        <div className="h-64 flex items-center justify-center text-muted-foreground">
-                          Nenhum veículo sem registro
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-
-            {/* Gráfico de status da troca de óleo */}
-            <Card className="border-2 shadow-lg">
-              <CardHeader className="pb-4">
+            {/* Espaço reservado para outros cards */}
+          </div>
+          
+          {/* Gráfico de status da troca de óleo */}
+          <div className="grid grid-cols-1 gap-6">
+            <Card className="border-2 shadow-lg bg-gradient-to-br from-white to-purple-50/30 dark:from-gray-900 dark:to-purple-950/20">
+              <CardHeader className="pb-4 border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30">
                 <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg">
+                  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg shadow-md">
                     <Activity className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <CardTitle className="text-xl">Distribuição dos Status da Troca de Óleo</CardTitle>
-                    <CardDescription className="text-sm">Quantidade de veículos em cada status</CardDescription>
+                    <CardTitle className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                      Distribuição dos Status da Troca de Óleo
+                    </CardTitle>
+                    <CardDescription className="text-sm text-muted-foreground">
+                      Quantidade de veículos em cada status
+                    </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 {(() => {
                   // Filtrar apenas veículos ativos para os cálculos
                   const veiculosAtivosComDados = veiculosComDados.filter(v => v.status === "Ativo")
@@ -1380,31 +1261,308 @@ export default function DashboardPage() {
                   const nunca = veiculosAtivosComDados.filter(v => !v.ultimaTroca).length
                   const total = emDia + proximo + vencido + nunca || 1
                   const data = [
-                    { label: 'Em Dia', value: emDia, color: 'bg-green-500' },
-                    { label: 'Próximo', value: proximo, color: 'bg-yellow-400' },
-                    { label: 'Vencido', value: vencido, color: 'bg-red-500' },
-                    { label: 'Nunca', value: nunca, color: 'bg-gray-400' },
+                    { label: 'Em Dia', value: emDia, color: 'bg-green-500', textColor: 'text-green-600 dark:text-green-400', bgLight: 'bg-green-50 dark:bg-green-950/20' },
+                    { label: 'Próximo', value: proximo, color: 'bg-yellow-400', textColor: 'text-yellow-600 dark:text-yellow-400', bgLight: 'bg-yellow-50 dark:bg-yellow-950/20' },
+                    { label: 'Vencido', value: vencido, color: 'bg-red-500', textColor: 'text-red-600 dark:text-red-400', bgLight: 'bg-red-50 dark:bg-red-950/20' },
+                    { label: 'Nunca', value: nunca, color: 'bg-gray-400', textColor: 'text-gray-600 dark:text-gray-400', bgLight: 'bg-gray-50 dark:bg-gray-950/20' },
                   ]
+                  const maxHeight = 200
                   return (
-                    <div className="w-full flex flex-col items-center">
-                      <div className="flex w-full max-w-xl h-40 items-end gap-4">
-                        {data.map((d, i) => (
-                          <div key={d.label} className="flex-1 flex flex-col items-center">
-                            <div className={`w-10 ${d.color} rounded-t transition-all`} style={{ height: `${Math.round((d.value / total) * 120)}px` }} />
-                            <span className={
-                              d.label === 'Em Dia' ? 'mt-2 font-medium text-sm text-green-600 text-center' :
-                              d.label === 'Próximo' ? 'mt-2 font-medium text-sm text-yellow-500 text-center' :
-                              d.label === 'Vencido' ? 'mt-2 font-medium text-sm text-red-600 text-center' :
-                              d.label === 'Nunca' ? 'mt-2 font-medium text-sm text-gray-500 text-center' :
-                              'mt-2 font-medium text-sm text-center'
-                            }>{d.value}</span>
-                            <span className="text-xs text-muted-foreground text-center">{d.label}</span>
-                          </div>
-                        ))}
+                    <div className="w-full space-y-6">
+                      {/* Gráfico de barras */}
+                      <div className="flex w-full items-end gap-3 h-52">
+                        {data.map((d, i) => {
+                          const porcentagem = total > 0 ? Math.round((d.value / total) * 100) : 0
+                          const altura = total > 0 ? Math.round((d.value / total) * maxHeight) : 0
+                          return (
+                            <div key={d.label} className="flex-1 flex flex-col items-center gap-2 group">
+                              {/* Valor e porcentagem acima da barra */}
+                              <div className="flex flex-col items-center mb-1">
+                                <span className={`text-lg font-bold ${d.textColor}`}>{d.value}</span>
+                                <span className="text-xs text-muted-foreground font-medium">{porcentagem}%</span>
+                              </div>
+                              {/* Barra */}
+                              <div 
+                                className={`w-full ${d.color} rounded-t-lg transition-all duration-300 hover:opacity-90 shadow-md group-hover:shadow-lg`} 
+                                style={{ 
+                                  height: `${Math.max(altura, 8)}px`,
+                                  minHeight: '8px'
+                                }}
+                              />
+                              {/* Label abaixo da barra */}
+                              <span className="text-xs font-medium text-muted-foreground text-center mt-1">
+                                {d.label}
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      
+                      {/* Legenda com cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+                        {data.map((d) => {
+                          const porcentagem = total > 0 ? Math.round((d.value / total) * 100) : 0
+                          return (
+                            <div 
+                              key={d.label} 
+                              className={`${d.bgLight} rounded-lg p-3 border border-current/10 transition-all hover:shadow-md`}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-3 h-3 rounded-full ${d.color}`} />
+                                <span className="text-xs font-semibold text-muted-foreground uppercase">
+                                  {d.label}
+                                </span>
+                              </div>
+                              <div className="flex items-baseline gap-1">
+                                <span className={`text-2xl font-bold ${d.textColor}`}>
+                                  {d.value}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({porcentagem}%)
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )
                 })()}
+              </CardContent>
+            </Card>
+
+            {/* Card Troca de Óleo - Movido para o final */}
+            <Card className="border-2 shadow-lg bg-gradient-to-br from-white to-cyan-50/30 dark:from-gray-900 dark:to-cyan-950/20">
+              <CardHeader className="pb-4 border-b bg-gradient-to-r from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg shadow-md">
+                      <Droplets className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl font-bold bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
+                        Troca de Óleo
+                      </CardTitle>
+                      <CardDescription className="text-sm text-muted-foreground">
+                        Status das trocas de óleo da frota
+                      </CardDescription>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pt-6">
+                <Tabs defaultValue="em-dia" value={abaTrocaOleo} onValueChange={setAbaTrocaOleo} className="w-full">
+                  <TabsList className="grid w-full grid-cols-4 bg-muted/50">
+                    <TabsTrigger value="em-dia" className="text-green-600 data-[state=active]:font-bold data-[state=active]:bg-green-50 data-[state=active]:text-green-700 dark:data-[state=active]:bg-green-950/30">
+                      Em Dia
+                    </TabsTrigger>
+                    <TabsTrigger value="proximo" className="text-yellow-600 data-[state=active]:font-bold data-[state=active]:bg-yellow-50 data-[state=active]:text-yellow-700 dark:data-[state=active]:bg-yellow-950/30">
+                      Próximo do Prazo
+                    </TabsTrigger>
+                    <TabsTrigger value="vencido" className="text-red-600 data-[state=active]:font-bold data-[state=active]:bg-red-50 data-[state=active]:text-red-700 dark:data-[state=active]:bg-red-950/30">
+                      Vencido
+                    </TabsTrigger>
+                    <TabsTrigger value="nunca" className="text-gray-500 data-[state=active]:font-bold data-[state=active]:bg-gray-50 data-[state=active]:text-gray-700 dark:data-[state=active]:bg-gray-950/30">
+                      Nunca Registrado
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="em-dia" className="mt-6">
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-green-50/50 dark:bg-green-950/20">
+                            <TableHead className="text-xs font-semibold text-muted-foreground h-10">Placa</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Modelo</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Marca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Atual</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Próx. Troca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Faltam (km)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca)
+                            .slice(0, verMais['em-dia'] ? undefined : 10)
+                            .map(v => (
+                              <TableRow key={v.id} className="hover:bg-green-50/30 dark:hover:bg-green-950/10 transition-colors">
+                                <TableCell className="text-xs py-2 font-medium">{v.placa}</TableCell>
+                                <TableCell className="text-xs py-2">{v.modelo}</TableCell>
+                                <TableCell className="text-xs py-2 text-muted-foreground">{v.marca}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmAtual.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmProxTroca.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono text-green-600 dark:text-green-400 font-semibold">
+                                  {(v.kmProxTroca - v.kmAtual).toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length > 10 && (
+                        <div className="flex justify-center mt-4 pb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setVerMais(prev => ({ ...prev, 'em-dia': !prev['em-dia'] }))}
+                          >
+                            {verMais['em-dia'] ? 'Ver menos' : 'Ver mais'}
+                          </Button>
+                        </div>
+                      )}
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length === 0 && (
+                        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                          Nenhum veículo em dia
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="proximo" className="mt-6">
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-yellow-50/50 dark:bg-yellow-950/20">
+                            <TableHead className="text-xs font-semibold text-muted-foreground h-10">Placa</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Modelo</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Marca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Atual</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Próx. Troca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Faltam (km)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca)
+                            .slice(0, verMais['proximo'] ? undefined : 10)
+                            .map(v => (
+                              <TableRow key={v.id} className="hover:bg-yellow-50/30 dark:hover:bg-yellow-950/10 transition-colors">
+                                <TableCell className="text-xs py-2 font-medium">{v.placa}</TableCell>
+                                <TableCell className="text-xs py-2">{v.modelo}</TableCell>
+                                <TableCell className="text-xs py-2 text-muted-foreground">{v.marca}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmAtual.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmProxTroca.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono text-yellow-600 dark:text-yellow-400 font-semibold">
+                                  {(v.kmProxTroca - v.kmAtual).toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length > 10 && (
+                        <div className="flex justify-center mt-4 pb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setVerMais(prev => ({ ...prev, 'proximo': !prev['proximo'] }))}
+                          >
+                            {verMais['proximo'] ? 'Ver menos' : 'Ver mais'}
+                          </Button>
+                        </div>
+                      )}
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length === 0 && (
+                        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                          Nenhum veículo próximo do prazo
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="vencido" className="mt-6">
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-red-50/50 dark:bg-red-950/20">
+                            <TableHead className="text-xs font-semibold text-muted-foreground h-10">Placa</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Modelo</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Marca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Atual</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Próx. Troca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Faltam (km)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca)
+                            .slice(0, verMais['vencido'] ? undefined : 10)
+                            .map(v => (
+                              <TableRow key={v.id} className="hover:bg-red-50/30 dark:hover:bg-red-950/10 transition-colors">
+                                <TableCell className="text-xs py-2 font-medium">{v.placa}</TableCell>
+                                <TableCell className="text-xs py-2">{v.modelo}</TableCell>
+                                <TableCell className="text-xs py-2 text-muted-foreground">{v.marca}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmAtual.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmProxTroca.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono text-red-600 dark:text-red-400 font-semibold">
+                                  {(v.kmProxTroca - v.kmAtual).toLocaleString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length > 10 && (
+                        <div className="flex justify-center mt-4 pb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setVerMais(prev => ({ ...prev, 'vencido': !prev['vencido'] }))}
+                          >
+                            {verMais['vencido'] ? 'Ver menos' : 'Ver mais'}
+                          </Button>
+                        </div>
+                      )}
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length === 0 && (
+                        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                          Nenhum veículo vencido
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="nunca" className="mt-6">
+                    <div className="overflow-x-auto rounded-lg border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/50 dark:bg-gray-950/20">
+                            <TableHead className="text-xs font-semibold text-muted-foreground h-10">Placa</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Modelo</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Marca</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Atual</TableHead>
+                            <TableHead className="text-xs font-semibold text-muted-foreground">Km Próx. Troca</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca)
+                            .slice(0, verMais['nunca'] ? undefined : 10)
+                            .map(v => (
+                              <TableRow key={v.id} className="hover:bg-gray-50/30 dark:hover:bg-gray-950/10 transition-colors">
+                                <TableCell className="text-xs py-2 font-medium">{v.placa}</TableCell>
+                                <TableCell className="text-xs py-2">{v.modelo}</TableCell>
+                                <TableCell className="text-xs py-2 text-muted-foreground">{v.marca}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmAtual.toLocaleString()}</TableCell>
+                                <TableCell className="text-xs py-2 font-mono">{v.kmProxTroca.toLocaleString()}</TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length > 10 && (
+                        <div className="flex justify-center mt-4 pb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setVerMais(prev => ({ ...prev, 'nunca': !prev['nunca'] }))}
+                          >
+                            {verMais['nunca'] ? 'Ver menos' : 'Ver mais'}
+                          </Button>
+                        </div>
+                      )}
+                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length === 0 && (
+                        <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                          Nenhum veículo sem registro
+                        </div>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </div>

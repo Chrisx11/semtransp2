@@ -56,6 +56,48 @@ export async function getTrocasOleo(veiculoId: string): Promise<TrocaOleo[]> {
   }
 }
 
+// Buscar TODAS as trocas de óleo de TODOS os veículos de uma vez (otimizado)
+export async function getAllTrocasOleo(): Promise<TrocaOleo[]> {
+  try {
+    // O Supabase por padrão retorna até 1000 registros
+    // Precisamos buscar todos os registros usando paginação se necessário
+    let allData: TrocaOleo[] = []
+    let from = 0
+    const pageSize = 1000
+    let hasMore = true
+    
+    while (hasMore) {
+      const { data, error } = await supabase
+        .from("trocas_oleo")
+        .select("*")
+        .range(from, from + pageSize - 1)
+        .order("data_troca", { ascending: false })
+    
+      if (error) {
+        console.error("Erro ao buscar todas as trocas de óleo:", error)
+        throw error
+      }
+      
+      if (data && data.length > 0) {
+        allData = [...allData, ...data]
+        from += pageSize
+        hasMore = data.length === pageSize
+      } else {
+        hasMore = false
+      }
+    }
+  
+    return allData
+  } catch (err) {
+    // Tratar especificamente erros de rede/fetch
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      console.warn(`⚠️ Erro de conexão ao buscar todas as trocas de óleo. Verifique a conexão com o Supabase.`)
+      return []
+    }
+    throw err
+  }
+}
+
 // Buscar última troca de óleo de um veículo
 export async function getUltimaTrocaOleo(veiculoId: string): Promise<TrocaOleo | null> {
   try {
