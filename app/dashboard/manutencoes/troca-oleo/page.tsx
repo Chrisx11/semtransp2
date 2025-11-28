@@ -35,6 +35,7 @@ interface Veiculo {
   kmAtual?: number
   periodoTrocaOleo?: number
   periodotrocaoleo?: number
+  status?: "Ativo" | "Inativo"
 }
 
 interface VeiculoComDados extends Veiculo {
@@ -276,9 +277,11 @@ export default function TrocaOleoPage() {
     setLoading(true)
     try {
       // Buscar todos os veículos diretamente do banco para obter o periodotrocaoleo
+      // Filtrar apenas veículos ativos
       const { data: veiculosData, error } = await supabase
         .from("veiculos")
         .select("*")
+        .eq("status", "Ativo")
         .order("placa")
       
       if (error) throw error

@@ -752,7 +752,10 @@ export default function DashboardPage() {
       
       // Separar veículos que não atualizaram KM em 3 dias
       // Considera que não atualizou se: nunca atualizou OU última atualização foi há mais de 3 dias
+      // IMPORTANTE: Filtrar apenas veículos ATIVOS (já filtrado acima, mas garantindo aqui também)
       const semAtualizacao = veiculosComInfoKm.filter(v => {
+        // Garantir que apenas veículos ativos sejam contados
+        if (v.status !== "Ativo") return false
         if (!v.ultimaAtualizacaoKm) return true // Nunca atualizou
         const dataAtualizacao = new Date(v.ultimaAtualizacaoKm)
         dataAtualizacao.setHours(0, 0, 0, 0)
@@ -760,7 +763,10 @@ export default function DashboardPage() {
       })
       
       // Veículos que atualizaram KM nos últimos 3 dias
+      // IMPORTANTE: Filtrar apenas veículos ATIVOS (já filtrado acima, mas garantindo aqui também)
       const comAtualizacao = veiculosComInfoKm.filter(v => {
+        // Garantir que apenas veículos ativos sejam contados
+        if (v.status !== "Ativo") return false
         if (!v.ultimaAtualizacaoKm) return false
         const dataAtualizacao = new Date(v.ultimaAtualizacaoKm)
         dataAtualizacao.setHours(0, 0, 0, 0)
@@ -1180,7 +1186,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca)
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca)
                             .slice(0, verMais['em-dia'] ? undefined : 10)
                             .map(v => (
                               <tr key={v.id} className="border-b">
@@ -1194,7 +1200,7 @@ export default function DashboardPage() {
                             ))}
                         </tbody>
                       </table>
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length > 10 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length > 10 && (
                         <div className="flex justify-center mt-4">
                           <button
                             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
@@ -1204,7 +1210,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       )}
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length === 0 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length === 0 && (
                         <div className="h-64 flex items-center justify-center text-muted-foreground">
                           Nenhum veículo em dia
                         </div>
@@ -1226,7 +1232,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca)
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca)
                             .slice(0, verMais['proximo'] ? undefined : 10)
                             .map(v => (
                               <tr key={v.id} className="border-b">
@@ -1240,7 +1246,7 @@ export default function DashboardPage() {
                             ))}
                         </tbody>
                       </table>
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length > 10 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length > 10 && (
                         <div className="flex justify-center mt-4">
                           <button
                             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
@@ -1250,7 +1256,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       )}
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length === 0 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length === 0 && (
                         <div className="h-64 flex items-center justify-center text-muted-foreground">
                           Nenhum veículo próximo do prazo
                         </div>
@@ -1272,7 +1278,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca)
+                          {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca)
                             .slice(0, verMais['vencido'] ? undefined : 10)
                             .map(v => (
                               <tr key={v.id} className="border-b">
@@ -1286,7 +1292,7 @@ export default function DashboardPage() {
                             ))}
                         </tbody>
                       </table>
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length > 10 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length > 10 && (
                         <div className="flex justify-center mt-4">
                           <button
                             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
@@ -1296,7 +1302,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       )}
-                      {veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length === 0 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length === 0 && (
                         <div className="h-64 flex items-center justify-center text-muted-foreground">
                           Nenhum veículo vencido
                         </div>
@@ -1317,7 +1323,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {veiculosComDados.filter(v => !v.ultimaTroca)
+                          {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca)
                             .slice(0, verMais['nunca'] ? undefined : 10)
                             .map(v => (
                               <tr key={v.id} className="border-b">
@@ -1330,7 +1336,7 @@ export default function DashboardPage() {
                             ))}
                         </tbody>
                       </table>
-                      {veiculosComDados.filter(v => !v.ultimaTroca).length > 10 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length > 10 && (
                         <div className="flex justify-center mt-4">
                           <button
                             className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100"
@@ -1340,7 +1346,7 @@ export default function DashboardPage() {
                           </button>
                         </div>
                       )}
-                      {veiculosComDados.filter(v => !v.ultimaTroca).length === 0 && (
+                      {veiculosComDados.filter(v => v.status === "Ativo" && !v.ultimaTroca).length === 0 && (
                         <div className="h-64 flex items-center justify-center text-muted-foreground">
                           Nenhum veículo sem registro
                         </div>
@@ -1366,10 +1372,12 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  const emDia = veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length
-                  const proximo = veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length
-                  const vencido = veiculosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length
-                  const nunca = veiculosComDados.filter(v => !v.ultimaTroca).length
+                  // Filtrar apenas veículos ativos para os cálculos
+                  const veiculosAtivosComDados = veiculosComDados.filter(v => v.status === "Ativo")
+                  const emDia = veiculosAtivosComDados.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length
+                  const proximo = veiculosAtivosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length
+                  const vencido = veiculosAtivosComDados.filter(v => (v.kmProxTroca - v.kmAtual) <= 0 && v.ultimaTroca).length
+                  const nunca = veiculosAtivosComDados.filter(v => !v.ultimaTroca).length
                   const total = emDia + proximo + vencido + nunca || 1
                   const data = [
                     { label: 'Em Dia', value: emDia, color: 'bg-green-500' },

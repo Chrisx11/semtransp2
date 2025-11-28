@@ -1768,106 +1768,140 @@ export default function FiltrosPage() {
             )}
           </DialogHeader>
           
-          <div className="mt-4 space-y-4">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-muted-foreground">
-                {filtrosRegistrados.length > 0 
-                  ? `${filtrosRegistrados.length} ${filtrosRegistrados.length === 1 ? 'filtro registrado' : 'filtros registrados'}`
-                  : 'Nenhum filtro registrado ainda'}
-              </p>
-              <Button 
-                variant={editMode ? "secondary" : "outline"} 
-                size="sm" 
-                onClick={() => setEditMode(e => !e)}
-                className="flex items-center gap-2"
-              >
-                {editMode ? (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Concluir Edição
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Editar Lista
-                  </>
-                )}
-              </Button>
+          <div className="mt-4 space-y-3">
+            {/* Barra de Ações Compacta */}
+            <div className="flex justify-between items-center pb-2 border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">
+                  {filtrosRegistrados.length > 0 
+                    ? `${filtrosRegistrados.length} ${filtrosRegistrados.length === 1 ? 'filtro' : 'filtros'}`
+                    : 'Nenhum filtro'}
+                </span>
+                {filtrosRegistrados.length > 0 && (() => {
+                  const filtrosComEstoque = filtrosRegistrados.filter(f => {
+                    const produto = todosProdutos.find(p => p.id === f.produtoId)
+                    const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                    return estoque > 0
+                  }).length
+                  const filtrosSemEstoque = filtrosRegistrados.length - filtrosComEstoque
+                  return (
+                    <>
+                      <span className="text-xs text-green-600 dark:text-green-400">
+                        {filtrosComEstoque} com estoque
+                      </span>
+                      {filtrosSemEstoque > 0 && (
+                        <span className="text-xs text-red-600 dark:text-red-400">
+                          {filtrosSemEstoque} sem estoque
+                        </span>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+              {filtrosRegistrados.length > 0 && (
+                <Button 
+                  variant={editMode ? "secondary" : "outline"} 
+                  size="sm" 
+                  onClick={() => setEditMode(e => !e)}
+                  className="h-7 text-xs"
+                >
+                  {editMode ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Concluir
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Editar
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {FILTER_HEADERS.map((header) => {
-                const filtros = filtrosRegistrados.filter(f => f.categoria === header)
-                const temFiltros = filtros.length > 0
-                
-                return (
-                  <Card key={header} className={`border ${temFiltros ? 'border-primary/20 bg-primary/5' : 'border-border/50 bg-muted/30'}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-medium text-sm text-foreground/90">{header}</h3>
-                        {temFiltros && (
-                          <Badge variant="secondary" className="text-xs font-normal bg-primary/10 text-primary/80 border-0">
-                            {filtros.length} {filtros.length === 1 ? 'item' : 'itens'}
+            {/* Categorias com Filtros - Layout Compacto */}
+            {filtrosRegistrados.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {FILTER_HEADERS.map((header) => {
+                  const filtros = filtrosRegistrados.filter(f => f.categoria === header)
+                  if (filtros.length === 0) return null
+                  
+                  return (
+                    <Card key={header} className="border border-border/50 hover:border-primary/30 transition-colors">
+                      <CardHeader className="pb-2 pt-3 px-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-xs font-medium text-foreground/90">{header}</h3>
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
+                            {filtros.length}
                           </Badge>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {!temFiltros ? (
-                        <div className="flex flex-col items-center justify-center py-6 text-center">
-                          <XCircle className="h-6 w-6 text-muted-foreground/40 mb-2" />
-                          <span className="text-xs text-muted-foreground/70">Nenhum filtro registrado</span>
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {filtros.map(filtro => {
-                            const produto = todosProdutos.find(p => p.id === filtro.produtoId)
-                            const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
-                            const emEstoque = estoque > 0
-                            return (
+                      </CardHeader>
+                      <CardContent className="px-3 pb-3">
+                        <div className="space-y-1.5">
+                          {filtros
+                            .map(filtro => {
+                              const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+                              const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                              return { filtro, produto, estoque, emEstoque: estoque > 0 }
+                            })
+                            .sort((a, b) => {
+                              // Primeiro os com estoque, depois os sem estoque
+                              if (a.emEstoque && !b.emEstoque) return -1
+                              if (!a.emEstoque && b.emEstoque) return 1
+                              // Se ambos têm ou não têm estoque, ordena alfabeticamente
+                              return a.filtro.produtoDescricao.localeCompare(b.filtro.produtoDescricao, 'pt-BR')
+                            })
+                            .map(({ filtro, produto, estoque, emEstoque }) => (
                               <div
                                 key={filtro.produtoId + filtro.categoria}
-                                className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-all duration-200 ${
+                                className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
                                   emEstoque 
-                                    ? "bg-green-50/80 dark:bg-green-950/10 text-green-700/90 dark:text-green-400/90 border border-green-200/50 dark:border-green-800/30" 
-                                    : "bg-red-50/80 dark:bg-red-950/10 text-red-700/90 dark:text-red-400/90 border border-red-200/50 dark:border-red-800/30"
+                                    ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
+                                    : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
                                 }`}
                               >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                   {emEstoque ? (
-                                    <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                                    <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
                                   ) : (
-                                    <XCircle className="h-4 w-4 flex-shrink-0" />
+                                    <XCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
                                   )}
                                   <div className="flex-1 min-w-0">
-                                    <span className="font-medium truncate block" title={filtro.produtoDescricao}>
+                                    <p className="font-medium text-[11px] truncate" title={filtro.produtoDescricao}>
                                       {filtro.produtoDescricao}
-                                    </span>
-                                    <span className={`text-xs mt-0.5 font-normal ${emEstoque ? 'text-green-600/80 dark:text-green-500/80' : 'text-red-600/80 dark:text-red-500/80'}`}>
-                                      Estoque: {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
-                                    </span>
+                                    </p>
+                                    <p className={`text-[10px] ${emEstoque ? 'text-green-700/70 dark:text-green-400/70' : 'text-red-700/70 dark:text-red-400/70'}`}>
+                                      {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
+                                    </p>
                                   </div>
                                 </div>
                                 {editMode && (
                                   <button
                                     type="button"
-                                    className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
                                     onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId, setFiltrosRegistrados)}
-                                    title="Remover filtro"
+                                    title="Remover"
                                   >
-                                    <Trash2 className="h-4 w-4" />
+                                    <Trash2 className="h-3 w-3" />
                                   </button>
                                 )}
                               </div>
-                            )
-                          })}
+                            ))}
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Filter className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  Nenhum filtro registrado
+                </p>
+              </div>
+            )}
           </div>
           
           <div className="flex justify-end mt-6">
