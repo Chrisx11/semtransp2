@@ -260,9 +260,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       allModules.forEach(moduleId => {
         const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId)
         if (modulePerm?.can_view) {
-          formattedPermissions[moduleId] = ['visualizar']
+          formattedPermissions[moduleId] = {
+            acoes: ['visualizar'],
+            device_access: modulePerm.device_access || 'both'
+          }
           if (modulePerm.can_edit) {
-            formattedPermissions[moduleId].push('criar', 'editar', 'excluir')
+            formattedPermissions[moduleId].acoes.push('criar', 'editar', 'excluir')
           }
         }
       })
@@ -518,6 +521,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, user?.id])
 
+  // Função auxiliar para verificar se está em mobile
+  const isMobileDevice = (): boolean => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth < 768
+  }
+
   // Verificar permissão para uma rota específica
   // Sistema básico de permissões - verifica se o usuário tem acesso ao módulo da rota
   const verificarPermissao = (caminho: string): boolean => {
@@ -526,6 +535,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Admin tem acesso a tudo
     if (user.perfil === "admin") return true;
+    
+    // Verificar dispositivo atual
+    const isMobile = isMobileDevice()
     
     // Se o usuário tem permissões customizadas, usar essas permissões
     if (user.permissoes_customizadas) {
@@ -573,10 +585,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const moduleIdPerms = user.permissoes_customizadas[moduleId];
         const moduloPerms = user.permissoes_customizadas[modulo];
         
-        const hasModulePermission = (Array.isArray(moduleIdPerms) && moduleIdPerms.includes(acao)) || 
-                                   (Array.isArray(moduloPerms) && moduloPerms.includes(acao));
+        // Verificar device_access para moduleIdPerms
+        let hasModuleIdPermission = false
+        if (moduleIdPerms) {
+          if (Array.isArray(moduleIdPerms)) {
+            hasModuleIdPermission = moduleIdPerms.includes(acao)
+          } else if (typeof moduleIdPerms === 'object') {
+            const deviceAccess = moduleIdPerms.device_access || 'both'
+            if ((deviceAccess === 'mobile' && !isMobile) || (deviceAccess === 'desktop' && isMobile)) {
+              hasModuleIdPermission = false
+            } else {
+              hasModuleIdPermission = moduleIdPerms.acoes && Array.isArray(moduleIdPerms.acoes) && moduleIdPerms.acoes.includes(acao)
+            }
+          }
+        }
         
-        return hasModulePermission || submodulos.includes(pagina);
+        // Verificar device_access para moduloPerms
+        let hasModuloPermission = false
+        if (moduloPerms) {
+          if (Array.isArray(moduloPerms)) {
+            hasModuloPermission = moduloPerms.includes(acao)
+          } else if (typeof moduloPerms === 'object') {
+            const deviceAccess = moduloPerms.device_access || 'both'
+            if ((deviceAccess === 'mobile' && !isMobile) || (deviceAccess === 'desktop' && isMobile)) {
+              hasModuloPermission = false
+            } else {
+              hasModuloPermission = moduloPerms.acoes && Array.isArray(moduloPerms.acoes) && moduloPerms.acoes.includes(acao)
+            }
+          }
+        }
+        
+        return hasModuleIdPermission || hasModuloPermission || submodulos.includes(pagina);
       }
       
       // Caso especial para ordem de serviço
@@ -598,7 +637,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       
-      // Verificar se é um array e se contém a ação
+      // Verificar device_access se for um objeto
+      if (moduloPerms && typeof moduloPerms === 'object' && !Array.isArray(moduloPerms)) {
+        const deviceAccess = moduloPerms.device_access || 'both'
+        // Verificar se o dispositivo atual tem permissão
+        if (deviceAccess === 'mobile' && !isMobile) return false
+        if (deviceAccess === 'desktop' && isMobile) return false
+        
+        // Verificar ações
+        if (moduloPerms.acoes && Array.isArray(moduloPerms.acoes)) {
+          return moduloPerms.acoes.includes(acao)
+        }
+        return false
+      }
+      
+      // Verificar se é um array e se contém a ação (compatibilidade com formato antigo)
       if (Array.isArray(moduloPerms)) {
         return moduloPerms.includes(acao);
       }
@@ -884,9 +937,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       allModules.forEach(moduleId => {
         const modulePerm = modulePermissions.find((p: any) => p.module?.id === moduleId);
         if (modulePerm?.can_view) {
-          formattedPermissions[moduleId] = ['visualizar'];
+          formattedPermissions[moduleId] = {
+            acoes: ['visualizar'],
+            device_access: modulePerm.device_access || 'both'
+          };
           if (modulePerm.can_edit) {
-            formattedPermissions[moduleId].push('criar', 'editar', 'excluir');
+            formattedPermissions[moduleId].acoes.push('criar', 'editar', 'excluir');
           }
         }
       });

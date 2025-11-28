@@ -84,7 +84,11 @@ export default function ConfiguracoesPage() {
   // Estados para permissões
   const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<string | null>(null)
   const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({})
+  const [userDeviceAccess, setUserDeviceAccess] = useState<Record<string, 'mobile' | 'desktop' | 'both'>>({})
   const [comboboxOpen, setComboboxOpen] = useState(false)
+  
+  // Estados para acesso global por dispositivo
+  const [globalDeviceAccess, setGlobalDeviceAccess] = useState<Record<string, 'mobile' | 'desktop' | 'both'>>({})
   
   // Toast para notificações
   const { toast } = useToast()
@@ -211,6 +215,35 @@ export default function ConfiguracoesPage() {
       }))
       
       setUsers(usersWithPermissions)
+      
+      // Carregar device_access global de cada usuário
+      const deviceAccessMap: Record<string, 'mobile' | 'desktop' | 'both'> = {}
+      for (const user of usersWithPermissions) {
+        try {
+          const { data: userPerms } = await supabase
+            .from('user_module_permissions')
+            .select('device_access')
+            .eq('user_id', user.id)
+            .eq('can_view', true)
+          
+          if (userPerms && userPerms.length > 0) {
+            // Verificar se todos têm o mesmo device_access
+            const uniqueAccess = [...new Set(userPerms.map(p => p.device_access || 'both'))]
+            if (uniqueAccess.length === 1) {
+              deviceAccessMap[user.id] = (uniqueAccess[0] as 'mobile' | 'desktop' | 'both') || 'both'
+            } else {
+              // Se houver diferentes, usar 'both' como padrão
+              deviceAccessMap[user.id] = 'both'
+            }
+          } else {
+            deviceAccessMap[user.id] = 'both'
+          }
+        } catch (error) {
+          console.error(`Erro ao carregar device_access do usuário ${user.id}:`, error)
+          deviceAccessMap[user.id] = 'both'
+        }
+      }
+      setGlobalDeviceAccess(deviceAccessMap)
     } catch (error) {
       console.error('Erro ao buscar usuários:', error)
       toast({
@@ -755,16 +788,21 @@ export default function ConfiguracoesPage() {
         permissions[page.id] = false
       })
       
-      // Preencher com as permissões existentes
+      // Preencher com as permissões existentes e device_access
+      const deviceAccess: Record<string, 'mobile' | 'desktop' | 'both'> = {}
+      
       if (modulePermissions) {
         modulePermissions.forEach((perm: any) => {
           if (perm.module && perm.can_view) {
             permissions[perm.module.id] = true
+            // device_access pode ser 'mobile', 'desktop' ou 'both' (padrão 'both')
+            deviceAccess[perm.module.id] = perm.device_access || 'both'
           }
         })
       }
       
       setUserPermissions(permissions)
+      setUserDeviceAccess(deviceAccess)
       setSelectedUserForPermissions(userId)
     } catch (error) {
       console.error('Erro ao carregar permissões:', error)
@@ -784,6 +822,41 @@ export default function ConfiguracoesPage() {
       ...prev,
       [pageId]: !prev[pageId]
     }))
+  }
+
+  // Função para salvar device_access global de um usuário
+  const saveGlobalDeviceAccess = async (userId: string, deviceAccess: 'mobile' | 'desktop' | 'both') => {
+    setIsProcessing(true)
+    try {
+      // Atualizar device_access de todas as permissões do usuário de uma vez
+      const { error: updateError } = await supabase
+        .from('user_module_permissions')
+        .update({ device_access: deviceAccess })
+        .eq('user_id', userId)
+        .eq('can_view', true)
+      
+      if (updateError) throw updateError
+      
+      // Atualizar o estado local
+      setGlobalDeviceAccess(prev => ({
+        ...prev,
+        [userId]: deviceAccess
+      }))
+      
+      toast({
+        title: "Acesso atualizado",
+        description: `Acesso do dispositivo atualizado para ${deviceAccess === 'both' ? 'Mobile + Desktop' : deviceAccess === 'mobile' ? 'Apenas Mobile' : 'Apenas Desktop'}.`
+      })
+    } catch (error) {
+      console.error('Erro ao salvar device_access global:', error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao salvar",
+        description: "Ocorreu um erro ao atualizar o acesso do dispositivo."
+      })
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   // Função para salvar permissões
@@ -844,7 +917,8 @@ export default function ConfiguracoesPage() {
           user_id: selectedUserForPermissions,
           module_id: moduleId,
           can_view: true,
-          can_edit: false // Sistema básico apenas com acesso de visualização
+          can_edit: false, // Sistema básico apenas com acesso de visualização
+          device_access: userDeviceAccess[moduleId] || 'both' // Padrão: acesso a ambos
         }))
       
       // Inserir novas permissões
@@ -921,9 +995,10 @@ export default function ConfiguracoesPage() {
 
         <div className="w-[92%] pl-0 pr-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "users" | "permissions")} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="users">Usuários</TabsTrigger>
               <TabsTrigger value="permissions">Permissões</TabsTrigger>
+              <TabsTrigger value="device-access">Acesso por Dispositivo</TabsTrigger>
             </TabsList>
 
             <TabsContent value="users" className="space-y-4">
@@ -1134,6 +1209,26 @@ export default function ConfiguracoesPage() {
                           >
                             {page.name}
                           </Label>
+                          {userPermissions[page.id] && (
+                            <Select
+                              value={userDeviceAccess[page.id] || 'both'}
+                              onValueChange={(value: 'mobile' | 'desktop' | 'both') => {
+                                setUserDeviceAccess(prev => ({
+                                  ...prev,
+                                  [page.id]: value
+                                }))
+                              }}
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="both">Mobile + Desktop</SelectItem>
+                                <SelectItem value="mobile">Apenas Mobile</SelectItem>
+                                <SelectItem value="desktop">Apenas Desktop</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1389,6 +1484,7 @@ export default function ConfiguracoesPage() {
           <TabsList className="mb-4">
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="permissions">Permissões</TabsTrigger>
+            <TabsTrigger value="device-access">Acesso por Dispositivo</TabsTrigger>
           </TabsList>
           
           <TabsContent value="users">
@@ -1626,6 +1722,26 @@ export default function ConfiguracoesPage() {
                             >
                               {page.name}
                             </Label>
+                            {userPermissions[page.id] && (
+                              <Select
+                                value={userDeviceAccess[page.id] || 'both'}
+                                onValueChange={(value: 'mobile' | 'desktop' | 'both') => {
+                                  setUserDeviceAccess(prev => ({
+                                    ...prev,
+                                    [page.id]: value
+                                  }))
+                                }}
+                              >
+                                <SelectTrigger className="w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="both">Mobile + Desktop</SelectItem>
+                                  <SelectItem value="mobile">Apenas Mobile</SelectItem>
+                                  <SelectItem value="desktop">Apenas Desktop</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1644,6 +1760,138 @@ export default function ConfiguracoesPage() {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="device-access" className="space-y-4">
+            <Card className="shadow-md-custom">
+              <CardContent className="p-6">
+                <div className="mb-4">
+                  <h2 className="text-xl font-semibold mb-2">Acesso por Dispositivo</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Defina o tipo de acesso (Mobile/Desktop) para cada usuário. Isso será aplicado a todas as páginas que o usuário tem permissão.
+                  </p>
+                </div>
+
+                {isLoading ? (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                    <p>Carregando usuários...</p>
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                    Nenhum usuário encontrado. Crie um usuário primeiro na aba "Usuários".
+                  </div>
+                ) : (
+                  <div className="rounded-md border shadow-sm-custom overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[200px]">Usuário</TableHead>
+                          <TableHead className="text-center">Mobile + Desktop</TableHead>
+                          <TableHead className="text-center">Apenas Mobile</TableHead>
+                          <TableHead className="text-center">Apenas Desktop</TableHead>
+                          <TableHead className="text-center">Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {users.map((user) => {
+                          const currentAccess = globalDeviceAccess[user.id] || 'both'
+                          return (
+                            <TableRow key={user.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{user.name}</div>
+                                  <div className="text-sm text-muted-foreground">{user.username}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Checkbox
+                                  checked={currentAccess === 'both'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setGlobalDeviceAccess(prev => ({
+                                        ...prev,
+                                        [user.id]: 'both'
+                                      }))
+                                    }
+                                  }}
+                                  onClick={(e) => {
+                                    if (currentAccess === 'both') {
+                                      e.preventDefault()
+                                    }
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Checkbox
+                                  checked={currentAccess === 'mobile'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setGlobalDeviceAccess(prev => ({
+                                        ...prev,
+                                        [user.id]: 'mobile'
+                                      }))
+                                    }
+                                  }}
+                                  onClick={(e) => {
+                                    if (currentAccess === 'mobile') {
+                                      e.preventDefault()
+                                    }
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Checkbox
+                                  checked={currentAccess === 'desktop'}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setGlobalDeviceAccess(prev => ({
+                                        ...prev,
+                                        [user.id]: 'desktop'
+                                      }))
+                                    }
+                                  }}
+                                  onClick={(e) => {
+                                    if (currentAccess === 'desktop') {
+                                      e.preventDefault()
+                                    }
+                                  }}
+                                />
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  size="sm"
+                                  onClick={() => saveGlobalDeviceAccess(user.id, globalDeviceAccess[user.id] || 'both')}
+                                  disabled={isProcessing}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  {isProcessing ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Salvando...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Save className="mr-2 h-4 w-4" />
+                                      Salvar
+                                    </>
+                                  )}
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                    {users.length > 0 && (
+                      <div className="mt-4 text-sm text-muted-foreground px-4 pb-4">
+                        Total de usuários: {users.length}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
