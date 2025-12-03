@@ -39,16 +39,53 @@ interface FiltroRegistrado {
   produtoDescricao: string
 }
 
+// Função auxiliar para normalizar categoria (remove espaços extras e normaliza)
+function normalizarCategoria(categoria: string): string {
+  if (!categoria) return '';
+  return categoria.trim().replace(/\s+/g, ' ');
+}
+
+// Função auxiliar para verificar se uma categoria corresponde a um header
+function categoriaCorresponde(categoria: string, header: string): boolean {
+  const catNormalizada = normalizarCategoria(categoria);
+  const headerNormalizado = normalizarCategoria(header);
+  // Comparação exata primeiro
+  if (catNormalizada === headerNormalizado) return true;
+  // Comparação case-insensitive
+  if (catNormalizada.toLowerCase() === headerNormalizado.toLowerCase()) return true;
+  return false;
+}
+
 // Funções para interagir com o Supabase
 async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroRegistrado[]> {
   try {
     // Normalizar o ID para garantir consistência (remover espaços e converter para string)
     const normalizedId = String(veiculoId).trim();
     
-    const { data, error } = await supabase
+    // Primeiro, tentar busca exata
+    let { data, error } = await supabase
       .from('filtros_registrados')
       .select('veiculoid, categoria, produtoid, produtodescricao')
       .eq('veiculoid', normalizedId);
+    
+    // Se não encontrar nada, tentar busca case-insensitive (se o banco suportar)
+    if (!error && (!data || data.length === 0)) {
+      console.log(`[getFiltrosDoVeiculoSupabase] Nenhum resultado com busca exata para ${normalizedId}, tentando busca alternativa...`);
+      // Buscar todos os filtros e filtrar localmente (fallback)
+      const { data: allData, error: allError } = await supabase
+        .from('filtros_registrados')
+        .select('veiculoid, categoria, produtoid, produtodescricao');
+      
+      if (!allError && allData) {
+        // Filtrar localmente com comparação case-insensitive
+        data = allData.filter(item => 
+          String(item.veiculoid).trim().toLowerCase() === normalizedId.toLowerCase()
+        );
+        if (data.length > 0) {
+          console.log(`[getFiltrosDoVeiculoSupabase] Encontrados ${data.length} registros com busca case-insensitive`);
+        }
+      }
+    }
 
     if (error) {
       console.error(`Erro ao buscar filtros do veículo ${normalizedId}:`, error.message, error);
@@ -61,18 +98,40 @@ async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroReg
       return [];
     }
     
-    // Debug: log dos dados retornados
-    if (data.length > 0) {
-      console.log(`[getFiltrosDoVeiculoSupabase] Veículo ${normalizedId}: ${data.length} registros encontrados`, data);
-    }
-    
     // Mapear os dados para o formato esperado pela interface (camelCase)
     const filtros = data.map(item => ({
       veiculoId: String(item.veiculoid).trim(),
-      categoria: item.categoria,
+      categoria: item.categoria ? String(item.categoria).trim() : '',
       produtoId: String(item.produtoid).trim(),
       produtoDescricao: item.produtodescricao,
     }));
+    
+    // Debug: log dos dados retornados
+    if (filtros.length > 0) {
+      console.log(`[getFiltrosDoVeiculoSupabase] Veículo ${normalizedId}: ${filtros.length} registros encontrados`, filtros);
+      // Log de categorias encontradas para debug
+      const categoriasEncontradas = [...new Set(filtros.map(f => f.categoria))];
+      console.log(`[getFiltrosDoVeiculoSupabase] Categorias encontradas:`, categoriasEncontradas);
+      console.log(`[getFiltrosDoVeiculoSupabase] FILTER_HEADERS esperados:`, FILTER_HEADERS);
+      
+      // Verificar se há filtros com categorias não correspondentes
+      const categoriasNaoReconhecidas = categoriasEncontradas.filter(cat => !FILTER_HEADERS.includes(cat));
+      if (categoriasNaoReconhecidas.length > 0) {
+        console.warn(`[getFiltrosDoVeiculoSupabase] ⚠️ Categorias não reconhecidas encontradas:`, categoriasNaoReconhecidas);
+      }
+      
+      // Verificar produtos específicos (para debug do HU8171)
+      const filtrosHU8171 = filtros.filter(f => 
+        f.produtoDescricao && f.produtoDescricao.toUpperCase().includes('HU8171')
+      );
+      if (filtrosHU8171.length > 0) {
+        console.log(`[getFiltrosDoVeiculoSupabase] ✅ Filtro HU8171 encontrado:`, filtrosHU8171);
+      } else {
+        console.log(`[getFiltrosDoVeiculoSupabase] ❌ Filtro HU8171 NÃO encontrado nos registros`);
+      }
+    } else {
+      console.warn(`[getFiltrosDoVeiculoSupabase] Nenhum filtro encontrado para veículo ${normalizedId}`);
+    }
     
     return filtros;
   } catch (err) {
@@ -599,9 +658,12 @@ export default function FiltrosPage() {
   const handleOpenModal = async (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo)
     setModalOpen(true)
+    console.log(`[handleOpenModal] Abrindo modal para veículo: ${veiculo.placa} (ID: ${veiculo.id})`)
     const produtos = await getProdutosCompativeisComVeiculoSupabase(veiculo.id)
     setProdutosCompativeis(produtos)
-    setFiltrosRegistrados(await getFiltrosDoVeiculoSupabase(veiculo.id))
+    const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
+    console.log(`[handleOpenModal] Filtros encontrados para ${veiculo.placa}:`, filtros)
+    setFiltrosRegistrados(filtros)
   }
 
   const handleCloseModal = () => {
@@ -1363,7 +1425,7 @@ export default function FiltrosPage() {
                                     <button
                                       type="button"
                                       className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
-                                      onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId, setFiltrosRegistrados)}
+                                      onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
                                       title="Remover filtro"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -1379,6 +1441,88 @@ export default function FiltrosPage() {
                   )
                 })}
               </div>
+              
+              {/* Seção para filtros com categorias não reconhecidas */}
+              {(() => {
+                const categoriasReconhecidas = new Set(FILTER_HEADERS);
+                const filtrosNaoReconhecidos = filtrosRegistrados.filter(f => 
+                  f.categoria && !categoriasReconhecidas.has(f.categoria)
+                );
+                
+                if (filtrosNaoReconhecidos.length > 0) {
+                  console.warn(`[FiltrosPage] Encontrados ${filtrosNaoReconhecidos.length} filtros com categorias não reconhecidas:`, filtrosNaoReconhecidos);
+                  return (
+                    <div className="mt-6">
+                      <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-medium text-sm text-yellow-800 dark:text-yellow-200">
+                              ⚠️ Filtros com Categorias Não Reconhecidas
+                            </h3>
+                            <Badge variant="secondary" className="text-xs font-normal bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border-0">
+                              {filtrosNaoReconhecidos.length} {filtrosNaoReconhecidos.length === 1 ? 'item' : 'itens'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                            Estes filtros não correspondem a nenhuma categoria padrão. Verifique se a categoria está correta no banco de dados.
+                          </p>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-2">
+                            {filtrosNaoReconhecidos.map(filtro => {
+                              const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+                              const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                              const emEstoque = estoque > 0
+                              return (
+                                <div
+                                  key={filtro.produtoId + filtro.categoria}
+                                  className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-all duration-200 ${
+                                    emEstoque 
+                                      ? "bg-green-50/80 dark:bg-green-950/10 text-green-700/90 dark:text-green-400/90 border border-green-200/50 dark:border-green-800/30" 
+                                      : "bg-red-50/80 dark:bg-red-950/10 text-red-700/90 dark:text-red-400/90 border border-red-200/50 dark:border-red-800/30"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    {emEstoque ? (
+                                      <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                                    ) : (
+                                      <XCircle className="h-4 w-4 flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <span className="font-medium truncate block" title={filtro.produtoDescricao}>
+                                        {filtro.produtoDescricao}
+                                      </span>
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className={`text-xs font-normal ${emEstoque ? 'text-green-600/80 dark:text-green-500/80' : 'text-red-600/80 dark:text-red-500/80'}`}>
+                                          Estoque: {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
+                                        </span>
+                                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-300">
+                                          • Categoria: "{filtro.categoria}"
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {editMode && (
+                                    <button
+                                      type="button"
+                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                                      onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
+                                      title="Remover filtro"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
             
             <div className="flex justify-end mt-6">
@@ -1822,78 +1966,161 @@ export default function FiltrosPage() {
             
             {/* Categorias com Filtros - Layout Compacto */}
             {filtrosRegistrados.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {FILTER_HEADERS.map((header) => {
-                  const filtros = filtrosRegistrados.filter(f => f.categoria === header)
-                  if (filtros.length === 0) return null
-                  
-                  return (
-                    <Card key={header} className="border border-border/50 hover:border-primary/30 transition-colors">
-                      <CardHeader className="pb-2 pt-3 px-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-xs font-medium text-foreground/90">{header}</h3>
-                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
-                            {filtros.length}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="px-3 pb-3">
-                        <div className="space-y-1.5">
-                          {filtros
-                            .map(filtro => {
-                              const produto = todosProdutos.find(p => p.id === filtro.produtoId)
-                              const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
-                              return { filtro, produto, estoque, emEstoque: estoque > 0 }
-                            })
-                            .sort((a, b) => {
-                              // Primeiro os com estoque, depois os sem estoque
-                              if (a.emEstoque && !b.emEstoque) return -1
-                              if (!a.emEstoque && b.emEstoque) return 1
-                              // Se ambos têm ou não têm estoque, ordena alfabeticamente
-                              return a.filtro.produtoDescricao.localeCompare(b.filtro.produtoDescricao, 'pt-BR')
-                            })
-                            .map(({ filtro, produto, estoque, emEstoque }) => (
-                              <div
-                                key={filtro.produtoId + filtro.categoria}
-                                className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
-                                  emEstoque 
-                                    ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
-                                    : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
-                                }`}
-                              >
-                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                  {emEstoque ? (
-                                    <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
-                                  ) : (
-                                    <XCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-[11px] truncate" title={filtro.produtoDescricao}>
-                                      {filtro.produtoDescricao}
-                                    </p>
-                                    <p className={`text-[10px] ${emEstoque ? 'text-green-700/70 dark:text-green-400/70' : 'text-red-700/70 dark:text-red-400/70'}`}>
-                                      {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
-                                    </p>
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {FILTER_HEADERS.map((header) => {
+                    const filtros = filtrosRegistrados.filter(f => f.categoria === header)
+                    if (filtros.length === 0) return null
+                    
+                    return (
+                      <Card key={header} className="border border-border/50 hover:border-primary/30 transition-colors">
+                        <CardHeader className="pb-2 pt-3 px-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs font-medium text-foreground/90">{header}</h3>
+                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal">
+                              {filtros.length}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-3 pb-3">
+                          <div className="space-y-1.5">
+                            {filtros
+                              .map(filtro => {
+                                const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+                                const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                                return { filtro, produto, estoque, emEstoque: estoque > 0 }
+                              })
+                              .sort((a, b) => {
+                                // Primeiro os com estoque, depois os sem estoque
+                                if (a.emEstoque && !b.emEstoque) return -1
+                                if (!a.emEstoque && b.emEstoque) return 1
+                                // Se ambos têm ou não têm estoque, ordena alfabeticamente
+                                return a.filtro.produtoDescricao.localeCompare(b.filtro.produtoDescricao, 'pt-BR')
+                              })
+                              .map(({ filtro, produto, estoque, emEstoque }) => (
+                                <div
+                                  key={filtro.produtoId + filtro.categoria}
+                                  className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
+                                    emEstoque 
+                                      ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
+                                      : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                    {emEstoque ? (
+                                      <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                    ) : (
+                                      <XCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-[11px] truncate" title={filtro.produtoDescricao}>
+                                        {filtro.produtoDescricao}
+                                      </p>
+                                      <p className={`text-[10px] ${emEstoque ? 'text-green-700/70 dark:text-green-400/70' : 'text-red-700/70 dark:text-red-400/70'}`}>
+                                        {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
+                                      </p>
+                                    </div>
                                   </div>
+                                  {editMode && (
+                                    <button
+                                      type="button"
+                                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
+                                      onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
+                                      title="Remover"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
                                 </div>
-                                {editMode && (
-                                  <button
-                                    type="button"
-                                    className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
-                                    onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', header, filtro.produtoId, setFiltrosRegistrados)}
-                                    title="Remover"
+                              ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+                
+                {/* Seção para filtros com categorias não reconhecidas - Mobile */}
+                {(() => {
+                  const categoriasReconhecidas = new Set(FILTER_HEADERS);
+                  const filtrosNaoReconhecidos = filtrosRegistrados.filter(f => 
+                    f.categoria && !categoriasReconhecidas.has(f.categoria)
+                  );
+                  
+                  if (filtrosNaoReconhecidos.length > 0) {
+                    return (
+                      <div className="mt-4">
+                        <Card className="border-yellow-500/50 bg-yellow-50/50 dark:bg-yellow-950/20">
+                          <CardHeader className="pb-2 pt-3 px-3">
+                            <div className="flex items-center justify-between">
+                              <h3 className="text-xs font-medium text-yellow-800 dark:text-yellow-200">
+                                ⚠️ Categorias Não Reconhecidas
+                              </h3>
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+                                {filtrosNaoReconhecidos.length}
+                              </Badge>
+                            </div>
+                            <p className="text-[10px] text-yellow-700 dark:text-yellow-300 mt-1">
+                              Verifique se a categoria está correta no banco de dados.
+                            </p>
+                          </CardHeader>
+                          <CardContent className="px-3 pb-3">
+                            <div className="space-y-1.5">
+                              {filtrosNaoReconhecidos.map(filtro => {
+                                const produto = todosProdutos.find(p => p.id === filtro.produtoId)
+                                const estoque = produto ? (typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque) : 0
+                                const emEstoque = estoque > 0
+                                return (
+                                  <div
+                                    key={filtro.produtoId + filtro.categoria}
+                                    className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
+                                      emEstoque 
+                                        ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
+                                        : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
+                                    }`}
                                   >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+                                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                      {emEstoque ? (
+                                        <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                      ) : (
+                                        <XCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-[11px] truncate" title={filtro.produtoDescricao}>
+                                          {filtro.produtoDescricao}
+                                        </p>
+                                        <div className="flex flex-col gap-0.5">
+                                          <p className={`text-[10px] ${emEstoque ? 'text-green-700/70 dark:text-green-400/70' : 'text-red-700/70 dark:text-red-400/70'}`}>
+                                            {estoque.toLocaleString('pt-BR')} {produto?.unidade || 'un'}
+                                          </p>
+                                          <p className="text-[10px] font-semibold text-yellow-700 dark:text-yellow-300">
+                                            Categoria: "{filtro.categoria}"
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {editMode && (
+                                      <button
+                                        type="button"
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
+                                        onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
+                                        title="Remover"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <Filter className="h-8 w-8 text-muted-foreground/30 mb-2" />

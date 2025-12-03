@@ -72,6 +72,30 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     setMounted(true)
   }, [])
 
+  useEffect(() => {
+    const cad = localStorage.getItem("sidebar_open_cadastros")
+    const mov = localStorage.getItem("sidebar_open_movimento")
+    const man = localStorage.getItem("sidebar_open_manutencoes")
+    const srv = localStorage.getItem("sidebar_open_servicos")
+    if (cad !== null) setOpenCadastros(cad === "true")
+    if (mov !== null) setOpenMovimento(mov === "true")
+    if (man !== null) setOpenManutencoes(man === "true")
+    if (srv !== null) setOpenServicos(srv === "true")
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_open_cadastros", openCadastros ? "true" : "false")
+  }, [openCadastros])
+  useEffect(() => {
+    localStorage.setItem("sidebar_open_movimento", openMovimento ? "true" : "false")
+  }, [openMovimento])
+  useEffect(() => {
+    localStorage.setItem("sidebar_open_manutencoes", openManutencoes ? "true" : "false")
+  }, [openManutencoes])
+  useEffect(() => {
+    localStorage.setItem("sidebar_open_servicos", openServicos ? "true" : "false")
+  }, [openServicos])
+
   // Fechar submenu quando clicar fora dele
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -282,14 +306,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     submenuBg: "bg-blue-600 shadow-xl-custom border border-blue-500 rounded-lg",
   }
 
-  // Cores para o tema escuro (menu branco)
+  // Cores para o tema escuro
   const darkThemeClasses = {
-    sidebar: "bg-white text-slate-800 shadow-xl-custom",
-    border: "border-gray-200",
-    button: "text-slate-800 hover:bg-gray-100",
-    activeItem: "bg-gradient-to-r from-blue-50 to-blue-100 shadow-sm-custom border-l-4 border-primary text-primary font-semibold",
-    hoverItem: "hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-blue-100/50 transition-all duration-200",
-    submenuBg: "bg-white shadow-xl-custom border border-gray-200 rounded-lg",
+    sidebar: "gradient-sidebar text-slate-100 shadow-xl-custom",
+    border: "border-primary/20",
+    button: "text-slate-100 hover:bg-primary/10",
+    activeItem: "bg-gradient-to-r from-primary/25 to-primary/10 shadow-sm-custom border-l-4 border-primary text-primary font-semibold",
+    hoverItem: "hover:bg-primary/10 transition-all duration-200",
+    submenuBg: "bg-[hsl(217,33%,15%)] shadow-xl-custom border border-primary/20 rounded-lg",
   }
 
   // Seleciona o conjunto de classes com base no tema
@@ -297,12 +321,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Classes comuns para todos os itens de menu
   const menuItemClasses = cn(
-    "flex items-center py-2.5 px-3 rounded-lg transition-all duration-200 text-sm font-medium relative",
+    "flex items-center py-2.5 px-3 rounded-lg transition-all duration-200 text-sm font-medium relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
     classes.hoverItem,
   )
 
   if (!mounted) {
-    return <div className={cn("w-16 h-screen", isDarkTheme ? "bg-white" : "bg-blue-600")}></div>
+    return <div className={cn("w-16 h-screen", isDarkTheme ? "bg-slate-900" : "bg-blue-600")}></div>
   }
 
   // Função para lidar com o clique em um item de submenu
@@ -393,12 +417,22 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             classes.hoverItem,
             isCollapsed && "mx-auto",
           )}
+          role="button"
+          aria-label="Alternar largura do menu"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              onToggle()
+            }
+          }}
         >
           {isCollapsed ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
         </div>
       </div>
-      <div className="flex-1 overflow-auto py-2 min-h-0">
-        <nav className="space-y-1 px-2">
+      <div className="relative flex-1 overflow-auto py-2 min-h-0">
+        <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-black/10 to-transparent dark:from-white/10" />
+        <nav className="space-y-1 px-2" role="navigation" aria-label="Menu lateral">
           {menuItems.map((item, index) => {
             // Se o usuário não tem permissão para este item, não renderiza
             if (!temPermissao(item)) {
@@ -437,6 +471,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       isCollapsed && "relative group",
                       "w-full text-left"
                     )}
+                    aria-current={pathname === item.href ? "page" : undefined}
                   >
                     {itemContent}
                   </button>
@@ -456,6 +491,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     "animate-fade-in",
                   )}
                   style={{ animationDelay: `${index * 0.05}s` }}
+                  aria-current={pathname === item.href ? "page" : undefined}
                 >
                   {itemContent}
                 </Link>
@@ -475,6 +511,17 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         openCollapsedSubmenu === item.title && classes.activeItem,
                       )}
                       onClick={(e) => handleSubmenuClick(e, item.title)}
+                      role="button"
+                      aria-haspopup="menu"
+                      aria-expanded={openCollapsedSubmenu === item.title}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          const fakeEvent = { currentTarget: e.currentTarget } as unknown as React.MouseEvent
+                          handleSubmenuClick(fakeEvent, item.title)
+                        }
+                      }}
                     >
                       <item.icon className="h-5 w-5" />
                     </div>
@@ -519,7 +566,20 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 ) : (
                   // Versão expandida do submenu
                   <div>
-                    <div className={cn(menuItemClasses, "px-3 cursor-pointer justify-between")} onClick={item.toggle}>
+                    <div
+                      className={cn(menuItemClasses, "px-3 cursor-pointer justify-between")}
+                      onClick={item.toggle}
+                      role="button"
+                      aria-haspopup="menu"
+                      aria-expanded={!!item.isOpen}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          item.toggle?.()
+                        }
+                      }}
+                    >
                       <div className="flex items-center">
                         <item.icon className="h-5 w-5 mr-2" />
                         <span>{item.title}</span>
@@ -532,7 +592,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       />
                     </div>
                     {item.isOpen && (
-                      <div className="pl-6 space-y-1 mt-1">
+                      <div className="pl-4 ml-2 border-l border-border/40 space-y-1 mt-1">
                         {item.submenu?.map((subItem, subIndex) => {
                           // Verifica permissão para cada item do submenu
                           if (temPermissao(subItem) && subItem.href) {
@@ -541,10 +601,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                 key={subIndex}
                                 href={subItem.href}
                                 className={cn(
-                                  "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200",
+                                  "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200 hover:shadow-sm-custom",
                                   classes.hoverItem,
                                   pathname === subItem.href && classes.activeItem,
                                 )}
+                                aria-current={pathname === subItem.href ? "page" : undefined}
                               >
                                 <subItem.icon className="h-4 w-4 mr-2" />
                                 <span>{subItem.title}</span>
@@ -561,6 +622,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             )
           })}
         </nav>
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-black/10 to-transparent dark:from-white/10" />
       </div>
 
       {/* Logo na parte inferior */}

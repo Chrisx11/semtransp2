@@ -560,14 +560,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Caso especial para manutenções (submódulos)
       if (modulo === "manutencoes" && submodulo && pagina) {
-        // Verificar se tem permissão para o submódulo específico
-        const manutencaoPerms = user.permissoes_customizadas.manutencoes;
-        const submodulos = (manutencaoPerms && Array.isArray(manutencaoPerms.submodulos)) 
-          ? manutencaoPerms.submodulos 
-          : [];
-        
-        if (submodulos.includes("todos")) return true;
-        
         // Mapear páginas para módulos
         const pageToModule: Record<string, string> = {
           "painel": "painel",
@@ -583,39 +575,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Verificar se tem permissão para o módulo correspondente
         const moduleIdPerms = user.permissoes_customizadas[moduleId];
-        const moduloPerms = user.permissoes_customizadas[modulo];
         
-        // Verificar device_access para moduleIdPerms
-        let hasModuleIdPermission = false
-        if (moduleIdPerms) {
-          if (Array.isArray(moduleIdPerms)) {
-            hasModuleIdPermission = moduleIdPerms.includes(acao)
-          } else if (typeof moduleIdPerms === 'object') {
-            const deviceAccess = moduleIdPerms.device_access || 'both'
-            if ((deviceAccess === 'mobile' && !isMobile) || (deviceAccess === 'desktop' && isMobile)) {
-              hasModuleIdPermission = false
-            } else {
-              hasModuleIdPermission = moduleIdPerms.acoes && Array.isArray(moduleIdPerms.acoes) && moduleIdPerms.acoes.includes(acao)
-            }
-          }
+        // Se o módulo específico não existe nas permissões, nega acesso
+        if (moduleIdPerms === undefined || moduleIdPerms === null) {
+          return false;
         }
         
-        // Verificar device_access para moduloPerms
-        let hasModuloPermission = false
-        if (moduloPerms) {
-          if (Array.isArray(moduloPerms)) {
-            hasModuloPermission = moduloPerms.includes(acao)
-          } else if (typeof moduloPerms === 'object') {
-            const deviceAccess = moduloPerms.device_access || 'both'
-            if ((deviceAccess === 'mobile' && !isMobile) || (deviceAccess === 'desktop' && isMobile)) {
-              hasModuloPermission = false
-            } else {
-              hasModuloPermission = moduloPerms.acoes && Array.isArray(moduloPerms.acoes) && moduloPerms.acoes.includes(acao)
-            }
+        // Verificar device_access e ações para o módulo específico
+        if (typeof moduleIdPerms === 'object' && !Array.isArray(moduleIdPerms)) {
+          const deviceAccess = moduleIdPerms.device_access || 'both'
+          // Verificar se o dispositivo atual tem permissão
+          if (deviceAccess === 'mobile' && !isMobile) return false
+          if (deviceAccess === 'desktop' && isMobile) return false
+          
+          // Verificar ações
+          if (moduleIdPerms.acoes && Array.isArray(moduleIdPerms.acoes)) {
+            return moduleIdPerms.acoes.includes(acao)
           }
+          return false
         }
         
-        return hasModuleIdPermission || hasModuloPermission || submodulos.includes(pagina);
+        // Verificar se é um array e se contém a ação (compatibilidade com formato antigo)
+        if (Array.isArray(moduleIdPerms)) {
+          return moduleIdPerms.includes(acao);
+        }
+        
+        return false;
       }
       
       // Caso especial para ordem de serviço
@@ -630,11 +615,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Para outros módulos, verificar se tem permissão
       const moduloPerms = user.permissoes_customizadas[modulo];
       
-      // Se o módulo não existe nas permissões customizadas, permite acesso (compatibilidade)
-      // Isso permite que novos módulos funcionem mesmo sem estar explicitamente nas permissões
+      // Se o módulo não existe nas permissões customizadas, nega acesso
+      // Quando o usuário tem permissões customizadas, apenas módulos explicitamente permitidos têm acesso
       if (moduloPerms === undefined || moduloPerms === null) {
-        // Se não encontrou o módulo, permite acesso (compatibilidade com novos módulos)
-        return true;
+        // Se não encontrou o módulo nas permissões customizadas, nega acesso
+        return false;
       }
       
       // Verificar device_access se for um objeto

@@ -421,12 +421,22 @@ function DashboardMobileView() {
                     <div
                       key={atalho.href}
                       onClick={() => handleNavigation(atalho.href)}
-                      className="block cursor-pointer"
+                      className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-lg"
+                      role="button"
+                      aria-label={`${atalho.title}. ${atalho.desc}`}
+                      aria-busy={isNavigating}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          handleNavigation(atalho.href)
+                        }
+                      }}
                     >
                       <Card className={`border-l-4 ${colors.border} border border-border/50 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.97] ${colors.bg} ${colors.hover} ${
                         isNavigating ? 'opacity-75 scale-95' : ''
                       }`}>
-                        <CardContent className="p-3">
+                        <CardContent className="p-3 sm:p-3.5">
                           <div className="flex items-center gap-3">
                             <div className={`p-2.5 ${colors.iconBg} rounded-lg flex-shrink-0 transition-transform duration-200 ${
                               isNavigating ? 'scale-110 rotate-3' : ''
