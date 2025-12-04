@@ -6,6 +6,45 @@ import { useEffect, useState } from "react"
 import { getVeiculosSupabase } from "@/services/veiculo-service"
 import { getTrocasOleo, getUltimaTrocaOleo, getEstatisticasTrocasOleo, getUltimoRegistro, getAllTrocasOleo } from "@/services/troca-oleo-service"
 import { getProdutosSupabase } from "@/services/produto-service"
+
+// Interface para filtros registrados
+interface FiltroRegistrado {
+  veiculoId: string
+  categoria: string
+  produtoId: string
+  produtoDescricao: string
+}
+
+// Função para buscar filtros do veículo
+async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroRegistrado[]> {
+  try {
+    const normalizedId = String(veiculoId).trim()
+    
+    let { data, error } = await supabase
+      .from('filtros_registrados')
+      .select('veiculoid, categoria, produtoid, produtodescricao')
+      .eq('veiculoid', normalizedId)
+    
+    if (error) {
+      console.error(`Erro ao buscar filtros do veículo ${normalizedId}:`, error)
+      return []
+    }
+    
+    if (!data) {
+      return []
+    }
+    
+    return data.map(item => ({
+      veiculoId: String(item.veiculoid).trim(),
+      categoria: item.categoria ? String(item.categoria).trim() : '',
+      produtoId: String(item.produtoid).trim(),
+      produtoDescricao: item.produtodescricao,
+    }))
+  } catch (err) {
+    console.error(`Erro inesperado ao buscar filtros do veículo ${veiculoId}:`, err)
+    return []
+  }
+}
 import { getSaidasSupabase } from "@/services/saida-service"
 import { getEntradasSupabase } from "@/services/entrada-service"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +61,7 @@ import { useToast } from "@/hooks/use-toast"
 import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart } from "lucide-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { supabase } from "@/lib/supabase"
 import { useAuth, rotasPermissoes } from "@/lib/auth-context"
@@ -473,6 +513,7 @@ function DashboardMobileView() {
 
 export default function DashboardPage() {
   const isMobile = useIsMobile()
+  const { toast } = useToast()
   const [veiculos, setVeiculos] = useState<VeiculoBase[]>([])
   const [proximasTrocas, setProximasTrocas] = useState<VeiculoCalculado[]>([])
   const [emAtraso, setEmAtraso] = useState<VeiculoCalculado[]>([])
@@ -958,6 +999,696 @@ export default function DashboardPage() {
     }
   }, [kmAtualizacaoDialogOpen, veiculosSemAtualizacaoKm, veiculosComAtualizacaoKm]);
 
+  // ---------- FUNÇÕES DE EXPORTAÇÃO PARA RELATÓRIOS DE TROCA DE ÓLEO
+  const exportarProximoPrazo = async () => {
+    try {
+      const veiculosProximo = veiculosComDados.filter(
+        v => v.status === "Ativo" && 
+        (v.kmProxTroca - v.kmAtual) <= 500 && 
+        (v.kmProxTroca - v.kmAtual) > 0 && 
+        v.ultimaTroca
+      )
+
+      if (veiculosProximo.length === 0) {
+        toast({
+          title: "Nenhum veículo encontrado",
+          description: "Não há veículos próximos do prazo para exportar.",
+          variant: "default",
+        })
+        return
+      }
+
+      // Buscar produtos para verificar estoque
+      const todosProdutos = await getProdutosSupabase()
+      const produtosMap = new Map(todosProdutos.map(p => [p.id, p]))
+
+      // Preparar dados dos veículos com filtros
+      const relatorioData: Array<{
+        veiculo: any
+        filtrosTem: Array<{ categoria: string; descricao: string; estoque: number }>
+        filtrosNaoTem: Array<{ categoria: string; descricao: string }>
+      }> = []
+
+      for (const veiculo of veiculosProximo) {
+        const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
+        const filtrosEmEstoque: Array<{ categoria: string; descricao: string; estoque: number }> = []
+        const filtrosFaltando: Array<{ categoria: string; descricao: string }> = []
+
+        // Agrupar filtros por categoria
+        const filtrosPorCategoria = new Map<string, FiltroRegistrado[]>()
+        for (const filtro of filtros) {
+          if (!filtrosPorCategoria.has(filtro.categoria)) {
+            filtrosPorCategoria.set(filtro.categoria, [])
+          }
+          filtrosPorCategoria.get(filtro.categoria)!.push(filtro)
+        }
+
+        // Para cada categoria que tem filtros registrados
+        for (const [categoria, filtrosCategoria] of filtrosPorCategoria.entries()) {
+          // Encontrar o primeiro produto com estoque
+          let produtoComEstoque: { categoria: string; descricao: string; estoque: number } | null = null
+          
+          for (const filtro of filtrosCategoria) {
+            const produto = produtosMap.get(filtro.produtoId)
+            if (!produto) continue
+            
+            const estoque = typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque
+            
+            if (estoque > 0) {
+              produtoComEstoque = {
+                categoria,
+                descricao: filtro.produtoDescricao,
+                estoque
+              }
+              break
+            }
+          }
+
+          if (produtoComEstoque) {
+            filtrosEmEstoque.push(produtoComEstoque)
+          } else {
+            if (filtrosCategoria.length > 0) {
+              filtrosFaltando.push({
+                categoria,
+                descricao: filtrosCategoria[0].produtoDescricao
+              })
+            }
+          }
+        }
+
+        relatorioData.push({
+          veiculo,
+          filtrosTem: filtrosEmEstoque,
+          filtrosNaoTem: filtrosFaltando
+        })
+      }
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              // Título
+              new Paragraph({
+                text: "Relatório de Troca de Óleo - Próximo do Prazo",
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 },
+              }),
+              // Data de geração
+              new Paragraph({
+                text: `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+              }),
+              // Informações gerais
+              new Paragraph({
+                text: `Total de veículos encontrados: ${relatorioData.length}`,
+                spacing: { after: 200 },
+              }),
+              new Paragraph({
+                text: "",
+                spacing: { after: 200 },
+              }),
+              // Conteúdo do relatório
+              ...relatorioData.flatMap((item, index) => [
+                new Paragraph({
+                  text: `${index + 1}. ${item.veiculo.placa} - ${item.veiculo.modelo} ${item.veiculo.marca}`,
+                  heading: HeadingLevel.HEADING_2,
+                  spacing: { before: 200, after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Status: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.status,
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Km Atual: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.kmAtual.toLocaleString('pt-BR'),
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Km Próxima Troca: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.kmProxTroca.toLocaleString('pt-BR'),
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Faltam: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: `${(item.veiculo.kmProxTroca - item.veiculo.kmAtual).toLocaleString('pt-BR')} km`,
+                      bold: true,
+                      color: "FFA500",
+                    }),
+                  ],
+                  spacing: { after: 200 },
+                }),
+                // Filtros em Estoque
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros em Estoque",
+                      bold: true,
+                      color: "008000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosTem.length > 0
+                  ? item.filtrosTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - Estoque: ${filtro.estoque.toLocaleString('pt-BR')}`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Nenhum filtro em estoque",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                // Filtros Faltando
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros Faltando",
+                      bold: true,
+                      color: "FF0000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosNaoTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosNaoTem.length > 0
+                  ? item.filtrosNaoTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria})`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Todos os filtros estão em estoque!",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                new Paragraph({
+                  text: "",
+                  spacing: { after: 200 },
+                }),
+              ]),
+              // Lista consolidada de filtros faltando
+              ...((): Paragraph[] => {
+                const filtrosFaltandoConsolidados = new Map<string, { categoria: string; descricao: string; quantidade: number }>()
+                
+                relatorioData.forEach(item => {
+                  item.filtrosNaoTem.forEach(filtro => {
+                    const key = `${filtro.categoria}-${filtro.descricao}`
+                    if (filtrosFaltandoConsolidados.has(key)) {
+                      filtrosFaltandoConsolidados.get(key)!.quantidade++
+                    } else {
+                      filtrosFaltandoConsolidados.set(key, { ...filtro, quantidade: 1 })
+                    }
+                  })
+                })
+
+                const listaConsolidada = Array.from(filtrosFaltandoConsolidados.values())
+                
+                if (listaConsolidada.length > 0) {
+                  return [
+                    new Paragraph({
+                      text: "",
+                      spacing: { before: 600, after: 200 },
+                    }),
+                    new Paragraph({
+                      text: "LISTA DE FILTROS PARA COMPRA",
+                      heading: HeadingLevel.HEADING_1,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 200 },
+                    }),
+                    new Paragraph({
+                      text: `Filtros faltando consolidados de todos os veículos do relatório (${listaConsolidada.length} ${listaConsolidada.length === 1 ? 'item' : 'itens'})`,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 400 },
+                    }),
+                    ...listaConsolidada.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - `,
+                            }),
+                            new TextRun({
+                              text: `Quantidade: ${filtro.quantidade}`,
+                              bold: true,
+                              color: "FF0000",
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    ),
+                  ]
+                }
+                return []
+              })(),
+            ],
+          },
+        ],
+      })
+
+      // Gerar o arquivo e fazer download
+      const blob = await Packer.toBlob(doc)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const today = new Date().toISOString().split("T")[0]
+      link.download = `relatorio_troca_oleo_proximo_prazo_${today}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Relatório exportado!",
+        description: "O arquivo Word foi gerado com sucesso.",
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Erro ao exportar para Word:", error)
+      toast({
+        title: "Erro ao exportar",
+        description: "Ocorreu um erro ao gerar o arquivo Word.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const exportarVencido = async () => {
+    try {
+      const veiculosVencidos = veiculosComDados.filter(
+        v => v.status === "Ativo" && 
+        (v.kmProxTroca - v.kmAtual) <= 0 && 
+        v.ultimaTroca
+      )
+
+      if (veiculosVencidos.length === 0) {
+        toast({
+          title: "Nenhum veículo encontrado",
+          description: "Não há veículos vencidos para exportar.",
+          variant: "default",
+        })
+        return
+      }
+
+      // Buscar produtos para verificar estoque
+      const todosProdutos = await getProdutosSupabase()
+      const produtosMap = new Map(todosProdutos.map(p => [p.id, p]))
+
+      // Preparar dados dos veículos com filtros
+      const relatorioData: Array<{
+        veiculo: any
+        filtrosTem: Array<{ categoria: string; descricao: string; estoque: number }>
+        filtrosNaoTem: Array<{ categoria: string; descricao: string }>
+      }> = []
+
+      for (const veiculo of veiculosVencidos) {
+        const filtros = await getFiltrosDoVeiculoSupabase(veiculo.id)
+        const filtrosEmEstoque: Array<{ categoria: string; descricao: string; estoque: number }> = []
+        const filtrosFaltando: Array<{ categoria: string; descricao: string }> = []
+
+        // Agrupar filtros por categoria
+        const filtrosPorCategoria = new Map<string, FiltroRegistrado[]>()
+        for (const filtro of filtros) {
+          if (!filtrosPorCategoria.has(filtro.categoria)) {
+            filtrosPorCategoria.set(filtro.categoria, [])
+          }
+          filtrosPorCategoria.get(filtro.categoria)!.push(filtro)
+        }
+
+        // Para cada categoria que tem filtros registrados
+        for (const [categoria, filtrosCategoria] of filtrosPorCategoria.entries()) {
+          // Encontrar o primeiro produto com estoque
+          let produtoComEstoque: { categoria: string; descricao: string; estoque: number } | null = null
+          
+          for (const filtro of filtrosCategoria) {
+            const produto = produtosMap.get(filtro.produtoId)
+            if (!produto) continue
+            
+            const estoque = typeof produto.estoque === 'string' ? parseInt(produto.estoque) : produto.estoque
+            
+            if (estoque > 0) {
+              produtoComEstoque = {
+                categoria,
+                descricao: filtro.produtoDescricao,
+                estoque
+              }
+              break
+            }
+          }
+
+          if (produtoComEstoque) {
+            filtrosEmEstoque.push(produtoComEstoque)
+          } else {
+            if (filtrosCategoria.length > 0) {
+              filtrosFaltando.push({
+                categoria,
+                descricao: filtrosCategoria[0].produtoDescricao
+              })
+            }
+          }
+        }
+
+        relatorioData.push({
+          veiculo,
+          filtrosTem: filtrosEmEstoque,
+          filtrosNaoTem: filtrosFaltando
+        })
+      }
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              // Título
+              new Paragraph({
+                text: "Relatório de Troca de Óleo - Vencido",
+                heading: HeadingLevel.HEADING_1,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 },
+              }),
+              // Data de geração
+              new Paragraph({
+                text: `Gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}`,
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 400 },
+              }),
+              // Informações gerais
+              new Paragraph({
+                text: `Total de veículos encontrados: ${relatorioData.length}`,
+                spacing: { after: 200 },
+              }),
+              new Paragraph({
+                text: "",
+                spacing: { after: 200 },
+              }),
+              // Conteúdo do relatório
+              ...relatorioData.flatMap((item, index) => [
+                new Paragraph({
+                  text: `${index + 1}. ${item.veiculo.placa} - ${item.veiculo.modelo} ${item.veiculo.marca}`,
+                  heading: HeadingLevel.HEADING_2,
+                  spacing: { before: 200, after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Status: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.status,
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Km Atual: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.kmAtual.toLocaleString('pt-BR'),
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Km Próxima Troca: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: item.veiculo.kmProxTroca.toLocaleString('pt-BR'),
+                    }),
+                  ],
+                  spacing: { after: 100 },
+                }),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Atraso: ",
+                      bold: true,
+                    }),
+                    new TextRun({
+                      text: `${Math.abs(item.veiculo.kmProxTroca - item.veiculo.kmAtual).toLocaleString('pt-BR')} km`,
+                      bold: true,
+                      color: "FF0000",
+                    }),
+                  ],
+                  spacing: { after: 200 },
+                }),
+                // Filtros em Estoque
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros em Estoque",
+                      bold: true,
+                      color: "008000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosTem.length > 0
+                  ? item.filtrosTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - Estoque: ${filtro.estoque.toLocaleString('pt-BR')}`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Nenhum filtro em estoque",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                // Filtros Faltando
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Filtros Faltando",
+                      bold: true,
+                      color: "FF0000",
+                    }),
+                    new TextRun({
+                      text: ` (${item.filtrosNaoTem.length})`,
+                      bold: true,
+                    }),
+                  ],
+                  spacing: { before: 200, after: 100 },
+                }),
+                ...(item.filtrosNaoTem.length > 0
+                  ? item.filtrosNaoTem.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria})`,
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    )
+                  : [
+                      new Paragraph({
+                        text: "Todos os filtros estão em estoque!",
+                        spacing: { after: 100 },
+                      }),
+                    ]),
+                new Paragraph({
+                  text: "",
+                  spacing: { after: 200 },
+                }),
+              ]),
+              // Lista consolidada de filtros faltando
+              ...((): Paragraph[] => {
+                const filtrosFaltandoConsolidados = new Map<string, { categoria: string; descricao: string; quantidade: number }>()
+                
+                relatorioData.forEach(item => {
+                  item.filtrosNaoTem.forEach(filtro => {
+                    const key = `${filtro.categoria}-${filtro.descricao}`
+                    if (filtrosFaltandoConsolidados.has(key)) {
+                      filtrosFaltandoConsolidados.get(key)!.quantidade++
+                    } else {
+                      filtrosFaltandoConsolidados.set(key, { ...filtro, quantidade: 1 })
+                    }
+                  })
+                })
+
+                const listaConsolidada = Array.from(filtrosFaltandoConsolidados.values())
+                
+                if (listaConsolidada.length > 0) {
+                  return [
+                    new Paragraph({
+                      text: "",
+                      spacing: { before: 600, after: 200 },
+                    }),
+                    new Paragraph({
+                      text: "LISTA DE FILTROS PARA COMPRA",
+                      heading: HeadingLevel.HEADING_1,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 200 },
+                    }),
+                    new Paragraph({
+                      text: `Filtros faltando consolidados de todos os veículos do relatório (${listaConsolidada.length} ${listaConsolidada.length === 1 ? 'item' : 'itens'})`,
+                      alignment: AlignmentType.CENTER,
+                      spacing: { after: 400 },
+                    }),
+                    ...listaConsolidada.map(
+                      (filtro) =>
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: "• ",
+                            }),
+                            new TextRun({
+                              text: filtro.descricao,
+                              bold: true,
+                            }),
+                            new TextRun({
+                              text: ` (${filtro.categoria}) - `,
+                            }),
+                            new TextRun({
+                              text: `Quantidade: ${filtro.quantidade}`,
+                              bold: true,
+                              color: "FF0000",
+                            }),
+                          ],
+                          spacing: { after: 50 },
+                        })
+                    ),
+                  ]
+                }
+                return []
+              })(),
+            ],
+          },
+        ],
+      })
+
+      // Gerar o arquivo e fazer download
+      const blob = await Packer.toBlob(doc)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const today = new Date().toISOString().split("T")[0]
+      link.download = `relatorio_troca_oleo_vencido_${today}.docx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Relatório exportado!",
+        description: "O arquivo Word foi gerado com sucesso.",
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Erro ao exportar para Word:", error)
+      toast({
+        title: "Erro ao exportar",
+        description: "Ocorreu um erro ao gerar o arquivo Word.",
+        variant: "destructive",
+      })
+    }
+  }
+
   if (isMobile) {
     return <DashboardMobileView />
   }
@@ -1428,6 +2159,17 @@ export default function DashboardPage() {
                   </TabsContent>
 
                   <TabsContent value="proximo" className="mt-6">
+                    <div className="mb-4 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportarProximoPrazo}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exportar Relatório Word
+                      </Button>
+                    </div>
                     <div className="overflow-x-auto rounded-lg border">
                       <Table>
                         <TableHeader>
@@ -1478,6 +2220,17 @@ export default function DashboardPage() {
                   </TabsContent>
 
                   <TabsContent value="vencido" className="mt-6">
+                    <div className="mb-4 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportarVencido}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Exportar Relatório Word
+                      </Button>
+                    </div>
                     <div className="overflow-x-auto rounded-lg border">
                       <Table>
                         <TableHeader>

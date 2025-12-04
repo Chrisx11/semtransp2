@@ -1,9 +1,7 @@
 import "@/app/globals.css"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
-import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from "@/lib/auth-context"
-import { ThemeProvider } from "@/components/theme-provider"
+import { Providers } from "./providers"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -36,12 +34,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${inter.className} bg-white`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )
