@@ -58,7 +58,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart } from "lucide-react"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart, FileSpreadsheet } from "lucide-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
@@ -547,6 +547,16 @@ export default function DashboardPage() {
   const [kmSecretariaFilter, setKmSecretariaFilter] = useState<string>("all")
   const [kmPdfDialogOpen, setKmPdfDialogOpen] = useState(false)
   const [kmPdfOption, setKmPdfOption] = useState<"sem-atualizacao" | "com-atualizacao" | "ambos">("ambos")
+  // Estados para vistoria de pneu
+  const [vistoriaPneuStats, setVistoriaPneuStats] = useState({
+    precisaAlinhar: 0,
+    precisaBalancear: 0
+  })
+  const [vistoriaPneuDialogOpen, setVistoriaPneuDialogOpen] = useState(false)
+  const [veiculosPrecisamAlinhar, setVeiculosPrecisamAlinhar] = useState<any[]>([])
+  const [veiculosPrecisamBalancear, setVeiculosPrecisamBalancear] = useState<any[]>([])
+  const [vistoriaPneuExportLoading, setVistoriaPneuExportLoading] = useState(false)
+  const [vistoriaPneuAbaAtiva, setVistoriaPneuAbaAtiva] = useState("alinhar")
 
   // Função para atualizar todos os dados
   const atualizarDashboard = async () => {
@@ -815,6 +825,103 @@ export default function DashboardPage() {
       })
       setVeiculosComDados(veiculosComDadosList)
       
+      // Calcular estatísticas de vistoria de pneu
+      try {
+        const { data: trocasPneuData, error: trocasPneuError } = await supabase
+          .from("trocas_pneu")
+          .select("*")
+        
+        if (!trocasPneuError && trocasPneuData) {
+          // Função para calcular progresso de manutenção (similar à página de troca de pneu)
+          const calcularProgressoPneu = (veiculo: any, trocas: any[]) => {
+            const kmAtual = veiculo.kmAtual || 0
+            const trocasDoVeiculo = trocas
+              .filter(t => t.veiculo_id === veiculo.id)
+              .sort((a, b) => new Date(b.data_troca).getTime() - new Date(a.data_troca).getTime())
+            
+            if (trocasDoVeiculo.length === 0) {
+              return { rodizio: { progresso: 0 }, alinhamento: { progresso: 0 }, balanceamento: { progresso: 0 } }
+            }
+            
+            // Última troca com rodízio
+            const ultimaTrocaRodizio = trocasDoVeiculo.find(t => t.rodizio)
+            const periodoRodizio = ultimaTrocaRodizio?.periodo_rodizio || 10000
+            const kmRodizio = ultimaTrocaRodizio ? (kmAtual - ultimaTrocaRodizio.km) : 0
+            const progressoRodizio = periodoRodizio > 0 ? Math.min(100, Math.round((kmRodizio / periodoRodizio) * 100)) : 0
+            
+            // Última manutenção com alinhamento
+            const ultimaAlinhamento = trocasDoVeiculo.find(t => t.alinhamento)
+            const periodoAlinhamento = ultimaAlinhamento?.periodo_alinhamento || 10000
+            const kmAlinhamento = ultimaAlinhamento ? (kmAtual - ultimaAlinhamento.km) : 0
+            const progressoAlinhamento = periodoAlinhamento > 0 ? Math.min(100, Math.round((kmAlinhamento / periodoAlinhamento) * 100)) : 0
+            
+            // Última manutenção com balanceamento
+            const ultimaBalanceamento = trocasDoVeiculo.find(t => t.balanceamento)
+            const periodoBalanceamento = ultimaBalanceamento?.periodo_balanceamento || 10000
+            const kmBalanceamento = ultimaBalanceamento ? (kmAtual - ultimaBalanceamento.km) : 0
+            const progressoBalanceamento = periodoBalanceamento > 0 ? Math.min(100, Math.round((kmBalanceamento / periodoBalanceamento) * 100)) : 0
+            
+            return {
+              rodizio: { progresso: progressoRodizio },
+              alinhamento: { progresso: progressoAlinhamento },
+              balanceamento: { progresso: progressoBalanceamento }
+            }
+          }
+          
+          const veiculosAtivos = veiculosData.filter(v => v.status === "Ativo")
+          let precisaAlinhar = 0
+          let precisaBalancear = 0
+          const veiculosAlinhar: any[] = []
+          const veiculosBalancear: any[] = []
+          
+          veiculosAtivos.forEach(veiculo => {
+            const temRegistro = trocasPneuData.some(t => t.veiculo_id === veiculo.id)
+            
+            if (temRegistro) {
+              const progresso = calcularProgressoPneu(veiculo, trocasPneuData)
+              
+              // Considera que precisa alinhar se progresso >= 85
+              if (progresso.alinhamento.progresso >= 85) {
+                precisaAlinhar++
+                veiculosAlinhar.push({
+                  ...veiculo,
+                  progressoAlinhamento: progresso.alinhamento.progresso
+                })
+              }
+              
+              // Considera que precisa balancear se progresso >= 85
+              if (progresso.balanceamento.progresso >= 85) {
+                precisaBalancear++
+                veiculosBalancear.push({
+                  ...veiculo,
+                  progressoBalanceamento: progresso.balanceamento.progresso
+                })
+              }
+            }
+          })
+          
+          setVistoriaPneuStats({
+            precisaAlinhar,
+            precisaBalancear
+          })
+          
+          // Armazenar listas de veículos para o diálogo
+          setVeiculosPrecisamAlinhar(veiculosAlinhar)
+          setVeiculosPrecisamBalancear(veiculosBalancear)
+        } else {
+          setVistoriaPneuStats({
+            precisaAlinhar: 0,
+            precisaBalancear: 0
+          })
+        }
+      } catch (error) {
+        console.error("Erro ao calcular estatísticas de vistoria de pneu:", error)
+        setVistoriaPneuStats({
+          precisaAlinhar: 0,
+          precisaBalancear: 0
+        })
+      }
+      
       // OTIMIZAÇÃO: Calcular veículos que não atualizaram KM usando dados já carregados
       const dataLimite = new Date()
       dataLimite.setHours(0, 0, 0, 0) // Zerar horas para comparar apenas datas
@@ -998,6 +1105,176 @@ export default function DashboardPage() {
       carregarNomesUsuariosKmDialog([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm]);
     }
   }, [kmAtualizacaoDialogOpen, veiculosSemAtualizacaoKm, veiculosComAtualizacaoKm]);
+
+  // ---------- FUNÇÕES DE EXPORTAÇÃO PARA VISTORIA DE PNEU
+  const exportarVistoriaPneuPDF = async (tipo: "alinhar" | "balancear") => {
+    if (typeof window === "undefined") {
+      toast({
+        title: "Erro",
+        description: "Exportação só pode ser executada no cliente",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setVistoriaPneuExportLoading(true)
+      const dados = tipo === "alinhar" ? veiculosPrecisamAlinhar : veiculosPrecisamBalancear
+      const titulo = tipo === "alinhar" ? "Alinhamento" : "Balanceamento"
+      
+      if (dados.length === 0) {
+        toast({
+          title: "Nenhum veículo encontrado",
+          description: `Não há veículos que precisam de ${titulo.toLowerCase()} para exportar.`,
+          variant: "default",
+        })
+        return
+      }
+
+      const doc = new jsPDF({ orientation: "landscape" })
+      doc.setFontSize(16)
+      doc.text(`Relatório de Vistoria de Pneu - ${titulo}`, 14, 15)
+      doc.setFontSize(10)
+      doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, 14, 22)
+
+      const tableColumn = ["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Progresso (%)"]
+      const tableRows = dados.map((veiculo) => [
+        veiculo.placa,
+        veiculo.modelo,
+        veiculo.marca,
+        veiculo.secretaria || "N/A",
+        (veiculo.kmAtual || 0).toLocaleString(),
+        `${tipo === "alinhar" ? veiculo.progressoAlinhamento : veiculo.progressoBalanceamento}%`,
+      ])
+
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [51, 51, 51] },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
+        margin: { top: 30, left: 10, right: 10 },
+      })
+
+      const pageCount = doc.internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        doc.setFontSize(8)
+        doc.text(
+          `Página ${i} de ${pageCount}`,
+          doc.internal.pageSize.getWidth() / 2,
+          doc.internal.pageSize.getHeight() - 10,
+          { align: "center" }
+        )
+      }
+
+      doc.save(`vistoria_pneu_${tipo}_${new Date().toISOString().split("T")[0]}.pdf`)
+      
+      toast({
+        title: "Relatório PDF gerado",
+        description: `O relatório de ${titulo.toLowerCase()} foi baixado com sucesso`,
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o relatório PDF",
+        duration: 5000,
+      })
+    } finally {
+      setVistoriaPneuExportLoading(false)
+    }
+  }
+
+  const exportarVistoriaPneuExcel = async (tipo: "alinhar" | "balancear") => {
+    if (typeof window === "undefined" || typeof document === "undefined") {
+      toast({
+        title: "Erro",
+        description: "Exportação só pode ser executada no cliente",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setVistoriaPneuExportLoading(true)
+      const dados = tipo === "alinhar" ? veiculosPrecisamAlinhar : veiculosPrecisamBalancear
+      const titulo = tipo === "alinhar" ? "Alinhamento" : "Balanceamento"
+      
+      if (dados.length === 0) {
+        toast({
+          title: "Nenhum veículo encontrado",
+          description: `Não há veículos que precisam de ${titulo.toLowerCase()} para exportar.`,
+          variant: "default",
+        })
+        return
+      }
+
+      const ExcelJS = (await import("exceljs")).default
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet(titulo)
+      
+      worksheet.columns = [
+        { header: "Placa", key: "placa", width: 12 },
+        { header: "Modelo", key: "modelo", width: 20 },
+        { header: "Marca", key: "marca", width: 15 },
+        { header: "Secretaria", key: "secretaria", width: 18 },
+        { header: "Km Atual", key: "kmAtual", width: 12 },
+        { header: "Progresso (%)", key: "progresso", width: 15 },
+      ]
+
+      worksheet.getRow(1).font = { bold: true }
+      worksheet.getRow(1).fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE0E0E0" },
+      }
+
+      dados.forEach((veiculo) => {
+        worksheet.addRow({
+          placa: veiculo.placa,
+          modelo: veiculo.modelo,
+          marca: veiculo.marca,
+          secretaria: veiculo.secretaria || "N/A",
+          kmAtual: veiculo.kmAtual || 0,
+          progresso: tipo === "alinhar" ? veiculo.progressoAlinhamento : veiculo.progressoBalanceamento,
+        })
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      const today = new Date().toISOString().split("T")[0]
+      link.download = `vistoria_pneu_${tipo}_${today}.xlsx`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "Relatório Excel gerado",
+        description: `O relatório de ${titulo.toLowerCase()} foi baixado com sucesso`,
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar Excel",
+        description: "Não foi possível gerar o relatório Excel",
+        duration: 5000,
+      })
+    } finally {
+      setVistoriaPneuExportLoading(false)
+    }
+  }
 
   // ---------- FUNÇÕES DE EXPORTAÇÃO PARA RELATÓRIOS DE TROCA DE ÓLEO
   const exportarProximoPrazo = async () => {
@@ -1697,7 +1974,7 @@ export default function DashboardPage() {
     <div className="space-y-8 pb-8 animate-fade-in">
       <div className="w-full">
           {/* Cards de resumo para visão geral rápida */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
             <Card className="group relative overflow-hidden border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-800 transition-all duration-300 hover:shadow-xl animate-fade-in card-interactive" style={{ animationDelay: '0.1s' }}>
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
               <CardHeader className="pb-3 relative">
@@ -1798,6 +2075,37 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground font-medium">
                     Mais de 3 dias sem atualizar
                   </p>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card 
+              className="group relative overflow-hidden border-2 border-transparent hover:border-purple-200 dark:hover:border-purple-800 transition-all duration-300 hover:shadow-xl cursor-pointer"
+              onClick={() => setVistoriaPneuDialogOpen(true)}
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent rounded-full -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500"></div>
+              <CardHeader className="pb-3 relative">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                    <Disc className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold">Vistoria de Pneu</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="relative">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 text-center">
+                    <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                      {vistoriaPneuStats.precisaAlinhar}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 font-medium">Alinhar</p>
+                  </div>
+                  <div className="flex-1 text-center">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                      {vistoriaPneuStats.precisaBalancear}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5 font-medium">Balancear</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2966,6 +3274,153 @@ export default function DashboardPage() {
               setKmPdfDialogOpen(false)
             }}>
               Baixar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog de Vistoria de Pneu */}
+      <Dialog open={vistoriaPneuDialogOpen} onOpenChange={setVistoriaPneuDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>Vistoria de Pneu</DialogTitle>
+                <DialogDescription>
+                  Lista de veículos que precisam de alinhamento e balanceamento
+                </DialogDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportarVistoriaPneuPDF(vistoriaPneuAbaAtiva as "alinhar" | "balancear")}
+                  disabled={vistoriaPneuExportLoading || (vistoriaPneuAbaAtiva === "alinhar" ? veiculosPrecisamAlinhar.length === 0 : veiculosPrecisamBalancear.length === 0)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportarVistoriaPneuExcel(vistoriaPneuAbaAtiva as "alinhar" | "balancear")}
+                  disabled={vistoriaPneuExportLoading || (vistoriaPneuAbaAtiva === "alinhar" ? veiculosPrecisamAlinhar.length === 0 : veiculosPrecisamBalancear.length === 0)}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          <Tabs defaultValue="alinhar" value={vistoriaPneuAbaAtiva} onValueChange={setVistoriaPneuAbaAtiva} className="w-full flex-1 flex flex-col overflow-hidden">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="alinhar" className="flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                Alinhar
+                <Badge variant="secondary" className="ml-1">
+                  {veiculosPrecisamAlinhar.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="balancear" className="flex items-center gap-2">
+                <Disc className="h-4 w-4" />
+                Balancear
+                <Badge variant="secondary" className="ml-1">
+                  {veiculosPrecisamBalancear.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="alinhar" className="flex-1 overflow-y-auto mt-4">
+              {veiculosPrecisamAlinhar.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Wrench className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Nenhum veículo precisa de alinhamento no momento.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Placa</TableHead>
+                        <TableHead>Modelo</TableHead>
+                        <TableHead>Marca</TableHead>
+                        <TableHead>Km Atual</TableHead>
+                        <TableHead>Progresso</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {veiculosPrecisamAlinhar.map((veiculo) => (
+                        <TableRow key={veiculo.id}>
+                          <TableCell className="font-medium">{veiculo.placa}</TableCell>
+                          <TableCell>{veiculo.modelo}</TableCell>
+                          <TableCell>{veiculo.marca}</TableCell>
+                          <TableCell>{veiculo.kmAtual?.toLocaleString() || 0} km</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Progress value={veiculo.progressoAlinhamento} className="h-2 w-20" />
+                              <span className="text-sm text-yellow-600 dark:text-yellow-400 font-semibold">
+                                {veiculo.progressoAlinhamento}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="balancear" className="flex-1 overflow-y-auto mt-4">
+              {veiculosPrecisamBalancear.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Disc className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Nenhum veículo precisa de balanceamento no momento.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Placa</TableHead>
+                        <TableHead>Modelo</TableHead>
+                        <TableHead>Marca</TableHead>
+                        <TableHead>Km Atual</TableHead>
+                        <TableHead>Progresso</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {veiculosPrecisamBalancear.map((veiculo) => (
+                        <TableRow key={veiculo.id}>
+                          <TableCell className="font-medium">{veiculo.placa}</TableCell>
+                          <TableCell>{veiculo.modelo}</TableCell>
+                          <TableCell>{veiculo.marca}</TableCell>
+                          <TableCell>{veiculo.kmAtual?.toLocaleString() || 0} km</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Progress value={veiculo.progressoBalanceamento} className="h-2 w-20" />
+                              <span className="text-sm text-blue-600 dark:text-blue-400 font-semibold">
+                                {veiculo.progressoBalanceamento}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+          
+          <div className="flex justify-end mt-4 pt-4 border-t">
+            <Button onClick={() => setVistoriaPneuDialogOpen(false)}>
+              Fechar
             </Button>
           </div>
         </DialogContent>
