@@ -18,7 +18,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
-import { Trash2, CheckCircle, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown, History, Gauge, Calendar, User } from "lucide-react"
+import { Trash2, CheckCircle, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown, History, Gauge, Calendar, User, Filter, FileText, FileSpreadsheet } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { format, parse } from "date-fns"
@@ -26,6 +26,8 @@ import { ptBR } from "date-fns/locale"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { useAuth } from "@/lib/auth-context"
 import { MobileBackButton } from "@/components/mobile-back-button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { exportToPDF, exportToExcel } from "@/utils/export-troca-oleo-utils"
 
 interface Veiculo {
   id: string
@@ -43,6 +45,7 @@ interface VeiculoComDados extends Veiculo {
   kmAtual: number
   kmProxTroca: number
   progresso: number
+  secretaria?: string
 }
 
 // Definir tipos para ordenação
@@ -57,7 +60,9 @@ export default function TrocaOleoPage() {
   const [veiculosComDados, setVeiculosComDados] = useState<VeiculoComDados[]>([])
   const [veiculosFiltrados, setVeiculosFiltrados] = useState<VeiculoComDados[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [secretariaFilter, setSecretariaFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
+  const [exportLoading, setExportLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [atualizarKmDialogOpen, setAtualizarKmDialogOpen] = useState(false)
   const [veiculoSelecionado, setVeiculoSelecionado] = useState<VeiculoComDados | null>(null)
@@ -190,20 +195,28 @@ export default function TrocaOleoPage() {
   }, [historicoDialogOpen, veiculoSelecionado])
   
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setVeiculosFiltrados(ordenarVeiculos(veiculosComDados))
-      return
+    let resultados = veiculosComDados
+    
+    // Aplicar filtro de busca
+    if (searchTerm.trim()) {
+      const termoBusca = searchTerm.toLowerCase().trim()
+      resultados = resultados.filter(veiculo => 
+        veiculo.placa.toLowerCase().includes(termoBusca) ||
+        veiculo.modelo.toLowerCase().includes(termoBusca) ||
+        veiculo.marca.toLowerCase().includes(termoBusca)
+      )
     }
     
-    const termoBusca = searchTerm.toLowerCase().trim()
-    const resultados = veiculosComDados.filter(veiculo => 
-      veiculo.placa.toLowerCase().includes(termoBusca) ||
-      veiculo.modelo.toLowerCase().includes(termoBusca) ||
-      veiculo.marca.toLowerCase().includes(termoBusca)
-    )
+    // Aplicar filtro de secretaria
+    if (secretariaFilter && secretariaFilter !== "all") {
+      resultados = resultados.filter(veiculo => {
+        const secretaria = (veiculo as any).secretaria || ""
+        return secretaria.trim().toUpperCase() === secretariaFilter.trim().toUpperCase()
+      })
+    }
     
     setVeiculosFiltrados(ordenarVeiculos(resultados))
-  }, [searchTerm, veiculosComDados, sortColumn, sortDirection])
+  }, [searchTerm, secretariaFilter, veiculosComDados, sortColumn, sortDirection])
   
   useEffect(() => {
     const hoje = new Date()
@@ -296,7 +309,8 @@ export default function TrocaOleoPage() {
           ultimaTroca: estatisticas.ultimaTroca,
           kmAtual: estatisticas.kmAtual || veiculo.kmAtual || 0,
           kmProxTroca: estatisticas.kmProxTroca || 0,
-          progresso: estatisticas.progresso
+          progresso: estatisticas.progresso,
+          secretaria: veiculo.secretaria
         }
       })
       
@@ -307,6 +321,61 @@ export default function TrocaOleoPage() {
       console.error("Erro ao carregar veículos:", error)
     } finally {
       setLoading(false)
+    }
+  }
+  
+  // Obter lista de secretarias únicas dos veículos
+  const secretarias = Array.from(
+    new Set(
+      veiculosComDados
+        .map(v => (v as any).secretaria)
+        .filter(Boolean)
+        .sort()
+    )
+  )
+  
+  // Funções de exportação
+  const handleExportPDF = async () => {
+    try {
+      setExportLoading(true)
+      await exportToPDF(veiculosFiltrados, "relatorio_troca_oleo")
+      toast({
+        title: "Relatório PDF gerado",
+        description: "O relatório foi baixado com sucesso",
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error("Erro ao exportar PDF:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o relatório PDF",
+        duration: 5000,
+      })
+    } finally {
+      setExportLoading(false)
+    }
+  }
+  
+  const handleExportExcel = async () => {
+    try {
+      setExportLoading(true)
+      await exportToExcel(veiculosFiltrados, "relatorio_troca_oleo")
+      toast({
+        title: "Relatório Excel gerado",
+        description: "O relatório foi baixado com sucesso",
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error("Erro ao exportar Excel:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar Excel",
+        description: "Não foi possível gerar o relatório Excel",
+        duration: 5000,
+      })
+    } finally {
+      setExportLoading(false)
     }
   }
   
@@ -725,14 +794,58 @@ export default function TrocaOleoPage() {
         <Card className="shadow-md-custom">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-              <div className="relative w-full md:max-w-md">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Buscar por placa, marca ou modelo..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-full"
-                />
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full md:w-auto">
+                <div className="relative w-full md:max-w-md">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Buscar por placa, marca ou modelo..." 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 w-full"
+                  />
+                </div>
+                
+                {/* Filtro de Secretaria */}
+                <div className="w-full md:w-auto">
+                  <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <div className="flex items-center">
+                        <Filter className="mr-2 h-4 w-4" />
+                        <SelectValue placeholder="Filtrar secretaria" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as secretarias</SelectItem>
+                      {secretarias.map((secretaria) => (
+                        <SelectItem key={secretaria} value={secretaria}>
+                          {secretaria}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              {/* Botões de Relatório */}
+              <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={exportLoading || veiculosFiltrados.length === 0}
+                  className="w-full md:w-auto"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Relatório PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportExcel}
+                  disabled={exportLoading || veiculosFiltrados.length === 0}
+                  className="w-full md:w-auto"
+                >
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Relatório Excel
+                </Button>
               </div>
             </div>
             
