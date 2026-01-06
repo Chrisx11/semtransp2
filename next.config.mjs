@@ -19,9 +19,6 @@ const withPWA = withPWAInit({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = withPWA({
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -30,6 +27,8 @@ const nextConfig = withPWA({
   },
   // Especificar o diretório raiz do projeto para evitar avisos sobre múltiplos lockfiles
   outputFileTracingRoot: path.join(__dirname),
+  // Configuração do Turbopack para compatibilidade com Next.js 16
+  turbopack: {},
 })
 
 export default nextConfig
