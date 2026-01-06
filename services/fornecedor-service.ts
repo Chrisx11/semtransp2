@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase"
 export interface Fornecedor {
   id: string
   nome: string
+  endereco?: string
+  telefone?: string
   created_at?: string
   updated_at?: string
 }
@@ -259,3 +261,9 @@ export async function deleteFornecedorSupabase(id: string): Promise<boolean> {
   if (error) throw error
   return true
 }
+
+// Aliases para compatibilidade com imports existentes
+export const getFornecedores = getFornecedoresSupabase
+export const deleteFornecedor = deleteFornecedorSupabase
+export const createFornecedor = addFornecedorSupabase
+export const updateFornecedor = updateFornecedorSupabase
