@@ -18,6 +18,11 @@ interface VeiculoComDados {
 
 // Função para exportar dados para PDF usando jsPDF
 export const exportToPDF = (data: VeiculoComDados[], filename = "troca_oleo") => {
+  // Verificar se está no cliente
+  if (typeof window === "undefined") {
+    throw new Error("Exportação PDF só pode ser executada no cliente")
+  }
+
   try {
     console.log("Iniciando exportação para PDF...")
 
@@ -41,7 +46,7 @@ export const exportToPDF = (data: VeiculoComDados[], filename = "troca_oleo") =>
       item.placa,
       item.modelo,
       item.marca,
-      (item as any).secretaria || "N/A",
+      item.secretaria || "N/A",
       item.kmAtual.toLocaleString(),
       item.kmProxTroca.toLocaleString(),
       `${item.progresso}%`,
@@ -84,6 +89,11 @@ export const exportToPDF = (data: VeiculoComDados[], filename = "troca_oleo") =>
 
 // Função para exportar dados para Excel usando exceljs
 export const exportToExcel = async (data: VeiculoComDados[], filename = "troca_oleo") => {
+  // Verificar se está no cliente
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("Exportação Excel só pode ser executada no cliente")
+  }
+
   try {
     console.log("Iniciando exportação para Excel...")
 
@@ -119,7 +129,7 @@ export const exportToExcel = async (data: VeiculoComDados[], filename = "troca_o
         placa: item.placa,
         modelo: item.modelo,
         marca: item.marca,
-        secretaria: (item as any).secretaria || "N/A",
+        secretaria: item.secretaria || "N/A",
         kmAtual: item.kmAtual,
         kmProxTroca: item.kmProxTroca,
         progresso: item.progresso,
