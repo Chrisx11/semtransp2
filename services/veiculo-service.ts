@@ -135,14 +135,105 @@ export const searchVeiculos = (query: string): Veiculo[] => {
 export async function getVeiculosSupabase(): Promise<Veiculo[]> {
   const { data, error } = await supabase.from("veiculos").select("*").order("placa")
   if (error) throw error
-  return data || []
+  
+  // Buscar o último registro de troca de óleo para cada veículo para obter o km_atual mais recente
+  let kmAtualPorVeiculo: Record<string, number | null> = {}
+  
+  try {
+    const { data: trocasOleoData, error: trocasOleoError } = await supabase
+      .from("trocas_oleo")
+      .select("veiculo_id, km_atual, data_troca")
+      .order("data_troca", { ascending: false })
+    
+    if (!trocasOleoError && trocasOleoData) {
+      // Agrupar por veiculo_id e pegar o primeiro (mais recente) de cada
+      trocasOleoData.forEach((troca: any) => {
+        const veiculoId = troca.veiculo_id
+        if (!kmAtualPorVeiculo.hasOwnProperty(veiculoId)) {
+          const kmAtual = troca.km_atual
+          if (kmAtual !== null && kmAtual !== undefined) {
+            const kmNum = typeof kmAtual === 'string' ? Number(kmAtual) : Number(kmAtual)
+            kmAtualPorVeiculo[veiculoId] = isNaN(kmNum) ? null : kmNum
+          } else {
+            kmAtualPorVeiculo[veiculoId] = null
+          }
+        }
+      })
+    }
+  } catch (trocasOleoError) {
+    console.warn("Erro ao buscar trocas de óleo para KM atual:", trocasOleoError)
+  }
+  
+  // Normalizar os dados para garantir que kmAtual seja sempre um número
+  return (data || []).map((veiculo: any) => {
+    const veiculoId = veiculo.id
+    // Usar km_atual da tabela trocas_oleo (último registro) se disponível, senão usar da tabela veiculos
+    const kmAtualFinal = kmAtualPorVeiculo[veiculoId] ?? veiculo.kmAtual ?? veiculo.km_atual ?? 0
+    
+    return {
+      ...veiculo,
+      // Usar o kmAtual mais recente da tabela trocas_oleo ou da tabela veiculos
+      kmAtual: typeof kmAtualFinal === 'string' ? Number(kmAtualFinal) || 0 : (Number(kmAtualFinal) || 0),
+      // Garantir que kmProxTroca seja um número
+      kmProxTroca: typeof (veiculo.kmProxTroca ?? veiculo.km_prox_troca) === 'string' 
+        ? Number(veiculo.kmProxTroca ?? veiculo.km_prox_troca) || 0 
+        : (Number(veiculo.kmProxTroca ?? veiculo.km_prox_troca) || 0),
+      // Garantir que periodoTrocaOleo seja um número
+      periodoTrocaOleo: typeof (veiculo.periodoTrocaOleo ?? veiculo.periodo_troca_oleo ?? veiculo.periodotrocaoleo) === 'string'
+        ? Number(veiculo.periodoTrocaOleo ?? veiculo.periodo_troca_oleo ?? veiculo.periodotrocaoleo) || 0
+        : (Number(veiculo.periodoTrocaOleo ?? veiculo.periodo_troca_oleo ?? veiculo.periodotrocaoleo) || 0),
+    }
+  })
 }
 
 // Função para obter um veículo por ID do Supabase
 export async function getVeiculoByIdSupabase(id: string): Promise<Veiculo | null> {
   const { data, error } = await supabase.from("veiculos").select("*").eq("id", id).single()
   if (error) return null
-  return data
+  if (!data) return null
+  
+  // Buscar o último registro de troca de óleo para obter o km_atual mais recente
+  let kmAtualMaisRecente: number | null = null
+  
+  try {
+    const { data: ultimoRegistro, error: trocasOleoError } = await supabase
+      .from("trocas_oleo")
+      .select("km_atual, data_troca")
+      .eq("veiculo_id", id)
+      .order("data_troca", { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (!trocasOleoError && ultimoRegistro && ultimoRegistro.km_atual !== null && ultimoRegistro.km_atual !== undefined) {
+      const kmNum = typeof ultimoRegistro.km_atual === 'string' ? Number(ultimoRegistro.km_atual) : Number(ultimoRegistro.km_atual)
+      if (!isNaN(kmNum)) {
+        kmAtualMaisRecente = kmNum
+      }
+    }
+  } catch (trocasOleoError) {
+    // Ignorar erro se não houver registros
+    console.warn("Erro ao buscar último registro de troca de óleo:", trocasOleoError)
+  }
+  
+  // Normalizar os dados para garantir que kmAtual seja sempre um número
+  // Usar km_atual da tabela trocas_oleo (último registro) se disponível, senão usar da tabela veiculos
+  const kmAtualFinal = kmAtualMaisRecente ?? data.kmAtual ?? data.km_atual ?? 0
+  
+  const veiculo: any = {
+    ...data,
+    // Usar o kmAtual mais recente da tabela trocas_oleo ou da tabela veiculos
+    kmAtual: typeof kmAtualFinal === 'string' ? Number(kmAtualFinal) || 0 : (Number(kmAtualFinal) || 0),
+    // Garantir que kmProxTroca seja um número
+    kmProxTroca: typeof (data.kmProxTroca ?? data.km_prox_troca) === 'string'
+      ? Number(data.kmProxTroca ?? data.km_prox_troca) || 0
+      : (Number(data.kmProxTroca ?? data.km_prox_troca) || 0),
+    // Garantir que periodoTrocaOleo seja um número
+    periodoTrocaOleo: typeof (data.periodoTrocaOleo ?? data.periodo_troca_oleo ?? data.periodotrocaoleo) === 'string'
+      ? Number(data.periodoTrocaOleo ?? data.periodo_troca_oleo ?? data.periodotrocaoleo) || 0
+      : (Number(data.periodoTrocaOleo ?? data.periodo_troca_oleo ?? data.periodotrocaoleo) || 0),
+  }
+  
+  return veiculo
 }
 
 // Função para adicionar um novo veículo no Supabase

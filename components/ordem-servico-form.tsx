@@ -19,8 +19,9 @@ import { getVeiculoById } from "@/services/veiculo-service"
 import { getColaboradorById } from "@/services/colaborador-service"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
+import { supabase } from "@/lib/supabase"
 
-// Atualizar o esquema de validação do formulário para incluir o campo kmAtual
+// Esquema de validação do formulário
 const formSchema = z.object({
   veiculoId: z.string().min(1, "Selecione um veículo"),
   solicitanteId: z.string().min(1, "Selecione um solicitante"),
@@ -28,7 +29,19 @@ const formSchema = z.object({
   prioridade: z.enum(["Baixa", "Média", "Alta", "Urgente"], {
     required_error: "Selecione uma prioridade",
   }),
-  kmAtual: z.string().min(1, "Informe o Km atual do veículo"),
+  kmAtual: z
+    .string()
+    .min(1, "O campo Km Atual é obrigatório")
+    .refine(
+      (val) => {
+        if (!val || val.trim() === "") return false
+        const kmNum = Number(val)
+        return !isNaN(kmNum) && kmNum > 0
+      },
+      {
+        message: "Informe um valor válido para o Km Atual",
+      }
+    ),
   status: z.string().optional(),
   defeitosRelatados: z.string().min(1, "Descreva os defeitos relatados"),
   pecasServicos: z.string().optional(),
@@ -85,6 +98,13 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
       pecasServicos: ordemExistente?.pecasServicos || "",
     },
   })
+
+  // Revalidar o campo kmAtual quando o veículo selecionado mudar
+  useEffect(() => {
+    if (selectedVeiculo && form.getValues("kmAtual")) {
+      form.trigger("kmAtual")
+    }
+  }, [selectedVeiculo, form])
 
   // Carregar dados dos itens selecionados quando estiver editando
   useEffect(() => {
@@ -229,6 +249,10 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   const handleVeiculoSelect = (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo)
     form.setValue("veiculoId", veiculo.id)
+    // Limpar o campo kmAtual quando trocar de veículo para forçar nova validação
+    form.setValue("kmAtual", "")
+    // Revalidar após limpar
+    setTimeout(() => form.trigger("kmAtual"), 0)
   }
 
   // Função para lidar com a seleção de solicitante
@@ -266,6 +290,29 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
         })
         setIsSubmitting(false)
         return
+      }
+
+      // Validar se o Km Atual é maior ou igual ao Km Atual do veículo
+      if (data.kmAtual) {
+        const kmAtualNum = Number(data.kmAtual)
+        // Garantir que kmAtualVeiculo seja sempre um número válido
+        const kmAtualVeiculo = typeof selectedVeiculo.kmAtual === 'number' 
+          ? selectedVeiculo.kmAtual 
+          : (Number(selectedVeiculo.kmAtual) || 0)
+        
+        if (isNaN(kmAtualNum) || kmAtualNum < kmAtualVeiculo) {
+          form.setError("kmAtual", {
+            type: "manual",
+            message: `O Km Atual deve ser igual ou maior que ${kmAtualVeiculo.toLocaleString()} km (Km atual do veículo)`,
+          })
+          toast({
+            title: "Validação de Km Atual",
+            description: `O Km Atual informado (${kmAtualNum.toLocaleString()} km) deve ser igual ou maior que o Km Atual do veículo (${kmAtualVeiculo.toLocaleString()} km)`,
+            variant: "destructive",
+          })
+          setIsSubmitting(false)
+          return
+        }
       }
 
       try {
@@ -321,6 +368,86 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
             user?.id,
             user?.nome || user?.login || "Sistema"
           )
+
+          // Atualizar o Km Atual do veículo usando a mesma lógica da página de troca de óleo
+          if (selectedVeiculo && data.kmAtual) {
+            try {
+              const kmAtualNum = Number(data.kmAtual)
+              // Garantir que kmAtualVeiculo seja sempre um número válido
+              const kmAtualVeiculo = typeof selectedVeiculo.kmAtual === 'number' 
+                ? selectedVeiculo.kmAtual 
+                : (Number(selectedVeiculo.kmAtual) || 0)
+              
+              if (!isNaN(kmAtualNum) && kmAtualNum >= kmAtualVeiculo) {
+                // Primeiro, atualizar o campo kmAtual na tabela veiculos (igual à página de troca de óleo)
+                const { error: errorVeiculo } = await supabase
+                  .from("veiculos")
+                  .update({ 
+                    kmAtual: kmAtualNum 
+                  })
+                  .eq("id", selectedVeiculo.id)
+                
+                if (errorVeiculo) {
+                  console.error("Erro ao atualizar kmAtual no veículo:", errorVeiculo)
+                  throw errorVeiculo
+                }
+                
+                // Depois, inserir registro na tabela trocas_oleo (igual à página de troca de óleo)
+                const { data: trocaData, error: errorTroca } = await supabase
+                  .from("trocas_oleo")
+                  .insert([{
+                    veiculo_id: selectedVeiculo.id,
+                    data_troca: new Date().toISOString(),
+                    km_anterior: kmAtualVeiculo,
+                    km_atual: kmAtualNum,
+                    km_proxima_troca: typeof selectedVeiculo.kmProxTroca === 'number' 
+                      ? selectedVeiculo.kmProxTroca 
+                      : (Number(selectedVeiculo.kmProxTroca) || 0),
+                    tipo_servico: "Atualização de Km",
+                    observacao: `Atualização de Km através da Ordem de Serviço ${novaOrdem.numero}`,
+                    user_id: user?.id || null
+                  }])
+                  .select()
+                
+                if (errorTroca) {
+                  console.error("Erro ao registrar atualização de km na tabela trocas_oleo:", errorTroca)
+                  throw errorTroca
+                }
+                
+                console.log("Km atualizado com sucesso na tabela trocas_oleo:", trocaData)
+                
+                // Disparar eventos para notificar outras páginas da atualização
+                window.dispatchEvent(new CustomEvent('veiculo-atualizado', { 
+                  detail: { veiculoId: selectedVeiculo.id, kmAtual: kmAtualNum } 
+                }))
+                
+                // Usar localStorage para notificar outras abas
+                const updateData = {
+                  veiculoId: selectedVeiculo.id,
+                  kmAtual: kmAtualNum,
+                  timestamp: Date.now()
+                }
+                
+                localStorage.setItem('veiculo-km-atualizado', JSON.stringify(updateData))
+                localStorage.setItem('last-veiculo-update', Date.now().toString())
+                
+                // Remover após um delay para disparar evento storage em outras abas
+                setTimeout(() => {
+                  localStorage.removeItem('veiculo-km-atualizado')
+                }, 100)
+                
+                console.log(`Km Atual do veículo ${selectedVeiculo.placa} atualizado para ${kmAtualNum} através da ordem de serviço`)
+              }
+            } catch (kmError) {
+              console.error("Erro ao atualizar Km Atual do veículo:", kmError)
+              // Não falhar a criação da ordem se houver erro ao atualizar o km
+              toast({
+                title: "Aviso",
+                description: "Ordem criada com sucesso, mas houve um erro ao atualizar o Km Atual do veículo.",
+                variant: "default",
+              })
+            }
+          }
 
           toast({
             title: "Ordem de serviço criada",
@@ -487,15 +614,39 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
               <FormField
                 control={form.control}
                 name="kmAtual"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Km Atual</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Informe o Km atual do veículo" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  // Garantir que kmAtual seja sempre um número válido
+                  const kmAtualVeiculo = selectedVeiculo 
+                    ? (typeof selectedVeiculo.kmAtual === 'number' 
+                        ? selectedVeiculo.kmAtual 
+                        : Number(selectedVeiculo.kmAtual) || 0)
+                    : 0
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Km Atual *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number"
+                          placeholder={
+                            selectedVeiculo 
+                              ? `Informe o Km atual (mínimo: ${kmAtualVeiculo.toLocaleString()} km)`
+                              : "Selecione um veículo primeiro"
+                          }
+                          {...field}
+                          disabled={!selectedVeiculo}
+                          min={selectedVeiculo ? kmAtualVeiculo : undefined}
+                        />
+                      </FormControl>
+                      {selectedVeiculo && (
+                        <p className="text-xs text-muted-foreground">
+                          Km atual do veículo: {kmAtualVeiculo.toLocaleString()} km
+                        </p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )
+                }}
               />
 
               <div className="flex justify-end mt-6">
