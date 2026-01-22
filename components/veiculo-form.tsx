@@ -371,6 +371,7 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
     "Semseg",
     "Semtransp",
     "Progem",
+    "Leonardo",
   ]
 
   // Renderização condicional baseada no modo (visualização ou edição)

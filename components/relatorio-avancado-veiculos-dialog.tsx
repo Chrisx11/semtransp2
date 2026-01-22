@@ -43,6 +43,7 @@ const secretarias = [
   "Semseg",
   "Semtransp",
   "Progem",
+  "Leonardo",
 ]
 
 // Lista de tipos de veículos

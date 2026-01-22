@@ -44,6 +44,7 @@ export function ColaboradorForm({ isOpen, onClose, onSubmit, colaborador }: Cola
     "Semseg",
     "Semtransp",
     "Progem",
+    "Leonardo",
   ]
 
   useEffect(() => {

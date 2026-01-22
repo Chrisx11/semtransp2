@@ -75,6 +75,7 @@ const secretarias = [
   "Semseg",
   "Semtransp",
   "Progem",
+  "Leonardo",
 ]
 
 // Componente Mobile View

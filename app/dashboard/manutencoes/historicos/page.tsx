@@ -43,6 +43,7 @@ const secretariaColors: Record<string, string> = {
   SEMSEG: '#f3e5f5',
   SEMTRANSP: '#fce4ec',
   PROGEM: '#f5f5f5',
+  LEONARDO: '#e8f5e9',
 }
 
 function getSecretariaColor(secretaria: string) {
