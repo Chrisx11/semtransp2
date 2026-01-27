@@ -127,6 +127,16 @@ export function OrdemServicoMobileView({ ordens, loading, onNovaOS, onAction }: 
 
   const termo = searchTerm.trim().toLowerCase()
 
+  // Função para contar ordens por setor
+  const contarOrdensPorSetor = (setor: "Oficina" | "Almoxarifado" | "Compras" | "Finalizado"): number => {
+    return ordens.filter((ordem) => {
+      const setorAtual = ordem.status === "Finalizado"
+        ? "Finalizado"
+        : getSetorAtualDoHistorico(ordem.historico as any[] | undefined)
+      return setorAtual === setor
+    }).length
+  }
+
   const filteredOrdens = useMemo(() => {
     return ordens.filter((ordem) => {
       const setorAtual = ordem.status === "Finalizado"
@@ -171,17 +181,29 @@ export function OrdemServicoMobileView({ ordens, loading, onNovaOS, onAction }: 
       </div>
 
       <div className="flex justify-center flex-wrap gap-x-6 gap-y-3 mb-4">
-        {setorFilters.map((filter) => (
-          <Button
-            key={filter.id}
-            variant={selectedSetor === filter.id ? "default" : "outline"}
-            onClick={() => setSelectedSetor((prev) => (prev === filter.id ? "all" : filter.id))}
-            className="h-10 w-10 p-0 flex items-center justify-center rounded-full"
-          >
-            {filter.icon}
-            <span className="sr-only">{filter.label}</span>
-          </Button>
-        ))}
+        {setorFilters.map((filter) => {
+          const count = contarOrdensPorSetor(filter.id)
+          return (
+            <div key={filter.id} className="relative">
+              <Button
+                variant={selectedSetor === filter.id ? "default" : "outline"}
+                onClick={() => setSelectedSetor((prev) => (prev === filter.id ? "all" : filter.id))}
+                className="h-10 w-10 p-0 flex items-center justify-center rounded-full"
+              >
+                {filter.icon}
+                <span className="sr-only">{filter.label}</span>
+              </Button>
+              {count > 0 && (
+                <Badge 
+                  variant="secondary" 
+                  className="absolute -top-1 -right-1 h-5 min-w-5 px-1 text-[10px] font-bold rounded-none flex items-center justify-center"
+                >
+                  {count}
+                </Badge>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       <Button

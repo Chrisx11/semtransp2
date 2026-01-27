@@ -975,6 +975,47 @@ export default function OrdemServicoPage() {
     setCurrentPage(1)
   }, [searchTermOficina, searchTermAlmoxarifado, searchTermCompras, searchTermFinalizados])
 
+  // Função para contar ordens por aba
+  const contarOrdensPorAba = (aba: string): number => {
+    if (!todasOrdensServico || todasOrdensServico.length === 0) return 0
+
+    let statusFiltro: string[] = []
+    switch (aba) {
+      case "oficina":
+        statusFiltro = ["Aguardando Mecânico", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
+        break
+      case "almoxarifado":
+        statusFiltro = ["Em Análise", "Aguardando OS", "Aguardando Fornecedor", "Comprar na Rua"]
+        break
+      case "compras":
+        statusFiltro = ["Em Aprovação"]
+        break
+      case "finalizados":
+        statusFiltro = ["Finalizado"]
+        break
+      default:
+        return 0
+    }
+
+    let ordens = todasOrdensServico.filter((os) => statusFiltro.includes(os.status))
+
+    if (aba === "oficina" || aba === "almoxarifado") {
+      const ordensServicoExterno = todasOrdensServico.filter((os) => os.status === "Serviço Externo")
+      const ordensServicoExternoSetor = ordensServicoExterno.filter((os) => {
+        const setorAtual = getSetorAtualDoHistorico(os.historico || [])
+        if (aba === "oficina") {
+          return setorAtual === "Oficina"
+        } else if (aba === "almoxarifado") {
+          return setorAtual === "Almoxarifado"
+        }
+        return false
+      })
+      ordens = ordens.concat(ordensServicoExternoSetor)
+    }
+
+    return ordens.length
+  }
+
   const desktopContent = (
     <div className="space-y-6">
       <Card className="shadow-md border-none">
@@ -983,50 +1024,62 @@ export default function OrdemServicoPage() {
           <div className="flex space-x-1 rounded-lg bg-muted p-1 mb-8">
             {abasPermitidas.includes("oficina") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
                   activeTab === "oficina"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-background/50"
                 }`}
                 onClick={() => setActiveTab("oficina")}
               >
-                Oficina
+                <span>Oficina</span>
+                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                  {contarOrdensPorAba("oficina")}
+                </Badge>
               </button>
             )}
             {abasPermitidas.includes("almoxarifado") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
                   activeTab === "almoxarifado"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-background/50"
                 }`}
                 onClick={() => setActiveTab("almoxarifado")}
               >
-                Almoxarifado
+                <span>Almoxarifado</span>
+                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                  {contarOrdensPorAba("almoxarifado")}
+                </Badge>
               </button>
             )}
             {abasPermitidas.includes("compras") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
                   activeTab === "compras"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-background/50"
                 }`}
                 onClick={() => setActiveTab("compras")}
               >
-                Compras
+                <span>Compras</span>
+                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                  {contarOrdensPorAba("compras")}
+                </Badge>
               </button>
             )}
             {abasPermitidas.includes("finalizados") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium ${
+                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
                   activeTab === "finalizados"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:bg-background/50"
                 }`}
                 onClick={() => setActiveTab("finalizados")}
               >
-                Finalizados
+                <span>Finalizados</span>
+                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                  {contarOrdensPorAba("finalizados")}
+                </Badge>
               </button>
             )}
           </div>
