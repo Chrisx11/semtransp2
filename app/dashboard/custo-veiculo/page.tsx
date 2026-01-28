@@ -18,6 +18,8 @@ import autoTable from "jspdf-autotable"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 
 // Tipo estendido
 interface CustoVeiculoItem extends Veiculo {
@@ -52,6 +54,7 @@ function CustoVeiculoMobileView({
   custoLavador,
   custoServicoExterno,
   custoTotalGeral,
+  custoQFrotas,
 }: {
   listaPorSecretaria: CustoVeiculoItem[]
   isLoading: boolean
@@ -77,13 +80,31 @@ function CustoVeiculoMobileView({
   custoLavador: number
   custoServicoExterno: number
   custoTotalGeral: number
+  custoQFrotas: boolean
+  setCustoQFrotas: (value: boolean) => void
 }) {
+  // Função helper para aplicar multiplicador
+  const aplicarMultiplicador = (valor: number) => {
+    return custoQFrotas ? valor * 1.5 : valor
+  }
   const [cardsExpanded, setCardsExpanded] = useState(true)
 
   return (
     <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
       <div className="w-[98%] mb-4">
         <MobileBackButton />
+      </div>
+
+      {/* Toggle Custo QFrotas */}
+      <div className="flex items-center gap-3 mb-4 w-[98%] p-3 bg-muted/50 rounded-lg">
+        <Switch
+          id="custo-qfrotas-mobile"
+          checked={custoQFrotas}
+          onCheckedChange={(checked) => setCustoQFrotas(checked)}
+        />
+        <Label htmlFor="custo-qfrotas-mobile" className="text-sm font-medium cursor-pointer">
+          Custo QFrotas (+50%)
+        </Label>
       </div>
 
       {/* Cards de Resumo */}
@@ -93,7 +114,7 @@ function CustoVeiculoMobileView({
             <div className="flex items-center justify-between">
               <div className="flex-1">
                 <div className="text-[10px] text-muted-foreground mb-1">Custo Total Geral</div>
-                <div className="text-lg font-bold text-primary">R$ {custoTotalGeral.toFixed(2)}</div>
+                <div className="text-lg font-bold text-primary">R$ {aplicarMultiplicador(custoTotalGeral).toFixed(2)}</div>
                 {cardStartDate && cardEndDate ? (
                   <div className="text-[9px] text-muted-foreground mt-1">
                     {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -121,7 +142,7 @@ function CustoVeiculoMobileView({
                 <div className="text-[10px] text-muted-foreground mb-1">
                   {secretariaFilter !== 'all' ? `Custo Total (${secretariaFilter})` : "Peças e Consumíveis"}
                 </div>
-                <div className="text-sm font-bold">R$ {totalCard.toFixed(2)}</div>
+                <div className="text-sm font-bold">R$ {aplicarMultiplicador(totalCard).toFixed(2)}</div>
                 {cardStartDate && cardEndDate ? (
                   <div className="text-[9px] text-muted-foreground mt-1">
                     {new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - {new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -135,21 +156,21 @@ function CustoVeiculoMobileView({
             <Card>
               <CardContent className="py-2.5 px-3">
                 <div className="text-[10px] text-muted-foreground mb-1">Borracharia</div>
-                <div className="text-sm font-bold">R$ {custoBorracharia.toFixed(2)}</div>
+                <div className="text-sm font-bold">R$ {aplicarMultiplicador(custoBorracharia).toFixed(2)}</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="py-2.5 px-3">
                 <div className="text-[10px] text-muted-foreground mb-1">Lavadores</div>
-                <div className="text-sm font-bold">R$ {custoLavador.toFixed(2)}</div>
+                <div className="text-sm font-bold">R$ {aplicarMultiplicador(custoLavador).toFixed(2)}</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardContent className="py-2.5 px-3">
                 <div className="text-[10px] text-muted-foreground mb-1">Serviço Externo</div>
-                <div className="text-sm font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
+                <div className="text-sm font-bold">R$ {aplicarMultiplicador(custoServicoExterno).toFixed(2)}</div>
               </CardContent>
             </Card>
           </>
@@ -277,24 +298,24 @@ function CustoVeiculoMobileView({
                       {/* Custo Total */}
                       <div className="mt-2 pt-2 border-t border-border/50">
                         <div className="font-bold text-base text-primary mb-1">
-                          R$ {totalComExtras.toFixed(2)}
+                          R$ {aplicarMultiplicador(totalComExtras).toFixed(2)}
                         </div>
                         <div className="text-[10px] text-muted-foreground space-y-0.5">
                           <div className="flex justify-between">
                             <span>Manutenções:</span>
-                            <span className="font-medium">R$ {v.custoMensal.toFixed(2)}</span>
+                            <span className="font-medium">R$ {aplicarMultiplicador(v.custoMensal).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Borracharia:</span>
-                            <span className="font-medium">R$ {borras.toFixed(2)}</span>
+                            <span className="font-medium">R$ {aplicarMultiplicador(borras).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Lavador:</span>
-                            <span className="font-medium">R$ {lavs.toFixed(2)}</span>
+                            <span className="font-medium">R$ {aplicarMultiplicador(lavs).toFixed(2)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Serviço Externo:</span>
-                            <span className="font-medium">R$ {servicosExt.toFixed(2)}</span>
+                            <span className="font-medium">R$ {aplicarMultiplicador(servicosExt).toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -349,9 +370,9 @@ function CustoVeiculoMobileView({
                                 <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted-foreground">
                                   <span>Qtd: {s.quantidade}</span>
                                   <span>•</span>
-                                  <span>Unit: R$ {typeof s.valorUnitario === 'number' ? s.valorUnitario.toFixed(2) : '-'}</span>
+                                  <span>Unit: R$ {typeof s.valorUnitario === 'number' ? aplicarMultiplicador(s.valorUnitario).toFixed(2) : '-'}</span>
                                   <span>•</span>
-                                  <span className="font-semibold text-primary">Total: R$ {(s.quantidade * (s.valorUnitario ?? 0)).toFixed(2)}</span>
+                                  <span className="font-semibold text-primary">Total: R$ {aplicarMultiplicador(s.quantidade * (s.valorUnitario ?? 0)).toFixed(2)}</span>
                                 </div>
                                 <div className="text-[10px] text-muted-foreground">
                                   {s.data ? new Date(s.data).toLocaleDateString('pt-BR') : '-'} • {s.responsavelNome}
@@ -360,7 +381,7 @@ function CustoVeiculoMobileView({
                             </Card>
                           ))}
                           <div className="font-bold text-right mt-2 text-xs pt-2 border-t border-border/50">
-                            Total: R$ {totalFiltrado.toFixed(2)}
+                            Total: R$ {aplicarMultiplicador(totalFiltrado).toFixed(2)}
                           </div>
                         </div>
                       ) : (
@@ -377,7 +398,7 @@ function CustoVeiculoMobileView({
                             {autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
                               <Card key={a.id} className="p-2 bg-muted/30">
                                 <div className="space-y-0.5">
-                                  <div className="font-medium text-xs">R$ {a.preco?.toFixed(2) ?? '-'}</div>
+                                  <div className="font-medium text-xs">R$ {a.preco ? aplicarMultiplicador(a.preco).toFixed(2) : '-'}</div>
                                   <div className="text-[10px] text-muted-foreground">
                                     {new Date(a.dataAutorizacao).toLocaleDateString('pt-BR')} • {a.autorizadoPorNome}
                                   </div>
@@ -400,7 +421,7 @@ function CustoVeiculoMobileView({
                             {autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
                               <Card key={a.id} className="p-2 bg-muted/30">
                                 <div className="space-y-0.5">
-                                  <div className="font-medium text-xs">R$ {a.preco?.toFixed(2) ?? '-'}</div>
+                                  <div className="font-medium text-xs">R$ {a.preco ? aplicarMultiplicador(a.preco).toFixed(2) : '-'}</div>
                                   <div className="text-[10px] text-muted-foreground">
                                     {new Date(a.dataAutorizacao).toLocaleDateString('pt-BR')} • {a.autorizadoPorNome}
                                   </div>
@@ -423,7 +444,7 @@ function CustoVeiculoMobileView({
                             {servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(s => (
                               <Card key={s.id} className="p-2 bg-muted/30">
                                 <div className="space-y-0.5">
-                                  <div className="font-medium text-xs">R$ {s.valor?.toFixed(2) ?? '0.00'}</div>
+                                  <div className="font-medium text-xs">R$ {s.valor ? aplicarMultiplicador(s.valor).toFixed(2) : '0.00'}</div>
                                   <div className="text-[10px] text-muted-foreground">
                                     {new Date(s.dataAutorizacao).toLocaleDateString('pt-BR')} • {s.fornecedorNome}
                                   </div>
@@ -464,6 +485,12 @@ export default function CustoVeiculoPage() {
   const [placaQuery, setPlacaQuery] = useState("")
   const [cardStartDate, setCardStartDate] = useState<string>("")
   const [cardEndDate, setCardEndDate] = useState<string>("")
+  const [custoQFrotas, setCustoQFrotas] = useState(false)
+
+  // Função helper para aplicar multiplicador
+  const aplicarMultiplicador = (valor: number) => {
+    return custoQFrotas ? valor * 1.5 : valor
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -666,7 +693,7 @@ export default function CustoVeiculoPage() {
       v.modelo,
       v.marca,
       v.secretaria,
-      v.custoMensal.toFixed(2)
+      aplicarMultiplicador(v.custoMensal).toFixed(2)
     ])
     autoTable(doc, {
       head,
@@ -713,7 +740,7 @@ export default function CustoVeiculoPage() {
           modelo: v.modelo,
           marca: v.marca,
           secretaria: v.secretaria,
-          custo: Number(v.custoMensal.toFixed(2)),
+          custo: Number(aplicarMultiplicador(v.custoMensal).toFixed(2)),
         })
       })
 
@@ -775,6 +802,8 @@ export default function CustoVeiculoPage() {
         custoLavador={custoLavador}
         custoServicoExterno={custoServicoExterno}
         custoTotalGeral={custoTotalGeral}
+        custoQFrotas={custoQFrotas}
+        setCustoQFrotas={setCustoQFrotas}
       />
     )
   }
@@ -782,6 +811,22 @@ export default function CustoVeiculoPage() {
   return (
     <React.Fragment>
       <div className="space-y-6">
+        {/* Toggle Custo QFrotas */}
+        <Card>
+          <CardContent className="py-4 px-6">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="custo-qfrotas"
+                checked={custoQFrotas}
+                onCheckedChange={setCustoQFrotas}
+              />
+              <Label htmlFor="custo-qfrotas" className="text-sm font-medium cursor-pointer">
+                Custo QFrotas (+50%)
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Cards de resumo */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Card className="sm:w-auto">
@@ -796,7 +841,7 @@ export default function CustoVeiculoPage() {
                   <div className="mt-1">Mês atual</div>
                 )}
               </div>
-              <div className="text-lg font-bold">R$ {totalCard.toFixed(2)}</div>
+              <div className="text-lg font-bold">R$ {aplicarMultiplicador(totalCard).toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -812,7 +857,7 @@ export default function CustoVeiculoPage() {
                   <div className="mt-1">Mês atual</div>
                 )}
               </div>
-              <div className="text-lg font-bold">R$ {custoBorracharia.toFixed(2)}</div>
+              <div className="text-lg font-bold">R$ {aplicarMultiplicador(custoBorracharia).toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -828,7 +873,7 @@ export default function CustoVeiculoPage() {
                   <div className="mt-1">Mês atual</div>
                 )}
               </div>
-              <div className="text-lg font-bold">R$ {custoLavador.toFixed(2)}</div>
+              <div className="text-lg font-bold">R$ {aplicarMultiplicador(custoLavador).toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -844,7 +889,7 @@ export default function CustoVeiculoPage() {
                   <div className="mt-1">Mês atual</div>
                 )}
               </div>
-              <div className="text-lg font-bold">R$ {custoServicoExterno.toFixed(2)}</div>
+              <div className="text-lg font-bold">R$ {aplicarMultiplicador(custoServicoExterno).toFixed(2)}</div>
             </CardContent>
           </Card>
 
@@ -860,7 +905,7 @@ export default function CustoVeiculoPage() {
                   <div className="mt-1">Mês atual</div>
                 )}
               </div>
-              <div className="text-lg font-bold text-primary">R$ {custoTotalGeral.toFixed(2)}</div>
+              <div className="text-lg font-bold text-primary">R$ {aplicarMultiplicador(custoTotalGeral).toFixed(2)}</div>
             </CardContent>
           </Card>
         </div>
@@ -1001,9 +1046,9 @@ export default function CustoVeiculoPage() {
                             <TableCell>{v.secretaria}</TableCell>
                             <TableCell>
                               <div className="flex flex-col">
-                                <div className="font-bold text-lg text-primary">Total: R$ {totalComExtras.toFixed(2)}</div>
+                                <div className="font-bold text-lg text-primary">Total: R$ {aplicarMultiplicador(totalComExtras).toFixed(2)}</div>
                                 <div className="text-xs text-muted-foreground">
-                                  (Manutenções: R$ {v.custoMensal.toFixed(2)} | Borracharia: R$ {borras.toFixed(2)} | Lavador: R$ {lavs.toFixed(2)} | Serviço Externo: R$ {servicosExt.toFixed(2)})
+                                  (Manutenções: R$ {aplicarMultiplicador(v.custoMensal).toFixed(2)} | Borracharia: R$ {aplicarMultiplicador(borras).toFixed(2)} | Lavador: R$ {aplicarMultiplicador(lavs).toFixed(2)} | Serviço Externo: R$ {aplicarMultiplicador(servicosExt).toFixed(2)})
                                 </div>
                               </div>
                             </TableCell>
@@ -1050,8 +1095,8 @@ export default function CustoVeiculoPage() {
                                         <TableRow key={s.id}>
                                           <TableCell>{s.produtoNome}</TableCell>
                                           <TableCell>{s.quantidade}</TableCell>
-                                          <TableCell>R$ {typeof s.valorUnitario === 'number' ? s.valorUnitario.toFixed(2) : '-'}</TableCell>
-                                          <TableCell>R$ {(s.quantidade * (s.valorUnitario ?? 0)).toFixed(2)}</TableCell>
+                                          <TableCell>R$ {typeof s.valorUnitario === 'number' ? aplicarMultiplicador(s.valorUnitario).toFixed(2) : '-'}</TableCell>
+                                          <TableCell>R$ {aplicarMultiplicador(s.quantidade * (s.valorUnitario ?? 0)).toFixed(2)}</TableCell>
                                           <TableCell>{s.data ? new Date(s.data).toLocaleDateString() : '-'}</TableCell>
                                           <TableCell>{s.responsavelNome}</TableCell>
                                         </TableRow>
@@ -1063,7 +1108,7 @@ export default function CustoVeiculoPage() {
                                       )}
                                     </TableBody>
                                   </Table>
-                                  <div className="font-bold text-right mt-3">Valor total no período: R$ {totalFiltrado.toFixed(2)}</div>
+                                  <div className="font-bold text-right mt-3">Valor total no período: R$ {aplicarMultiplicador(totalFiltrado).toFixed(2)}</div>
 
                                             {/* ---  CUSTOS ESPECÍFICOS: BORRACHARIA, LAVADOR E SERVIÇO EXTERNO --- */}
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
@@ -1086,7 +1131,7 @@ export default function CustoVeiculoPage() {
                                                       autorizacoesBorracharia.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
                                                         <TableRow key={a.id}>
                                                           <TableCell>{new Date(a.dataAutorizacao).toLocaleDateString()}</TableCell>
-                                                          <TableCell>R$ {a.preco?.toFixed(2) ?? '-'}</TableCell>
+                                                          <TableCell>R$ {a.preco ? aplicarMultiplicador(a.preco).toFixed(2) : '-'}</TableCell>
                                                           <TableCell>{a.autorizadoPorNome}</TableCell>
                                                         </TableRow>
                                                       ))
@@ -1114,7 +1159,7 @@ export default function CustoVeiculoPage() {
                                                       autorizacoesLavador.filter(a => a.veiculoId === v.id && (!start || new Date(a.dataAutorizacao) >= new Date(start)) && (!end || new Date(a.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(a => (
                                                         <TableRow key={a.id}>
                                                           <TableCell>{new Date(a.dataAutorizacao).toLocaleDateString()}</TableCell>
-                                                          <TableCell>R$ {a.preco?.toFixed(2) ?? '-'}</TableCell>
+                                                          <TableCell>R$ {a.preco ? aplicarMultiplicador(a.preco).toFixed(2) : '-'}</TableCell>
                                                           <TableCell>{a.autorizadoPorNome}</TableCell>
                                                         </TableRow>
                                                       ))
@@ -1143,7 +1188,7 @@ export default function CustoVeiculoPage() {
                                                       servicosExternos.filter(s => s.veiculoId === v.id && (!start || new Date(s.dataAutorizacao) >= new Date(start)) && (!end || new Date(s.dataAutorizacao) <= (() => { let d = new Date(end); d.setHours(23,59,59,999); return d; })())).map(s => (
                                                         <TableRow key={s.id}>
                                                           <TableCell>{new Date(s.dataAutorizacao).toLocaleDateString()}</TableCell>
-                                                          <TableCell>R$ {s.valor?.toFixed(2) ?? '0.00'}</TableCell>
+                                                          <TableCell>R$ {s.valor ? aplicarMultiplicador(s.valor).toFixed(2) : '0.00'}</TableCell>
                                                           <TableCell>{s.fornecedorNome}</TableCell>
                                                           <TableCell>{s.ordemServicoNumero}</TableCell>
                                                         </TableRow>
