@@ -678,30 +678,80 @@ export default function CustoVeiculoPage() {
   const custoTotalGeral = totalCard + custoBorracharia + custoLavador + custoServicoExterno
 
   const handleExportPDF = () => {
+    // Filtrar veículos com custo 0
+    const veiculosComCusto = listaFiltrada.filter(v => {
+      const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+      const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+      const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((acc, s) => acc + (s.valor ?? 0), 0)
+      const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+      return aplicarMultiplicador(totalComExtras) > 0
+    })
+
+    // Calcular total
+    const totalRelatorio = veiculosComCusto.reduce((acc, v) => {
+      const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((sum, a) => sum + (a.preco ?? 0), 0)
+      const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((sum, a) => sum + (a.preco ?? 0), 0)
+      const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((sum, s) => sum + (s.valor ?? 0), 0)
+      const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+      return acc + aplicarMultiplicador(totalComExtras)
+    }, 0)
+
     const doc = new jsPDF({ orientation: "landscape" })
     doc.setFontSize(14)
     const periodoTexto = cardStartDate && cardEndDate 
       ? `Período: ${new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - ${new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
       : "Mês vigente"
+    
+    // Título à esquerda
     doc.text(`Custo por Veículo - ${periodoTexto}`, 14, 15)
+    
+    // Total à direita
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const totalTexto = `Total: R$ ${totalRelatorio.toFixed(2)}`
+    doc.setFontSize(12)
+    const totalWidth = doc.getTextWidth(totalTexto)
+    doc.text(totalTexto, pageWidth - totalWidth - 14, 15)
+    
     doc.setFontSize(10)
     doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 14, 22)
+    
     const headLabel = cardStartDate && cardEndDate ? "Custo no Período (R$)" : "Custo Mensal (R$)"
     const head = [["Placa", "Modelo", "Marca", "Secretaria", headLabel]]
-    const body = listaFiltrada.map(v => [
-      v.placa,
-      v.modelo,
-      v.marca,
-      v.secretaria,
-      aplicarMultiplicador(v.custoMensal).toFixed(2)
-    ])
+    
+    const body = veiculosComCusto.map(v => {
+      const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+      const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+      const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((acc, s) => acc + (s.valor ?? 0), 0)
+      const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+      return [
+        v.placa,
+        v.modelo,
+        v.marca,
+        v.secretaria,
+        aplicarMultiplicador(totalComExtras).toFixed(2)
+      ]
+    })
+    
     autoTable(doc, {
       head,
       body,
       startY: 28,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [51, 51, 51] },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
+      styles: { 
+        fontSize: 8, 
+        cellPadding: 2,
+        textColor: [33, 37, 41]
+      },
+      headStyles: { 
+        fillColor: [59, 130, 246], // Azul
+        textColor: [255, 255, 255],
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: { 
+        fillColor: [239, 246, 255] // Azul claro
+      },
+      bodyStyles: {
+        fillColor: [255, 255, 255] // Branco
+      },
       margin: { top: 28, left: 10, right: 10 },
     })
     doc.save(`custo_veiculo_${new Date().toISOString().split("T")[0]}.pdf`)
@@ -709,6 +759,24 @@ export default function CustoVeiculoPage() {
 
   const handleExportExcel = async () => {
     try {
+      // Filtrar veículos com custo 0
+      const veiculosComCusto = listaFiltrada.filter(v => {
+        const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+        const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+        const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((acc, s) => acc + (s.valor ?? 0), 0)
+        const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+        return aplicarMultiplicador(totalComExtras) > 0
+      })
+
+      // Calcular total
+      const totalRelatorio = veiculosComCusto.reduce((acc, v) => {
+        const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((sum, a) => sum + (a.preco ?? 0), 0)
+        const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((sum, a) => sum + (a.preco ?? 0), 0)
+        const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((sum, s) => sum + (s.valor ?? 0), 0)
+        const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+        return acc + aplicarMultiplicador(totalComExtras)
+      }, 0)
+
       // Importação dinâmica do ExcelJS para evitar problemas no client-side
       const ExcelJS = (await import("exceljs")).default
       
@@ -716,32 +784,74 @@ export default function CustoVeiculoPage() {
       const worksheet = workbook.addWorksheet("Custo Mensal")
       const custoLabel = cardStartDate && cardEndDate ? "Custo no Período (R$)" : "Custo Mensal (R$)"
       
-      // Definir colunas
+      // Adicionar título e total
+      const periodoTexto = cardStartDate && cardEndDate 
+        ? `Período: ${new Date(cardStartDate + 'T00:00:00').toLocaleDateString('pt-BR')} - ${new Date(cardEndDate + 'T00:00:00').toLocaleDateString('pt-BR')}`
+        : "Mês vigente"
+      
+      worksheet.mergeCells('A1:E1')
+      const titleRow = worksheet.getRow(1)
+      titleRow.getCell(1).value = `Custo por Veículo - ${periodoTexto}`
+      titleRow.getCell(1).font = { size: 14, bold: true }
+      titleRow.getCell(1).alignment = { horizontal: 'left' }
+      
+      // Total no canto direito
+      worksheet.mergeCells('A2:E2')
+      const totalRow = worksheet.getRow(2)
+      totalRow.getCell(1).value = `Total: R$ ${totalRelatorio.toFixed(2)}`
+      totalRow.getCell(1).font = { size: 12, bold: true }
+      totalRow.getCell(1).alignment = { horizontal: 'right' }
+      
+      // Data de geração
+      worksheet.mergeCells('A3:E3')
+      const dateRow = worksheet.getRow(3)
+      dateRow.getCell(1).value = `Gerado em: ${new Date().toLocaleDateString()}`
+      dateRow.getCell(1).font = { size: 10 }
+      dateRow.getCell(1).alignment = { horizontal: 'left' }
+      
+      // Definir colunas (começando na linha 5)
+      worksheet.getRow(5).values = ["Placa", "Modelo", "Marca", "Secretaria", custoLabel]
       worksheet.columns = [
-        { header: "Placa", key: "placa", width: 10 },
-        { header: "Modelo", key: "modelo", width: 20 },
-        { header: "Marca", key: "marca", width: 15 },
-        { header: "Secretaria", key: "secretaria", width: 18 },
-        { header: custoLabel, key: "custo", width: 18 },
+        { key: "placa", width: 10 },
+        { key: "modelo", width: 20 },
+        { key: "marca", width: 15 },
+        { key: "secretaria", width: 18 },
+        { key: "custo", width: 18 },
       ]
 
       // Estilizar cabeçalho
-      worksheet.getRow(1).font = { bold: true }
-      worksheet.getRow(1).fill = {
+      const headerRow = worksheet.getRow(5)
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } }
+      headerRow.fill = {
         type: "pattern",
         pattern: "solid",
-        fgColor: { argb: "FFE0E0E0" },
+        fgColor: { argb: "FF3B82F6" }, // Azul
       }
+      headerRow.alignment = { horizontal: 'center', vertical: 'middle' }
 
       // Adicionar dados
-      listaFiltrada.forEach(v => {
-        worksheet.addRow({
+      veiculosComCusto.forEach((v, index) => {
+        const borras = autorizacoesBorracharia.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+        const lavs = autorizacoesLavador.filter(a => a.veiculoId === v.id).reduce((acc, a) => acc + (a.preco ?? 0), 0)
+        const servicosExt = servicosExternos.filter(s => s.veiculoId === v.id).reduce((acc, s) => acc + (s.valor ?? 0), 0)
+        const totalComExtras = v.custoMensal + borras + lavs + servicosExt
+        
+        const row = worksheet.addRow({
           placa: v.placa,
           modelo: v.modelo,
           marca: v.marca,
           secretaria: v.secretaria,
-          custo: Number(aplicarMultiplicador(v.custoMensal).toFixed(2)),
+          custo: Number(aplicarMultiplicador(totalComExtras).toFixed(2)),
         })
+        
+        // Alternar cores das linhas
+        if (index % 2 === 0) {
+          row.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FFEFF6FF" }, // Azul muito claro
+          }
+        }
       })
 
       // Gerar buffer e fazer download
