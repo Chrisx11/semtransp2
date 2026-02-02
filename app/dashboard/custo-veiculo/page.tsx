@@ -85,7 +85,7 @@ function CustoVeiculoMobileView({
 }) {
   // Função helper para aplicar multiplicador
   const aplicarMultiplicador = (valor: number) => {
-    return custoQFrotas ? valor * 1.5 : valor
+    return custoQFrotas ? valor * 1.36 : valor
   }
   const [cardsExpanded, setCardsExpanded] = useState(true)
 
@@ -103,7 +103,7 @@ function CustoVeiculoMobileView({
           onCheckedChange={(checked) => setCustoQFrotas(checked)}
         />
         <Label htmlFor="custo-qfrotas-mobile" className="text-sm font-medium cursor-pointer">
-          Custo QFrotas (+50%)
+          Custo QFrotas (+36%)
         </Label>
       </div>
 
@@ -489,7 +489,7 @@ export default function CustoVeiculoPage() {
 
   // Função helper para aplicar multiplicador
   const aplicarMultiplicador = (valor: number) => {
-    return custoQFrotas ? valor * 1.5 : valor
+    return custoQFrotas ? valor * 1.36 : valor
   }
 
   useEffect(() => {
@@ -931,7 +931,7 @@ export default function CustoVeiculoPage() {
                 onCheckedChange={setCustoQFrotas}
               />
               <Label htmlFor="custo-qfrotas" className="text-sm font-medium cursor-pointer">
-                Custo QFrotas (+50%)
+                Custo QFrotas (+36%)
               </Label>
             </div>
           </CardContent>
