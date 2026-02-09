@@ -50,6 +50,7 @@ interface MenuItem {
   submenu?: MenuItem[];
   onClick?: (e: React.MouseEvent) => void;
   requiredPermission?: { modulo: string; acao: string; submodulo?: boolean; pagina?: string };
+  desktopOnly?: boolean;
 }
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
@@ -114,6 +115,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   useEffect(() => {
     if (pathname?.includes("/dashboard/colaboradores") || 
         pathname?.includes("/dashboard/veiculos") || 
+        pathname?.includes("/dashboard/documentos") ||
         pathname?.includes("/dashboard/produtos") || 
         pathname?.includes("/dashboard/filtros")) {
       setOpenCadastros(true)
@@ -159,6 +161,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           href: "/dashboard/veiculos",
           icon: Car,
           requiredPermission: { modulo: "veiculos", acao: "visualizar" }
+        },
+        {
+          title: "Documentos",
+          href: "/dashboard/documentos",
+          icon: FileText,
+          requiredPermission: { modulo: "veiculos", acao: "visualizar" },
+          desktopOnly: true
         },
         {
           title: "Produtos",
@@ -541,6 +550,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                           {item.submenu?.map((subItem, subIndex) => {
                             // Verifica permissão para cada item do submenu
                             if (temPermissao(subItem) && subItem.href) {
+                              // Se for desktopOnly, não mostrar na versão colapsada (mobile)
+                              if (subItem.desktopOnly) {
+                                return null;
+                              }
                               return (
                                 <Link
                                   key={subIndex}
@@ -604,6 +617,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                   "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200 hover:shadow-sm-custom",
                                   classes.hoverItem,
                                   pathname === subItem.href && classes.activeItem,
+                                  subItem.desktopOnly && "hidden md:flex"
                                 )}
                                 aria-current={pathname === subItem.href ? "page" : undefined}
                               >
