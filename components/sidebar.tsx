@@ -244,6 +244,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           requiredPermission: { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "troca-oleo" }
         },
         {
+          title: "Vistoria de Tacógrafo",
+          href: "/dashboard/manutencoes/vistoria-tacografo",
+          icon: CalendarRange,
+          requiredPermission: { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "vistoria-tacografo" }
+        },
+        {
           title: "Troca de Pneu",
           href: "/dashboard/manutencoes/troca-pneu",
           icon: Disc,

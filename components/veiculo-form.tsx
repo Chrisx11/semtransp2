@@ -25,6 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription } from "@/components/ui/card"
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion"
+import { Switch } from "@/components/ui/switch"
 import { getProdutosCompativeisComVeiculoSupabase } from "@/services/produto-service"
 
 // Definição do esquema de validação
@@ -45,6 +46,7 @@ const formSchema = z.object({
   periodoTrocaOleo: z.coerce.number().min(1, { message: "Período deve ser maior que 0" }),
   status: z.enum(["Ativo", "Inativo"]),
   secretaria: z.string().min(2, { message: "Secretaria deve ter pelo menos 2 caracteres" }),
+  tacografo: z.boolean().default(false),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -87,6 +89,7 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
       periodoTrocaOleo: 0,
       status: "Ativo",
       secretaria: "",
+      tacografo: false,
     },
   })
 
@@ -170,6 +173,7 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
             periodoTrocaOleo: veiculo.periodotrocaoleo || veiculo.periodoTrocaOleo || 0,
             status: veiculo.status || "Ativo",
             secretaria: secretariaNormalizada,
+            tacografo: !!veiculo.tacografo,
           };
           
           console.log("Valores do formulário:", valoresForm);
@@ -296,13 +300,14 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
 
       if (editingId) {
         // Atualizar veículo existente no Supabase
-        const { periodoTrocaOleo, secretaria, combustivel, tipo, ...restEdit } = values;
+        const { periodoTrocaOleo, secretaria, combustivel, tipo, tacografo, ...restEdit } = values;
         const payloadEdit = {
           ...restEdit,
           tipo: tipo ? tipo.toUpperCase() : "",
           combustivel: combustivel ? combustivel.toUpperCase() : "",
           periodotrocaoleo: periodoTrocaOleo,
           secretaria: secretaria.toUpperCase(),
+          tacografo,
           kmAtual: 0,
           kmProxTroca: 0,
         };
@@ -315,13 +320,14 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
         }
       } else {
         // Adicionar novo veículo no Supabase
-        const { periodoTrocaOleo, secretaria, combustivel, tipo, ...restAdd } = values;
+        const { periodoTrocaOleo, secretaria, combustivel, tipo, tacografo, ...restAdd } = values;
         const payloadAdd = {
           ...restAdd,
           tipo: tipo ? tipo.toUpperCase() : "",
           combustivel: combustivel ? combustivel.toUpperCase() : "",
           periodotrocaoleo: periodoTrocaOleo,
           secretaria: secretaria.toUpperCase(),
+          tacografo,
           kmAtual: 0,
           kmProxTroca: 0,
         };
@@ -904,6 +910,28 @@ export function VeiculoForm({ open, onOpenChange, editingId, onSuccess, isViewin
             </div>
 
             <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="tacografo"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">Tacógrafo</FormLabel>
+                      <DialogDescription className="text-xs">
+                        Indique se o veículo utiliza tacógrafo. Quando ativado, o veículo será tratado como equipado com tacógrafo.
+                      </DialogDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isViewing}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="medicao"
