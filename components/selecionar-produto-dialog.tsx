@@ -11,9 +11,21 @@ interface SelecionarProdutoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSelect: (produto: Produto) => void
+  // Quando definido, lista apenas produtos com a categoria correspondente
+  categoriaFiltro?: string
 }
 
-export function SelecionarProdutoDialog({ open, onOpenChange, onSelect }: SelecionarProdutoDialogProps) {
+function normalizeCategoria(value: string) {
+  // Normaliza para comparar mesmo com acentos e espaços no banco
+  return value
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+}
+
+export function SelecionarProdutoDialog({ open, onOpenChange, onSelect, categoriaFiltro }: SelecionarProdutoDialogProps) {
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredProdutos, setFilteredProdutos] = useState<Produto[]>([])
@@ -21,11 +33,18 @@ export function SelecionarProdutoDialog({ open, onOpenChange, onSelect }: Seleci
   useEffect(() => {
     if (open) {
       getProdutosSupabase().then((todosProdutos) => {
-        setProdutos(todosProdutos)
-        setFilteredProdutos(todosProdutos)
+        const produtosFiltradosPorCategoria =
+          categoriaFiltro && categoriaFiltro.trim()
+            ? todosProdutos.filter(
+                (p) => normalizeCategoria(p.categoria) === normalizeCategoria(categoriaFiltro),
+              )
+            : todosProdutos
+
+        setProdutos(produtosFiltradosPorCategoria)
+        setFilteredProdutos(produtosFiltradosPorCategoria)
       })
     }
-  }, [open])
+  }, [open, categoriaFiltro])
 
   useEffect(() => {
     if (searchQuery.trim() === "") {
@@ -51,7 +70,7 @@ export function SelecionarProdutoDialog({ open, onOpenChange, onSelect }: Seleci
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] h-[500px] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Selecionar Produto</DialogTitle>
+          <DialogTitle>{categoriaFiltro ? `Selecionar Produto (${categoriaFiltro})` : "Selecionar Produto"}</DialogTitle>
         </DialogHeader>
 
         <div className="relative mb-4">

@@ -41,6 +41,7 @@ export const rotasPermissoes: Record<string, {
   "/dashboard/manutencoes/historicos": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "historicos" },
   "/dashboard/movimento/entradas": { modulo: "entradas", acao: "visualizar" },
   "/dashboard/movimento/saidas": { modulo: "saidas", acao: "visualizar" },
+  "/dashboard/movimento/saidas-consumiveis": { modulo: "saidas", acao: "visualizar" },
   "/dashboard/filtros": { modulo: "filtros", acao: "visualizar" },
   "/dashboard/manutencoes/tela": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "tela" },
   "/dashboard/custo-veiculo": { modulo: "custoVeiculo", acao: "visualizar" },
@@ -355,9 +356,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (storedUser) {
           const parsedUser = JSON.parse(storedUser)
-          // Atualizar permissões do banco de dados
-          await refreshUserPermissions(parsedUser.id)
-          // setUser será chamado dentro de refreshUserPermissions
+          
+          // Restaurar sessão imediatamente a partir do cache (evita "deslogar" se estiver sem rede)
+          // Depois tentamos atualizar permissões do banco em background.
+          setUser(parsedUser)
+
+          try {
+            // Atualizar permissões do banco de dados
+            await refreshUserPermissions(parsedUser.id)
+            // setUser será chamado dentro de refreshUserPermissions
+          } catch (e) {
+            // Falha de rede (ex: Failed to fetch) não deve derrubar a sessão.
+            console.warn("⚠️ Falha ao atualizar permissões (mantendo sessão do cache):", e)
+          }
 
           // Configurar cookie para persistência adicional
           document.cookie = `semtransp_auth=${parsedUser.id}; path=/; max-age=2592000; SameSite=Strict`; // 30 dias
@@ -500,7 +511,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Atualizar permissões ao navegar
     const updateOnNavigation = async () => {
-      await refreshUserPermissions(user.id)
+      try {
+        await refreshUserPermissions(user.id)
+      } catch (e) {
+        // Falha de rede: manter permissões atuais.
+        console.warn("⚠️ Falha ao atualizar permissões na navegação:", e)
+      }
     }
 
     // Atualizar permissões quando a página recebe foco (usuário volta para a aba)
@@ -843,25 +859,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: "Login e senha são obrigatórios" }
       }
 
-      // Buscar usuário pelo login (agora usando a tabela 'users')
-      // Normalizar para minúsculas para comparação case-insensitive
+      // Buscar usuário pelo login (tabela 'users')
+      // Evitar buscar TODOS os usuários (isso pode estourar limites e é mais lento).
       const loginNormalizado = login.trim().toLowerCase()
-      const { data: usersData, error: fetchError } = await supabase
+      const { data, error } = await supabase
         .from("users")
         .select("*")
-      
-      if (fetchError) {
-        console.error("Erro ao buscar usuário:", fetchError)
-        setError("Usuário não encontrado")
-        return { success: false, message: "Usuário não encontrado" }
-      }
-      
-      // Encontrar usuário com comparação case-insensitive
-      const data = usersData?.find(u => u.username?.toLowerCase() === loginNormalizado)
-      const error = data ? null : { message: "Usuário não encontrado" }
+        .ilike("username", loginNormalizado)
+        .limit(1)
+        .single()
 
       if (error) {
         console.error("Erro ao buscar usuário:", error)
+        
+        // Mensagem mais clara para erros de infraestrutura/limites
+        const status = (error as any)?.status
+        if (status === 402) {
+          setError("Serviço do banco indisponível/limitado (402). Verifique o status do projeto no Supabase.")
+          return {
+            success: false,
+            message: "Erro 402 do Supabase (projeto pausado/limite). Verifique o status/limites no painel do Supabase e as variáveis do .env.local.",
+          }
+        }
+        if (status === 503) {
+          setError("Sem conexão com o banco (503). Tente novamente.")
+          return { success: false, message: "Sem conexão com o Supabase (503). Verifique internet/CORS/URL/KEY." }
+        }
+
         setError("Usuário não encontrado")
         return { success: false, message: "Usuário não encontrado" }
       }

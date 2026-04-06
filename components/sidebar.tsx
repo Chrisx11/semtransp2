@@ -203,6 +203,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           icon: ArrowLeft,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
+        {
+          title: "Saídas Consumíveis",
+          href: "/dashboard/movimento/saidas-consumiveis",
+          icon: Package,
+          requiredPermission: { modulo: "produtos", acao: "visualizar" }
+        },
       ],
     },
     {

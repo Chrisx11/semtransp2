@@ -9,7 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { addSaidaSupabase, updateSaidaSupabase } from "@/services/saida-service"
+import {
+  addSaidaSupabase,
+  getSaidasByProdutoIdAndResponsavelIdSupabase,
+  updateSaidaSupabase,
+} from "@/services/saida-service"
 import { getProdutoByIdSupabase, updateProdutoSupabase } from "@/services/produto-service"
 import { getColaboradorByIdSupabase } from "@/services/colaborador-service"
 import { getVeiculoByIdSupabase } from "@/services/veiculo-service"
@@ -37,9 +41,32 @@ interface SaidaFormDialogProps {
   onOpenChange: (open: boolean) => void
   onSuccess: () => void
   saidaToEdit?: Saida | null
+  // Quando definido, limita o cadastro/edição a produtos dessa categoria
+  produtoCategoriaFiltro?: string
+  // Se definido, quando o mesmo responsável registrar o mesmo produto nos últimos N dias,
+  // o usuário precisará confirmar e informar uma senha para autorizar.
+  repeticaoMinDias?: number
+  repeticaoSenha?: string
 }
 
-export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: SaidaFormDialogProps) {
+function normalizeCategoria(value: string) {
+  return value
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+}
+
+export function SaidaFormDialog({
+  open,
+  onOpenChange,
+  onSuccess,
+  saidaToEdit,
+  produtoCategoriaFiltro,
+  repeticaoMinDias,
+  repeticaoSenha,
+}: SaidaFormDialogProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(!!saidaToEdit)
@@ -49,6 +76,16 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
   const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null)
   const [selectedResponsavel, setSelectedResponsavel] = useState<Colaborador | null>(null)
   const [selectedVeiculo, setSelectedVeiculo] = useState<Veiculo | null>(null)
+
+  const [repeticaoConfirmOpen, setRepeticaoConfirmOpen] = useState(false)
+  const [repeticaoSenhaOpen, setRepeticaoSenhaOpen] = useState(false)
+  const [repeticaoSenhaValue, setRepeticaoSenhaValue] = useState("")
+  const [aguardandoRepeticaoAutorizacao, setAguardandoRepeticaoAutorizacao] = useState(false)
+
+  const [pendingFormData, setPendingFormData] = useState<FormValues | null>(null)
+  const [pendingProduto, setPendingProduto] = useState<Produto | null>(null)
+  const [pendingResponsavel, setPendingResponsavel] = useState<Colaborador | null>(null)
+  const [pendingVeiculo, setPendingVeiculo] = useState<Veiculo | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,6 +107,15 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
         setSelectedResponsavel(null)
         setSelectedVeiculo(null)
       }
+
+      setRepeticaoConfirmOpen(false)
+      setRepeticaoSenhaOpen(false)
+      setRepeticaoSenhaValue("")
+      setAguardandoRepeticaoAutorizacao(false)
+      setPendingFormData(null)
+      setPendingProduto(null)
+      setPendingResponsavel(null)
+      setPendingVeiculo(null)
     }
   }, [open, form, saidaToEdit])
 
@@ -102,15 +148,28 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
   }, [saidaToEdit, form, open])
 
   const onSubmit = async (data: FormValues) => {
+    if (aguardandoRepeticaoAutorizacao) return
     setIsSubmitting(true)
     try {
       let result
       if (saidaToEdit) {
+        // Validação extra (evita bypass caso alguém altere o produto via UI)
+        const produto = await getProdutoByIdSupabase(data.produtoId)
+        if (!produto) throw new Error("Produto não encontrado")
+        if (produtoCategoriaFiltro && produtoCategoriaFiltro.trim()) {
+          if (normalizeCategoria(produto.categoria) !== normalizeCategoria(produtoCategoriaFiltro)) {
+            throw new Error(`Somente produtos da categoria "${produtoCategoriaFiltro}" podem ser registrados.`)
+          }
+        }
+
         // Atualizar saída existente no Supabase
         result = await updateSaidaSupabase(saidaToEdit.id, {
           ...data,
           data: new Date().toISOString(),
           observacao: "",
+          // Mantém nome/categoria consistentes mesmo quando editar produto
+          produtoNome: produto.descricao,
+          categoria: produto.categoria,
         })
         if (result) {
           toast({
@@ -122,6 +181,12 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
         // Buscar entidades no Supabase
         const produto = await getProdutoByIdSupabase(data.produtoId)
         if (!produto) throw new Error("Produto não encontrado")
+        if (produtoCategoriaFiltro && produtoCategoriaFiltro.trim()) {
+          if (normalizeCategoria(produto.categoria) !== normalizeCategoria(produtoCategoriaFiltro)) {
+            throw new Error(`Somente produtos da categoria "${produtoCategoriaFiltro}" podem ser registrados.`)
+          }
+        }
+
         const responsavel = await getColaboradorByIdSupabase(data.responsavelId)
         if (!responsavel) throw new Error("Responsável não encontrado")
         const veiculo = await getVeiculoByIdSupabase(data.veiculoId)
@@ -129,6 +194,33 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
         if (produto.estoque < data.quantidade) {
           throw new Error(`Estoque insuficiente. Disponível: ${produto.estoque}`)
         }
+
+        // Regra de repetição: mesma dupla (responsável + produto) nos últimos N dias
+        if (typeof repeticaoMinDias === "number" && repeticaoMinDias > 0 && repeticaoSenha) {
+          const saidasRecentes = await getSaidasByProdutoIdAndResponsavelIdSupabase(data.produtoId, data.responsavelId)
+          const agoraMs = Date.now()
+          const janelaMs = repeticaoMinDias * 24 * 60 * 60 * 1000
+
+          const maisRecente = saidasRecentes?.[0]
+          if (maisRecente?.data) {
+            const dataMs = new Date(maisRecente.data).getTime()
+            const repetiuDentroDaJanela = Number.isFinite(dataMs) ? agoraMs - dataMs < janelaMs : false
+
+            if (repetiuDentroDaJanela) {
+              setPendingFormData(data)
+              setPendingProduto(produto)
+              setPendingResponsavel(responsavel)
+              setPendingVeiculo(veiculo)
+              setRepeticaoConfirmOpen(true)
+              setRepeticaoSenhaOpen(false)
+              setRepeticaoSenhaValue("")
+              setAguardandoRepeticaoAutorizacao(true)
+              setIsSubmitting(false)
+              return
+            }
+          }
+        }
+
         // Adicionar nova saída no Supabase
         result = await addSaidaSupabase({
           produtoId: data.produtoId,
@@ -176,6 +268,72 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
     }
   }
 
+  const limparPendenciaRepeticao = () => {
+    setRepeticaoConfirmOpen(false)
+    setRepeticaoSenhaOpen(false)
+    setRepeticaoSenhaValue("")
+    setAguardandoRepeticaoAutorizacao(false)
+    setPendingFormData(null)
+    setPendingProduto(null)
+    setPendingResponsavel(null)
+    setPendingVeiculo(null)
+  }
+
+  const executarRegistroPendente = async () => {
+    if (!pendingFormData || !pendingProduto || !pendingResponsavel || !pendingVeiculo) return
+
+    setIsSubmitting(true)
+    try {
+      const formData = pendingFormData
+      const produto = pendingProduto
+      const responsavel = pendingResponsavel
+      const veiculo = pendingVeiculo
+
+      if (produto.estoque < formData.quantidade) {
+        throw new Error(`Estoque insuficiente. Disponível: ${produto.estoque}`)
+      }
+
+      const result = await addSaidaSupabase({
+        produtoId: formData.produtoId,
+        produtoNome: produto.descricao,
+        categoria: produto.categoria,
+        quantidade: formData.quantidade,
+        valorUnitario: formData.valorUnitario,
+        data: new Date().toISOString(),
+        responsavelId: formData.responsavelId,
+        responsavelNome: responsavel.nome,
+        veiculoId: formData.veiculoId,
+        veiculoPlaca: veiculo.placa,
+        veiculoModelo: veiculo.modelo,
+        observacao: "",
+      })
+
+      await updateProdutoSupabase(produto.id, {
+        estoque: produto.estoque - formData.quantidade,
+      })
+
+      if (result) {
+        toast({
+          title: "Saída registrada com sucesso",
+          description: `${formData.quantidade} unidades removidas do estoque`,
+        })
+      }
+
+      onSuccess()
+      onOpenChange(false)
+      limparPendenciaRepeticao()
+    } catch (error) {
+      toast({
+        title: "Erro ao registrar saída",
+        description: error instanceof Error ? error.message : "Ocorreu um erro inesperado",
+        variant: "destructive",
+      })
+      limparPendenciaRepeticao()
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleProdutoSelect = async (produto: Produto) => {
     setSelectedProduto(produto)
     form.setValue("produtoId", produto.id)
@@ -203,7 +361,10 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>{saidaToEdit ? "Editar Saída" : "Nova Saída"}</DialogTitle>
+            <DialogTitle>
+              {saidaToEdit ? "Editar Saída" : "Nova Saída"}
+              {produtoCategoriaFiltro ? ` (${produtoCategoriaFiltro})` : ""}
+            </DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
@@ -224,6 +385,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                             variant="outline"
                             className="w-full justify-start font-normal"
                             onClick={() => setIsProdutoDialogOpen(true)}
+                            disabled={aguardandoRepeticaoAutorizacao || isSubmitting}
                           >
                             {selectedProduto ? selectedProduto.descricao : "Selecionar produto"}
                           </Button>
@@ -239,7 +401,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                   name="responsavelId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Responsável</FormLabel>
+                      <FormLabel>Responsável (Colaborador)</FormLabel>
                       <FormControl>
                         <div className="flex gap-2">
                           <Button
@@ -247,6 +409,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                             variant="outline"
                             className="w-full justify-start font-normal"
                             onClick={() => setIsResponsavelDialogOpen(true)}
+                            disabled={aguardandoRepeticaoAutorizacao || isSubmitting}
                           >
                             {selectedResponsavel ? selectedResponsavel.nome : "Selecionar responsável"}
                           </Button>
@@ -270,6 +433,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                             variant="outline"
                             className="w-full justify-start font-normal"
                             onClick={() => setIsVeiculoDialogOpen(true)}
+                            disabled={aguardandoRepeticaoAutorizacao || isSubmitting}
                           >
                             {selectedVeiculo
                               ? `${selectedVeiculo.placa} - ${selectedVeiculo.modelo}`
@@ -289,7 +453,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                     <FormItem>
                       <FormLabel>Quantidade</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" {...field} />
+                        <Input type="number" min="1" {...field} disabled={aguardandoRepeticaoAutorizacao || isSubmitting} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -303,7 +467,13 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                     <FormItem>
                       <FormLabel>Valor Unitário (R$)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" min="0" {...field} />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          {...field}
+                          disabled={aguardandoRepeticaoAutorizacao || isSubmitting}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -314,7 +484,7 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
                   <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting || aguardandoRepeticaoAutorizacao}>
                     {isSubmitting
                       ? saidaToEdit
                         ? "Atualizando..."
@@ -330,10 +500,93 @@ export function SaidaFormDialog({ open, onOpenChange, onSuccess, saidaToEdit }: 
         </DialogContent>
       </Dialog>
 
+      {/* Dialog de confirmação (regra de repetição) */}
+      <Dialog
+        open={repeticaoConfirmOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) limparPendenciaRepeticao()
+          setRepeticaoConfirmOpen(nextOpen)
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Registrar novamente?</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">
+            Já existe uma saída registrada para este <b>responsável</b> e este <b>produto</b> nos últimos{" "}
+            <b>{repeticaoMinDias}</b> dias. Confirma que realmente é necessário registrar agora?
+          </div>
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => limparPendenciaRepeticao()}>
+              Não
+            </Button>
+            <Button
+              onClick={() => {
+                setRepeticaoConfirmOpen(false)
+                setRepeticaoSenhaValue("")
+                setRepeticaoSenhaOpen(true)
+              }}
+            >
+              Sim
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de senha */}
+      <Dialog
+        open={repeticaoSenhaOpen}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) limparPendenciaRepeticao()
+          setRepeticaoSenhaOpen(nextOpen)
+        }}
+      >
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Autorização</DialogTitle>
+          </DialogHeader>
+          <div className="text-sm text-muted-foreground">Para prosseguir, informe a senha.</div>
+          <div className="space-y-2 mt-4">
+            <Input
+              type="password"
+              placeholder="Digite a senha"
+              value={repeticaoSenhaValue}
+              onChange={(e) => setRepeticaoSenhaValue(e.target.value)}
+            />
+          </div>
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => limparPendenciaRepeticao()}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                const ok = repeticaoSenhaValue === repeticaoSenha
+                if (!ok) {
+                  toast({
+                    title: "Senha incorreta",
+                    description: "Não foi possível autorizar o registro desta saída.",
+                    variant: "destructive",
+                  })
+                  return
+                }
+                setRepeticaoSenhaOpen(false)
+                setRepeticaoConfirmOpen(false)
+                setRepeticaoSenhaValue("")
+                executarRegistroPendente()
+              }}
+              disabled={!repeticaoSenhaValue.trim() || isSubmitting}
+            >
+              Autorizar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <SelecionarProdutoDialog
         open={isProdutoDialogOpen}
         onOpenChange={setIsProdutoDialogOpen}
         onSelect={handleProdutoSelect}
+        categoriaFiltro={produtoCategoriaFiltro}
       />
 
       <SelecionarResponsavelDialog

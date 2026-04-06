@@ -442,6 +442,37 @@ export async function getSaidasByProdutoIdSupabase(produtoId: string): Promise<S
   }))
 }
 
+export async function getSaidasByProdutoIdAndResponsavelIdSupabase(produtoId: string, responsavelId: string): Promise<Saida[]> {
+  const { data, error } = await supabase
+    .from("saidas")
+    .select("*")
+    .eq("produtoId", produtoId)
+    .eq("responsavelId", responsavelId)
+    .order("data", { ascending: false })
+
+  if (error) throw error
+
+  const rows = data || []
+  return rows.map((row: any) => ({
+    id: row.id,
+    produtoId: row.produtoId,
+    produtoNome: row.produtoNome,
+    categoria: row.categoria,
+    quantidade: row.quantidade,
+    valorUnitario: row.valor_unitario ?? undefined,
+    data: row.data,
+    responsavelId: row.responsavelId,
+    responsavelNome: row.responsavelNome,
+    veiculoId: row.veiculoId,
+    veiculoPlaca: row.veiculoPlaca,
+    veiculoModelo: row.veiculoModelo,
+    observacao: row.observacao ?? undefined,
+    historicoId: row.historicoId ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }))
+}
+
 export async function getSaidasByVeiculoAndDataSupabase(veiculoId: string, data: string): Promise<Saida[]> {
   // data deve estar no formato YYYY-MM-DD
   const { data: saidas, error } = await supabase

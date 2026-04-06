@@ -111,6 +111,30 @@ export const supabase = createClient(finalUrl, finalKey, {
               } else if (status === 403) {
                 console.error(`❌ Supabase Error Response: 403 (Forbidden)`);
                 console.error(`⚠️ Acesso negado - verifique as políticas RLS`);
+              } else if (status === 402) {
+                // 402 no Supabase geralmente indica projeto pausado/limite/billing/uso excedido (ou gateway bloqueando).
+                console.error(`❌ Supabase Error Response: 402 (Payment Required / Limit / Project Paused)`)
+                console.error(`⚠️ Possíveis causas:`)
+                console.error(`   - Projeto Supabase pausado/inativo`)
+                console.error(`   - Limites/quotas excedidos`)
+                console.error(`   - URL/KEY apontando para um projeto errado`)
+                
+                // Tentar ler o body para mensagem mais clara (sem consumir a response original)
+                try {
+                  const cloned = response.clone()
+                  cloned
+                    .json()
+                    .then((body: any) => console.error("📋 Detalhes 402:", body))
+                    .catch(() => {
+                      response
+                        .clone()
+                        .text()
+                        .then((t) => console.error("📋 Detalhes 402 (text):", t))
+                        .catch(() => {})
+                    })
+                } catch (_) {
+                  // ignore
+                }
               } else {
                 console.error(`❌ Supabase Error Response: ${status} ${statusText}`);
               }
@@ -124,18 +148,37 @@ export const supabase = createClient(finalUrl, finalKey, {
           
           return response
         } catch (error) {
-          // Log apenas em desenvolvimento para evitar spam de erros
-          if (process.env.NODE_ENV === 'development') {
-            console.error('❌ Erro na requisição Supabase:', error);
-            if (error instanceof TypeError && error.message === 'Failed to fetch') {
-              console.error('❌ Possíveis causas:');
-              console.error('   - URL do Supabase incorreta ou inacessível');
-              console.error('   - Problema de rede ou CORS');
-              console.error('   - Variáveis de ambiente não carregadas (reinicie o servidor Next.js)');
-              console.error('   - URL atual:', url.toString());
+          // Em alguns cenários (rede/CORS/URL inválida), o fetch lança TypeError("Failed to fetch")
+          // Isso acaba gerando stack trace alto e pode quebrar fluxos (ex: restore de sessão).
+          // Aqui retornamos uma Response "fake" 503 para o supabase-js tratar como erro normal,
+          // sem lançar exceção de rede para cima.
+          const isFailedToFetch =
+            error instanceof TypeError && /failed to fetch/i.test(error.message)
+
+          if (isFailedToFetch) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("⚠️ Supabase: Failed to fetch (rede/CORS/URL). Retornando 503 para tratamento seguro.")
+              console.warn("   URL:", url.toString())
             }
+
+            return new Response(
+              JSON.stringify({
+                message: "Failed to fetch",
+                hint: "Verifique conexão, CORS e variáveis NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY",
+              }),
+              {
+                status: 503,
+                statusText: "Supabase Unreachable",
+                headers: { "Content-Type": "application/json" },
+              },
+            )
           }
-          throw error;
+
+          // Log apenas em desenvolvimento para evitar spam de erros
+          if (process.env.NODE_ENV === "development") {
+            console.error("❌ Erro na requisição Supabase:", error)
+          }
+          throw error
         }
       },
     },

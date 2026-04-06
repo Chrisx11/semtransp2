@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { getOrdensServicoSupabase, type OrdemServico } from "@/services/ordem-servico-service"
 import { cn } from "@/lib/utils"
-import { Wrench, Clock, FileText, AlertCircle, Package, CheckCircle, Calendar, Car } from "lucide-react"
+import { Wrench, Clock, FileText, AlertCircle, Package, CheckCircle, Calendar, Car, ChevronLeft, ChevronRight } from "lucide-react"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { MobileBackButton } from "@/components/mobile-back-button"
@@ -238,6 +239,16 @@ const OrdemCard = ({ ordem }: OrdemCardProps) => {
               {ordem.veiculoInfo}
             </p>
           </div>
+
+          {/* O que deve ser feito (igual ao foco visual do planejamento) */}
+          <div className={cn("rounded px-2 py-1", colors.bgLight, "border", colors.border)}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
+              O que fazer
+            </p>
+            <p className="text-xs text-foreground line-clamp-2">
+              {ordem.defeitosRelatados?.trim() || "Sem descrição informada"}
+            </p>
+          </div>
           
           <div className="flex items-center justify-between gap-1.5">
             <div className="flex items-center gap-1.5">
@@ -349,13 +360,43 @@ function TelaMobileView({
 export default function TelaManutencoesPage() {
   const isMobile = useIsMobile()
   const [mecanicosComOrdens, setMecanicosComOrdens] = useState<{ [key: string]: OrdemServico[] }>({})
+  const [ordensAlmoxarifado, setOrdensAlmoxarifado] = useState<OrdemServico[]>([])
+  const [ordensCompras, setOrdensCompras] = useState<OrdemServico[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [viewMode, setViewMode] = useState<"mecanicos" | "setores">("mecanicos")
+
+  const getSetorAtualDaOS = (ordem: OrdemServico): string | null => {
+    const ultimoEvento = ordem.historico?.length ? ordem.historico[ordem.historico.length - 1] : null
+    const destino = ultimoEvento?.para?.trim()
+    if (destino) return destino
+
+    // Fallback (caso historico não exista por alguma razão)
+    if (ordem.status === "Em Análise" || ordem.status === "Aguardando OS") return "Almoxarifado"
+    if (ordem.status === "Em Aprovação" || ordem.status === "Aguardando Fornecedor" || ordem.status === "Comprar na Rua") return "Compras"
+    return null
+  }
 
   // Função para buscar dados
-  const fetchData = async () => {
+  const fetchData = async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const allOrdens = await getOrdensServicoSupabase()
+      const ordensNaoFinalizadas = allOrdens.filter((ordem) => ordem.status !== "Finalizado")
+
+      const almox = ordensNaoFinalizadas.filter((ordem) => getSetorAtualDaOS(ordem) === "Almoxarifado")
+      const compras = ordensNaoFinalizadas.filter((ordem) => getSetorAtualDaOS(ordem) === "Compras")
+
+      const sortByNumero = (a: OrdemServico, b: OrdemServico) => {
+        const numA = parseInt(a.numero.replace(/\D/g, ""), 10) || 0
+        const numB = parseInt(b.numero.replace(/\D/g, ""), 10) || 0
+        return numB - numA
+      }
+
+      setOrdensAlmoxarifado(almox.sort(sortByNumero))
+      setOrdensCompras(compras.sort(sortByNumero))
+
       const ordensAtivas = allOrdens.filter(
         (ordem) =>
           ordem.status === "Em Serviço" ||
@@ -398,21 +439,51 @@ export default function TelaManutencoesPage() {
     } catch (error) {
       console.error("Erro ao buscar dados:", error)
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
+      if (initialLoading) {
+        setInitialLoading(false)
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
-    fetchData()
-    const timerDados = setInterval(() => { fetchData() }, 10000)
+    fetchData({ silent: false })
+    const timerDados = setInterval(() => { fetchData({ silent: true }) }, 10000)
     return () => { clearInterval(timerDados) }
   }, [])
+
+  // Alternância automática entre Mecânicos e Setores
+  useEffect(() => {
+    if (isMobile) return
+    const timerView = setInterval(() => {
+      setViewMode((prev) => (prev === "mecanicos" ? "setores" : "mecanicos"))
+    }, 5000)
+    return () => clearInterval(timerView)
+  }, [isMobile])
+
+  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
+    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
+    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
+    return nomeA.localeCompare(nomeB)
+  })
+
+  const mecanicosPorPagina = 4
+  const totalPages = Math.max(1, Math.ceil(sortedMecanicos.length / mecanicosPorPagina))
+  const startIndex = currentPage * mecanicosPorPagina
+  const visibleMecanicos = sortedMecanicos.slice(startIndex, startIndex + mecanicosPorPagina)
+
+  useEffect(() => {
+    if (currentPage > totalPages - 1) {
+      setCurrentPage(Math.max(0, totalPages - 1))
+    }
+  }, [currentPage, totalPages])
 
   if (isMobile) {
     return <TelaMobileView mecanicosComOrdens={mecanicosComOrdens} loading={loading} />
   }
 
-  if (loading) {
+  if (loading && initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -423,15 +494,11 @@ export default function TelaManutencoesPage() {
     )
   }
 
-  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
-    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
-    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
-    return nomeA.localeCompare(nomeB)
-  })
+  const hasAnyOS = sortedMecanicos.length > 0 || ordensAlmoxarifado.length > 0 || ordensCompras.length > 0
 
   return (
     <div className="h-[calc(100vh-4rem)] p-2 overflow-hidden font-sans" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', letterSpacing: '0.01em' }}>
-      {sortedMecanicos.length === 0 ? (
+      {!hasAnyOS ? (
         <Card className="border-2 h-full">
           <CardContent className="text-center p-12 h-full flex items-center justify-center">
             <div className="flex flex-col items-center gap-4">
@@ -446,13 +513,120 @@ export default function TelaManutencoesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div
-          className="grid gap-2 h-full"
-          style={{
-            gridTemplateColumns: `repeat(${Math.min(sortedMecanicos.length, 4)}, minmax(280px, 1fr))`
-          }}
-        >
-          {sortedMecanicos.map(mecanicoId => {
+        <div className="h-full flex flex-col gap-2">
+          {/* Alternador de visualização */}
+          <div className="flex items-center justify-between gap-2 flex-shrink-0">
+            <div className="sr-only" aria-hidden="true">
+              <button
+                type="button"
+                onClick={() => setViewMode("mecanicos")}
+                className={cn(
+                  "px-3 py-1 text-sm font-semibold rounded-sm transition-colors",
+                  viewMode === "mecanicos" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Mecânicos
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("setores")}
+                className={cn(
+                  "px-3 py-1 text-sm font-semibold rounded-sm transition-colors",
+                  viewMode === "setores" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Setores
+              </button>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="hidden md:inline">OS:</span>
+              <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5">
+                {ordensAlmoxarifado.length + ordensCompras.length + Object.values(mecanicosComOrdens).reduce((acc, arr) => acc + arr.length, 0)}
+              </Badge>
+            </div>
+          </div>
+
+          {viewMode === "setores" ? (
+            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
+              <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                <div className="p-2 border-b bg-gradient-to-r from-[#3B82F6]/10 to-[#3B82F6]/5 flex items-center justify-between gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Package className="h-4 w-4 text-[#3B82F6] flex-shrink-0" />
+                    <h3 className="font-bold text-sm truncate">Almoxarifado</h3>
+                  </div>
+                  <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 flex-shrink-0">
+                    {ordensAlmoxarifado.length}
+                  </Badge>
+                </div>
+                <div className="p-2 space-y-1.5 overflow-y-auto bg-muted/20 flex-1 min-h-0">
+                  {ordensAlmoxarifado.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-xs">Nenhuma OS no Almoxarifado</p>
+                    </div>
+                  ) : (
+                    ordensAlmoxarifado.map((ordem) => <OrdemCard key={ordem.id} ordem={ordem} />)
+                  )}
+                </div>
+              </Card>
+
+              <Card className="border-2 overflow-hidden flex flex-col min-h-0">
+                <div className="p-2 border-b bg-gradient-to-r from-[#F97316]/10 to-[#F97316]/5 flex items-center justify-between gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-4 w-4 text-[#F97316] flex-shrink-0" />
+                    <h3 className="font-bold text-sm truncate">Compras</h3>
+                  </div>
+                  <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 flex-shrink-0">
+                    {ordensCompras.length}
+                  </Badge>
+                </div>
+                <div className="p-2 space-y-1.5 overflow-y-auto bg-muted/20 flex-1 min-h-0">
+                  {ordensCompras.length === 0 ? (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-xs">Nenhuma OS em Compras</p>
+                    </div>
+                  ) : (
+                    ordensCompras.map((ordem) => <OrdemCard key={ordem.id} ordem={ordem} />)
+                  )}
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <>
+
+          {/* Navegação estilo carrossel: 4 mecânicos por página */}
+          {sortedMecanicos.length > mecanicosPorPagina && (
+            <div className="flex items-center justify-between px-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage + 1} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                disabled={currentPage >= totalPages - 1}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
+
+          <div
+            className="grid gap-2 h-full"
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(visibleMecanicos.length, 4)}, minmax(280px, 1fr))`
+            }}
+          >
+          {visibleMecanicos.map(mecanicoId => {
             const ordensOriginais = mecanicosComOrdens[mecanicoId]
             const nomeMecanicoOriginal = ordensOriginais[0]?.mecanicoInfo || "Sem mecânico atribuído"
             const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
@@ -505,6 +679,9 @@ export default function TelaManutencoesPage() {
               </Card>
             )
           })}
+          </div>
+            </>
+          )}
         </div>
       )}
     </div>
