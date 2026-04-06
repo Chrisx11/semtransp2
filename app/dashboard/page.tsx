@@ -163,6 +163,17 @@ function formatarData(data: string) {
   return d.toLocaleDateString('pt-BR')
 }
 
+function formatarDataHora(data: string) {
+  const d = new Date(data)
+  return d.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+}
+
 // Adicionar uma função auxiliar para verificar se um registro é uma troca de óleo
 function isTrocaOleo(tipoServico: string) {
   if (!tipoServico) return false
@@ -2844,7 +2855,7 @@ export default function DashboardPage() {
                               <TableCell>
                                 <div className="space-y-1">
                                   {veiculo.ultimaAtualizacaoKm 
-                                    ? formatarData(veiculo.ultimaAtualizacaoKm.toISOString())
+                                    ? formatarDataHora(veiculo.ultimaAtualizacaoKm.toISOString())
                                     : 'Nunca atualizado'}
                                   {veiculo.userId || veiculo.user_id
                                     ? (
@@ -2946,7 +2957,7 @@ export default function DashboardPage() {
                                 <TableCell>
                                   <div className="space-y-1">
                                     {veiculo.ultimaAtualizacaoKm 
-                                      ? formatarData(veiculo.ultimaAtualizacaoKm.toISOString())
+                                      ? formatarDataHora(veiculo.ultimaAtualizacaoKm.toISOString())
                                       : 'N/A'}
                                     {veiculo.tipoUltimaAtualizacao && (
                                       <div className="text-xs text-muted-foreground">
@@ -3102,7 +3113,7 @@ export default function DashboardPage() {
                       v.secretaria || "N/A",
                       v.kmAtual?.toLocaleString() || "N/A",
                       v.ultimaAtualizacaoKm 
-                        ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                        ? formatarDataHora(v.ultimaAtualizacaoKm.toISOString())
                         : "Nunca atualizado",
                       v.diasSemAtualizar !== null 
                         ? `${v.diasSemAtualizar} ${v.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
@@ -3153,7 +3164,7 @@ export default function DashboardPage() {
                         v.secretaria || "N/A",
                         v.kmAtual?.toLocaleString() || "N/A",
                         v.ultimaAtualizacaoKm 
-                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          ? formatarDataHora(v.ultimaAtualizacaoKm.toISOString())
                           : "N/A",
                         diasDesdeAtualizacao !== null 
                           ? `${diasDesdeAtualizacao} ${diasDesdeAtualizacao === 1 ? 'dia' : 'dias'}`
@@ -3202,7 +3213,7 @@ export default function DashboardPage() {
                         v.secretaria || "N/A",
                         v.kmAtual?.toLocaleString() || "N/A",
                         v.ultimaAtualizacaoKm 
-                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          ? formatarDataHora(v.ultimaAtualizacaoKm.toISOString())
                           : "Nunca atualizado",
                         v.diasSemAtualizar !== null 
                           ? `${v.diasSemAtualizar} ${v.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
@@ -3222,7 +3233,7 @@ export default function DashboardPage() {
                         v.secretaria || "N/A",
                         v.kmAtual?.toLocaleString() || "N/A",
                         v.ultimaAtualizacaoKm 
-                          ? formatarData(v.ultimaAtualizacaoKm.toISOString())
+                          ? formatarDataHora(v.ultimaAtualizacaoKm.toISOString())
                           : "N/A",
                         diasDesdeAtualizacao !== null 
                           ? `${diasDesdeAtualizacao} ${diasDesdeAtualizacao === 1 ? 'dia' : 'dias'}`

@@ -1181,10 +1181,12 @@ export default function TrocaOleoPage() {
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
                               <span className="font-semibold text-sm">
-                                {new Date(registro.data_troca).toLocaleDateString('pt-BR', {
+                                {new Date(registro.data_troca).toLocaleString('pt-BR', {
                                   day: '2-digit',
                                   month: '2-digit',
-                                  year: 'numeric'
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
                                 })}
                               </span>
                             </div>
@@ -1280,7 +1282,13 @@ export default function TrocaOleoPage() {
           
           {registroParaExcluir && (
             <div className="py-4">
-              <p className="text-sm"><strong>Data:</strong> {new Date(registroParaExcluir.data_troca).toLocaleDateString('pt-BR')}</p>
+              <p className="text-sm"><strong>Data:</strong> {new Date(registroParaExcluir.data_troca).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })}</p>
               <p className="text-sm"><strong>Tipo:</strong> {registroParaExcluir.tipo_servico}</p>
               <p className="text-sm"><strong>Km Atual:</strong> {registroParaExcluir.km_atual.toLocaleString()}</p>
             </div>
