@@ -7,6 +7,7 @@ import {
   registrarTrocaOleo, 
   atualizarKmVeiculo, 
   getEstatisticasTrocasOleo,
+  getEstatisticasFiltroCombustivel,
   TrocaOleo 
 } from "@/services/troca-oleo-service"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -18,7 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { supabase } from "@/lib/supabase"
-import { Trash2, CheckCircle, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown, History, Gauge, Calendar, User, Filter, FileText, FileSpreadsheet } from "lucide-react"
+import { Trash2, CheckCircle, AlertCircle, Search, ArrowUpDown, ArrowUp, ArrowDown, History, Gauge, Calendar, User, Filter, FileText, FileSpreadsheet, MoreVertical } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/ui/toaster"
 import { format, parse } from "date-fns"
@@ -27,6 +28,8 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { useAuth } from "@/lib/auth-context"
 import { MobileBackButton } from "@/components/mobile-back-button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { exportToPDF, exportToExcel } from "@/utils/export-troca-oleo-utils"
 
 interface Veiculo {
@@ -59,6 +62,9 @@ export default function TrocaOleoPage() {
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [veiculosComDados, setVeiculosComDados] = useState<VeiculoComDados[]>([])
   const [veiculosFiltrados, setVeiculosFiltrados] = useState<VeiculoComDados[]>([])
+  const [veiculosComDadosFiltro, setVeiculosComDadosFiltro] = useState<VeiculoComDados[]>([])
+  const [veiculosFiltradosFiltro, setVeiculosFiltradosFiltro] = useState<VeiculoComDados[]>([])
+  const [abaDesktop, setAbaDesktop] = useState<"oleo" | "filtro">("oleo")
   const [searchTerm, setSearchTerm] = useState("")
   const [secretariaFilter, setSecretariaFilter] = useState<string>("all")
   const [loading, setLoading] = useState(true)
@@ -78,11 +84,39 @@ export default function TrocaOleoPage() {
   // Estados para ordenação
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
+  const [tipoRegistroAtivo, setTipoRegistroAtivo] = useState<"oleo" | "filtro">("oleo")
+
+  // Apenas na aba "Filtro de Combustível": permite remover veículos da lista e depois trazer de volta.
+  const [veiculosRemovidos, setVeiculosRemovidos] = useState<string[]>([])
+  const [veiculosRemovidosDialogOpen, setVeiculosRemovidosDialogOpen] = useState(false)
+
   const { toast } = useToast()
   
   useEffect(() => {
     carregarVeiculos()
   }, [])
+
+  useEffect(() => {
+    // Persistir a lista de veículos removidos apenas para a aba "Filtro de Combustível"
+    try {
+      const raw = localStorage.getItem("filtro_combustivel_removed_veiculos")
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) {
+        setVeiculosRemovidos(parsed.filter((x) => typeof x === "string"))
+      }
+    } catch {
+      // Ignorar erros de parse
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("filtro_combustivel_removed_veiculos", JSON.stringify(veiculosRemovidos))
+    } catch {
+      // Ignorar falhas de persistência
+    }
+  }, [veiculosRemovidos])
 
   // Verificar se o usuário tem acesso apenas ao dashboard e troca de óleo
   useEffect(() => {
@@ -216,7 +250,24 @@ export default function TrocaOleoPage() {
     }
     
     setVeiculosFiltrados(ordenarVeiculos(resultados))
-  }, [searchTerm, secretariaFilter, veiculosComDados, sortColumn, sortDirection])
+
+    let resultadosFiltro = veiculosComDadosFiltro
+    if (searchTerm.trim()) {
+      const termoBusca = searchTerm.toLowerCase().trim()
+      resultadosFiltro = resultadosFiltro.filter(veiculo => 
+        veiculo.placa.toLowerCase().includes(termoBusca) ||
+        veiculo.modelo.toLowerCase().includes(termoBusca) ||
+        veiculo.marca.toLowerCase().includes(termoBusca)
+      )
+    }
+    if (secretariaFilter && secretariaFilter !== "all") {
+      resultadosFiltro = resultadosFiltro.filter(veiculo => {
+        const secretaria = (veiculo as any).secretaria || ""
+        return secretaria.trim().toUpperCase() === secretariaFilter.trim().toUpperCase()
+      })
+    }
+    setVeiculosFiltradosFiltro(ordenarVeiculos(resultadosFiltro))
+  }, [searchTerm, secretariaFilter, veiculosComDados, veiculosComDadosFiltro, sortColumn, sortDirection])
   
   useEffect(() => {
     const hoje = new Date()
@@ -313,10 +364,26 @@ export default function TrocaOleoPage() {
           secretaria: veiculo.secretaria
         }
       })
+
+      // Buscar dados do filtro de combustível para cada veículo
+      const veiculosFiltroPromises = veiculosData.map(async (veiculo) => {
+        const estatisticas = await getEstatisticasFiltroCombustivel(veiculo.id)
+        return {
+          ...veiculo,
+          ultimaTroca: estatisticas.ultimaTroca,
+          kmAtual: estatisticas.kmAtual || veiculo.kmAtual || 0,
+          kmProxTroca: estatisticas.kmProxTroca || 0,
+          progresso: estatisticas.progresso,
+          secretaria: veiculo.secretaria
+        }
+      })
       
       const veiculosProcessados = await Promise.all(veiculosPromises)
+      const veiculosFiltroProcessados = await Promise.all(veiculosFiltroPromises)
       setVeiculosComDados(veiculosProcessados)
       setVeiculosFiltrados(ordenarVeiculos(veiculosProcessados))
+      setVeiculosComDadosFiltro(veiculosFiltroProcessados)
+      setVeiculosFiltradosFiltro(ordenarVeiculos(veiculosFiltroProcessados))
     } catch (error) {
       console.error("Erro ao carregar veículos:", error)
     } finally {
@@ -338,7 +405,12 @@ export default function TrocaOleoPage() {
   const handleExportPDF = async () => {
     try {
       setExportLoading(true)
-      await exportToPDF(veiculosFiltrados, "relatorio_troca_oleo")
+      const removidosSet = new Set(veiculosRemovidos)
+      const dados =
+        abaDesktop === "oleo"
+          ? veiculosFiltrados
+          : veiculosFiltradosFiltro.filter((v) => !removidosSet.has(v.id))
+      await exportToPDF(dados, abaDesktop === "oleo" ? "relatorio_troca_oleo" : "relatorio_filtro_combustivel")
       toast({
         title: "Relatório PDF gerado",
         description: "O relatório foi baixado com sucesso",
@@ -360,7 +432,12 @@ export default function TrocaOleoPage() {
   const handleExportExcel = async () => {
     try {
       setExportLoading(true)
-      await exportToExcel(veiculosFiltrados, "relatorio_troca_oleo")
+      const removidosSet = new Set(veiculosRemovidos)
+      const dados =
+        abaDesktop === "oleo"
+          ? veiculosFiltrados
+          : veiculosFiltradosFiltro.filter((v) => !removidosSet.has(v.id))
+      await exportToExcel(dados, abaDesktop === "oleo" ? "relatorio_troca_oleo" : "relatorio_filtro_combustivel")
       toast({
         title: "Relatório Excel gerado",
         description: "O relatório foi baixado com sucesso",
@@ -401,6 +478,7 @@ export default function TrocaOleoPage() {
       setLoading(true)
       
       const dataISO = toISODate(dataInput)
+      const tipoServico = tipoRegistroAtivo === "filtro" ? "Filtro de Combustível" : "Troca de Óleo"
       
       const dadosTroca = {
         veiculo_id: veiculoSelecionado.id,
@@ -408,11 +486,11 @@ export default function TrocaOleoPage() {
         km_anterior: veiculoSelecionado.kmAtual,
         km_atual: Number(kmAtual),
         km_proxima_troca: Number(kmProxTroca),
-        tipo_servico: "Troca de Óleo",
+        tipo_servico: tipoServico,
         observacao: observacao || undefined
       }
       
-      console.log("Tentando registrar troca de óleo:", dadosTroca)
+      console.log("Tentando registrar serviço:", dadosTroca)
       
       const { data, error } = await supabase
         .from("trocas_oleo")
@@ -422,7 +500,7 @@ export default function TrocaOleoPage() {
           km_anterior: Number(veiculoSelecionado.kmAtual),
           km_atual: Number(kmAtual),
           km_proxima_troca: Number(kmProxTroca),
-          tipo_servico: "Troca de Óleo",
+          tipo_servico: tipoServico,
           observacao: observacao || null,
           user_id: user?.id || null
         }])
@@ -442,7 +520,7 @@ export default function TrocaOleoPage() {
       console.log("Troca registrada com sucesso:", data)
       
       toast({
-        title: "Troca de óleo registrada",
+        title: `${tipoServico} registrado`,
         description: "Registro efetuado com sucesso",
         duration: 3000,
         className: "bg-green-50 border-green-200 text-green-900",
@@ -582,13 +660,17 @@ export default function TrocaOleoPage() {
   function calcularProximaTroca(kmAtualValue: string, veiculo: VeiculoComDados): string {
     if (!kmAtualValue) return ""
     
-    const periodoTroca = veiculo.periodotrocaoleo || veiculo.periodoTrocaOleo || 5000
+    const periodoTrocaBase = veiculo.periodotrocaoleo || veiculo.periodoTrocaOleo || 5000
+    const periodoTroca = tipoRegistroAtivo === "filtro"
+      ? Math.max(1, Math.round(periodoTrocaBase / 2))
+      : periodoTrocaBase
     
     return (Number(kmAtualValue) + periodoTroca).toString()
   }
 
-  function abrirDialogTrocaOleo(veiculo: VeiculoComDados) {
+  function abrirDialogTrocaOleo(veiculo: VeiculoComDados, tipo?: "oleo" | "filtro") {
     setVeiculoSelecionado(veiculo)
+    setTipoRegistroAtivo(tipo || abaDesktop)
     
     const kmAtualInicial = veiculo.kmAtual.toString()
     setKmAtual(kmAtualInicial)
@@ -661,6 +743,27 @@ export default function TrocaOleoPage() {
     if (progresso < 50) return "bg-green-500"
     if (progresso < 80) return "bg-yellow-500"
     return "bg-red-500"
+  }
+
+  function removerVeiculoDaListaFiltro(veiculoId: string) {
+    setVeiculosRemovidos((prev) => {
+      if (prev.includes(veiculoId)) return prev
+      return [...prev, veiculoId]
+    })
+    toast({
+      title: "Veículo removido",
+      description: "Apenas na aba Filtro de Combustível.",
+      duration: 3000,
+    })
+  }
+
+  function trazerVeiculoDeVolta(veiculoId: string) {
+    setVeiculosRemovidos((prev) => prev.filter((id) => id !== veiculoId))
+    toast({
+      title: "Veículo restaurado",
+      description: "Ele volta a aparecer na aba Filtro de Combustível.",
+      duration: 3000,
+    })
   }
 
   async function excluirRegistro(registro: TrocaOleo) {
@@ -772,6 +875,16 @@ export default function TrocaOleoPage() {
     return `${ano}-${mes}-${dia}T00:00:00-03:00`
   }
 
+  const removidosSet = new Set(veiculosRemovidos)
+  const veiculosFiltradosView =
+    abaDesktop === "oleo"
+      ? veiculosFiltrados
+      : veiculosFiltradosFiltro.filter((v) => !removidosSet.has(v.id))
+  const veiculosResumoView =
+    abaDesktop === "oleo"
+      ? veiculosComDados
+      : veiculosComDadosFiltro.filter((v) => !removidosSet.has(v.id))
+  const tituloAbaDesktop = abaDesktop === "oleo" ? "Troca de Óleo" : "Filtro de Combustível"
 
   return (
     <>
@@ -783,7 +896,7 @@ export default function TrocaOleoPage() {
           onSearchChange={setSearchTerm}
           veiculos={veiculosFiltrados}
           veiculosResumo={veiculosComDados}
-          onRegistrar={abrirDialogTrocaOleo}
+          onRegistrar={(v) => abrirDialogTrocaOleo(v, "oleo")}
           onAtualizar={abrirDialogAtualizarKm}
           onHistorico={abrirHistorico}
           getCorProgresso={getCorProgresso}
@@ -791,6 +904,17 @@ export default function TrocaOleoPage() {
         />
       ) : (
       <div className="space-y-6">
+        <Tabs value={abaDesktop} onValueChange={(v) => setAbaDesktop(v as "oleo" | "filtro")}>
+          <div className="flex items-center justify-between gap-4">
+            <TabsList className="grid grid-cols-2 w-[420px]">
+              <TabsTrigger value="oleo">Troca de Óleo</TabsTrigger>
+              <TabsTrigger value="filtro">Filtro de Combustível</TabsTrigger>
+            </TabsList>
+            <div className="text-sm text-muted-foreground font-medium">
+              {tituloAbaDesktop}
+            </div>
+          </div>
+        </Tabs>
         <Card className="shadow-md-custom">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
@@ -831,7 +955,7 @@ export default function TrocaOleoPage() {
                 <Button
                   variant="outline"
                   onClick={handleExportPDF}
-                  disabled={exportLoading || veiculosFiltrados.length === 0}
+                  disabled={exportLoading || veiculosFiltradosView.length === 0}
                   className="w-full md:w-auto"
                 >
                   <FileText className="mr-2 h-4 w-4" />
@@ -840,12 +964,23 @@ export default function TrocaOleoPage() {
                 <Button
                   variant="outline"
                   onClick={handleExportExcel}
-                  disabled={exportLoading || veiculosFiltrados.length === 0}
+                  disabled={exportLoading || veiculosFiltradosView.length === 0}
                   className="w-full md:w-auto"
                 >
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   Relatório Excel
                 </Button>
+
+                {abaDesktop === "filtro" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setVeiculosRemovidosDialogOpen(true)}
+                    disabled={veiculosRemovidos.length === 0}
+                    className="w-full md:w-auto"
+                  >
+                    Veículos removidos
+                  </Button>
+                )}
               </div>
             </div>
             
@@ -864,7 +999,7 @@ export default function TrocaOleoPage() {
                   </TableBody>
                 </Table>
               </div>
-            ) : veiculosComDados.length === 0 ? (
+            ) : veiculosResumoView.length === 0 ? (
               <div className="rounded-md border shadow-sm-custom overflow-hidden">
                 <Table>
                   <TableBody>
@@ -876,7 +1011,7 @@ export default function TrocaOleoPage() {
                   </TableBody>
                 </Table>
               </div>
-            ) : veiculosFiltrados.length === 0 ? (
+            ) : veiculosFiltradosView.length === 0 ? (
               <div className="rounded-md border shadow-sm-custom overflow-hidden">
                 <Table>
                   <TableBody>
@@ -935,7 +1070,7 @@ export default function TrocaOleoPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {veiculosFiltrados.map((veiculo) => {
+                    {veiculosFiltradosView.map((veiculo) => {
                       const progressoClass = getCorProgresso(veiculo.progresso)
                       
                       return (
@@ -957,29 +1092,54 @@ export default function TrocaOleoPage() {
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => abrirDialogTrocaOleo(veiculo)}
-                              >
-                                Troca de Óleo
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => abrirDialogAtualizarKm(veiculo)}
-                              >
-                                Atualizar Km
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => abrirHistorico(veiculo)}
-                              >
-                                Histórico
-                              </Button>
-                            </div>
+                            {abaDesktop === "filtro" ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreVertical className="h-4 w-4" />
+                                    <span className="sr-only">Abrir menu</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => abrirDialogTrocaOleo(veiculo, "filtro")}
+                                  >
+                                    Filtro de Combustível
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => abrirDialogAtualizarKm(veiculo)}>
+                                    Atualizar Km
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => abrirHistorico(veiculo)}>
+                                    Histórico
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => removerVeiculoDaListaFiltro(veiculo.id)}
+                                  >
+                                    Remover veículo
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setVeiculosRemovidosDialogOpen(true)}>
+                                    Veículos removidos
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => abrirDialogTrocaOleo(veiculo, abaDesktop)}
+                                >
+                                  Troca de Óleo
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => abrirDialogAtualizarKm(veiculo)}>
+                                  Atualizar Km
+                                </Button>
+                                <Button variant="ghost" size="sm" onClick={() => abrirHistorico(veiculo)}>
+                                  Histórico
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       )
@@ -996,7 +1156,9 @@ export default function TrocaOleoPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar Troca de Óleo</DialogTitle>
+            <DialogTitle>
+              {tipoRegistroAtivo === "oleo" ? "Registrar Troca de Óleo" : "Registrar Filtro de Combustível"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div>
@@ -1005,7 +1167,9 @@ export default function TrocaOleoPage() {
               </p>
               {veiculoSelecionado?.periodotrocaoleo && (
                 <p className="text-xs text-muted-foreground">
-                  Período de troca: {veiculoSelecionado.periodotrocaoleo.toLocaleString()} km
+                  {tipoRegistroAtivo === "oleo"
+                    ? `Período de troca: ${veiculoSelecionado.periodotrocaoleo.toLocaleString()} km`
+                    : `Período do filtro: ${Math.max(1, Math.round(veiculoSelecionado.periodotrocaoleo / 2)).toLocaleString()} km`}
                 </p>
               )}
             </div>
@@ -1310,6 +1474,56 @@ export default function TrocaOleoPage() {
               {loading ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo: Veículos removidos (somente aba Filtro de Combustível) */}
+      <Dialog open={veiculosRemovidosDialogOpen} onOpenChange={setVeiculosRemovidosDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Veículos removidos</DialogTitle>
+            <DialogDescription>
+              Lista removida da aba <strong>Filtro de Combustível</strong>. Use “Trazer de volta” para retornar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[70vh] overflow-y-auto">
+            {veiculosRemovidos.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Nenhum veículo foi removido.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Placa</TableHead>
+                    <TableHead>Modelo</TableHead>
+                    <TableHead>Secretaria</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {veiculosRemovidos
+                    .map((id) => veiculosComDadosFiltro.find((v) => v.id === id) || veiculosComDados.find((v) => v.id === id))
+                    .filter(Boolean)
+                    .map((v: any) => (
+                      <TableRow key={v.id}>
+                        <TableCell className="font-medium">{v.placa}</TableCell>
+                        <TableCell>
+                          {v.modelo} {v.marca}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{v.secretaria || "N/A"}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" variant="outline" onClick={() => trazerVeiculoDeVolta(v.id)}>
+                            Trazer de volta
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
