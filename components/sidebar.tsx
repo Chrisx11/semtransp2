@@ -708,15 +708,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                 "w-full rounded-md px-1.5 py-1.5 text-[10px] font-medium transition-all",
               classes.hoverItem,
             )}
-            title={menuMode === "sophisticated" ? "Modo sofisticado" : "Modo simples"}
           >
             {menuMode === "sophisticated" ? "S" : "M"}
           </button>
         ) : (
           <div className="space-y-1">
-            <p className={cn("text-[11px] uppercase tracking-wide", isDarkTheme ? "text-slate-400" : "text-white/80")}>
-              Visual do menu
-            </p>
             <div className="grid grid-cols-2 gap-0.5 rounded-md p-0.5 bg-black/10 dark:bg-white/5">
               <button
                 onClick={() => setMenuMode("simple")}
