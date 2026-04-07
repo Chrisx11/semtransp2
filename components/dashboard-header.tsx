@@ -86,6 +86,10 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Troca de Pneu",
     description: "Gerenciamento de trocas de pneu",
   },
+  "/dashboard/manutencoes/vistoria-tacografo": {
+    title: "Vistoria de Tacógrafo",
+    description: "Controle de vistorias de tacógrafo",
+  },
   "/dashboard/manutencoes/historicos": {
     title: "Históricos de Manutenção",
     description: "Consulta de históricos de manutenção",
