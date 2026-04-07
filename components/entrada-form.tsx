@@ -226,7 +226,7 @@ export function EntradaForm({ onSuccess, entradaId }: EntradaFormProps) {
               <FormItem>
                 <FormLabel>Quantidade</FormLabel>
                 <FormControl>
-                  <Input type="number" min="1" {...field} />
+                  <Input type="number" min="0.01" step="0.01" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

@@ -33,7 +33,6 @@ import {
   Calendar,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import Image from "next/image"
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -64,6 +63,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const [mounted, setMounted] = useState(false)
   const [openCollapsedSubmenu, setOpenCollapsedSubmenu] = useState<string | null>(null)
   const [submenuPosition, setSubmenuPosition] = useState<number | null>(null)
+  const [menuMode, setMenuMode] = useState<"simple" | "sophisticated">("sophisticated")
 
   // Referência para detectar cliques fora do submenu
   const submenuRef = useRef<HTMLDivElement>(null)
@@ -71,6 +71,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   // Evita problemas de hidratação
   useEffect(() => {
     setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    const savedMode = localStorage.getItem("sidebar_menu_mode")
+    if (savedMode === "simple" || savedMode === "sophisticated") {
+      setMenuMode(savedMode)
+    }
   }, [])
 
   useEffect(() => {
@@ -96,6 +103,10 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   useEffect(() => {
     localStorage.setItem("sidebar_open_servicos", openServicos ? "true" : "false")
   }, [openServicos])
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_menu_mode", menuMode)
+  }, [menuMode])
 
   // Fechar submenu quando clicar fora dele
   useEffect(() => {
@@ -201,12 +212,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           title: "Saídas",
           href: "/dashboard/movimento/saidas",
           icon: ArrowLeft,
-          requiredPermission: { modulo: "produtos", acao: "visualizar" }
-        },
-        {
-          title: "Saídas Consumíveis",
-          href: "/dashboard/movimento/saidas-consumiveis",
-          icon: Package,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
       ],
@@ -319,12 +324,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Cores para o tema claro (menu azul)
   const lightThemeClasses = {
-    sidebar: "bg-blue-600 text-white shadow-xl-custom",
-    border: "border-blue-500",
-    button: "text-white hover:bg-blue-700",
-    activeItem: "bg-gradient-to-r from-blue-700 to-blue-600 shadow-sm-custom border-l-4 border-white text-white font-semibold",
-    hoverItem: "hover:bg-gradient-to-r hover:from-blue-700/80 hover:to-blue-600/80 transition-all duration-200",
-    submenuBg: "bg-blue-600 shadow-xl-custom border border-blue-500 rounded-lg",
+    sidebar: "bg-gradient-to-b from-blue-600 to-blue-700 text-white shadow-xl-custom",
+    border: "border-white/15",
+    button: "text-white hover:bg-white/10",
+    activeItem: "bg-white/20 shadow-sm border border-white/20 text-white font-semibold",
+    hoverItem: "hover:bg-white/10 transition-all duration-200",
+    submenuBg: "bg-blue-700 shadow-xl-custom border border-white/15 rounded-xl",
   }
 
   // Cores para o tema escuro
@@ -332,9 +337,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     sidebar: "gradient-sidebar text-slate-100 shadow-xl-custom",
     border: "border-primary/20",
     button: "text-slate-100 hover:bg-primary/10",
-    activeItem: "bg-gradient-to-r from-primary/25 to-primary/10 shadow-sm-custom border-l-4 border-primary text-primary font-semibold",
+    activeItem: "bg-primary/20 shadow-sm border border-primary/30 text-primary font-semibold",
     hoverItem: "hover:bg-primary/10 transition-all duration-200",
-    submenuBg: "bg-[hsl(217,33%,15%)] shadow-xl-custom border border-primary/20 rounded-lg",
+    submenuBg: "bg-[hsl(217,33%,15%)] shadow-xl-custom border border-primary/20 rounded-xl",
   }
 
   // Seleciona o conjunto de classes com base no tema
@@ -342,7 +347,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Classes comuns para todos os itens de menu
   const menuItemClasses = cn(
-    "flex items-center py-2.5 px-3 rounded-lg transition-all duration-200 text-sm font-medium relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+    "flex items-center py-1.5 px-2.5 rounded-lg transition-all duration-200 text-[12px] font-medium relative focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 leading-tight",
     classes.hoverItem,
   )
 
@@ -412,6 +417,11 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     */
   }
 
+  const simpleMenuItems = menuItems.flatMap((item) => {
+    if (!item.isSubmenu) return [item]
+    return item.submenu || []
+  })
+
   return (
     <div
       className={cn(
@@ -420,13 +430,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         isCollapsed ? "w-16" : "w-64",
       )}
     >
-      <div className={cn("flex items-center justify-between p-4 border-b", classes.border)}>
+      <div className={cn("h-[66px] flex items-center justify-between px-3 border-b", classes.border)}>
         {!isCollapsed && (
           <h2 className={cn(
-            "text-lg font-bold tracking-tight",
+            "text-sm font-semibold tracking-wide uppercase",
             isDarkTheme 
               ? "bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent"
-              : "text-white"
+              : "text-white/95"
           )}>
             SEMTRANSP
           </h2>
@@ -434,7 +444,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <div
           onClick={onToggle}
           className={cn(
-            "cursor-pointer p-2 rounded-lg transition-all duration-200 hover:bg-accent hover:scale-105",
+            "cursor-pointer p-1.5 rounded-lg transition-all duration-200 hover:scale-105",
             classes.hoverItem,
             isCollapsed && "mx-auto",
           )}
@@ -451,13 +461,52 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           {isCollapsed ? <ArrowRight className="h-5 w-5" /> : <ArrowLeft className="h-5 w-5" />}
         </div>
       </div>
-      <div className="relative flex-1 overflow-auto py-2 min-h-0">
+      <div className="relative flex-1 overflow-auto py-1.5 min-h-0">
         <div className="pointer-events-none absolute top-0 left-0 right-0 h-4 bg-gradient-to-b from-black/10 to-transparent dark:from-white/10" />
-        <nav className="space-y-1 px-2" role="navigation" aria-label="Menu lateral">
-          {menuItems.map((item, index) => {
+        <nav className="space-y-0.5 px-1.5" role="navigation" aria-label="Menu lateral">
+          {(menuMode === "simple" ? simpleMenuItems : menuItems).map((item, index) => {
             // Se o usuário não tem permissão para este item, não renderiza
             if (!temPermissao(item)) {
               return null;
+            }
+
+            if (menuMode === "simple") {
+              if (!item.href) return null
+              if (item.desktopOnly) return null
+
+              return (
+                <Link
+                  key={`${item.title}-${index}`}
+                  href={item.href}
+                  className={cn(
+                    menuItemClasses,
+                    pathname === item.href && classes.activeItem,
+                    isCollapsed ? "justify-center px-2" : "px-3",
+                    isCollapsed && "relative group",
+                    "animate-fade-in group",
+                  )}
+                  style={{ animationDelay: `${index * 0.03}s` }}
+                  aria-current={pathname === item.href ? "page" : undefined}
+                >
+                  <item.icon
+                    className={cn(
+                      "h-4 w-4 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:text-white",
+                      isCollapsed ? "" : "mr-2",
+                    )}
+                  />
+                  {!isCollapsed && <span>{item.title}</span>}
+                  {isCollapsed && (
+                    <div
+                      className={cn(
+                        "absolute left-full ml-2 hidden rounded-md p-2 group-hover:block z-50 shadow-lg-custom",
+                        classes.submenuBg,
+                      )}
+                    >
+                      <div className="py-1 px-2 whitespace-nowrap text-xs font-medium">{item.title}</div>
+                    </div>
+                  )}
+                </Link>
+              )
             }
 
             // Item normal (sem submenu)
@@ -544,7 +593,7 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         }
                       }}
                     >
-                      <item.icon className="h-5 w-5" />
+                      <item.icon className="h-4 w-4" />
                     </div>
 
                     {/* Dropdown lateral fora do menu */}
@@ -571,13 +620,13 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                   key={subIndex}
                                   href={subItem.href}
                                   className={cn(
-                                    "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200",
+                                    "flex items-center py-1.5 px-2.5 text-[10px] font-medium rounded-md transition-all duration-200 leading-tight",
                                     classes.hoverItem,
                                     pathname === subItem.href && classes.activeItem,
                                   )}
                                   onClick={() => setOpenCollapsedSubmenu(null)}
                                 >
-                                  <subItem.icon className="h-4 w-4 mr-2" />
+                                  <subItem.icon className="h-3.5 w-3.5 mr-2" />
                                   <span>{subItem.title}</span>
                                 </Link>
                               );
@@ -606,18 +655,18 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                       }}
                     >
                       <div className="flex items-center">
-                        <item.icon className="h-5 w-5 mr-2" />
+                        <item.icon className="h-4 w-4 mr-2" />
                         <span>{item.title}</span>
                       </div>
                       <ChevronDown
                         className={cn(
-                          "h-4 w-4 transition-transform duration-200",
+                          "h-3.5 w-3.5 transition-transform duration-200",
                           item.isOpen && "transform rotate-180",
                         )}
                       />
                     </div>
                     {item.isOpen && (
-                      <div className="pl-4 ml-2 border-l border-border/40 space-y-1 mt-1">
+                      <div className="pl-2 ml-1.5 border-l border-white/20 dark:border-border/40 space-y-0.5 mt-0.5">
                         {item.submenu?.map((subItem, subIndex) => {
                           // Verifica permissão para cada item do submenu
                           if (temPermissao(subItem) && subItem.href) {
@@ -626,14 +675,14 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                                 key={subIndex}
                                 href={subItem.href}
                                 className={cn(
-                                  "flex items-center py-2 px-3 text-xs font-light rounded-md transition-all duration-200 hover:shadow-sm-custom",
+                                  "flex items-center py-1.5 px-2.5 text-[10px] font-medium rounded-md transition-all duration-200 hover:shadow-sm-custom leading-tight",
                                   classes.hoverItem,
                                   pathname === subItem.href && classes.activeItem,
                                   subItem.desktopOnly && "hidden md:flex"
                                 )}
                                 aria-current={pathname === subItem.href ? "page" : undefined}
                               >
-                                <subItem.icon className="h-4 w-4 mr-2" />
+                                <subItem.icon className="h-3.5 w-3.5 mr-2" />
                                 <span>{subItem.title}</span>
                               </Link>
                             );
@@ -651,29 +700,46 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-black/10 to-transparent dark:from-white/10" />
       </div>
 
-      {/* Logo na parte inferior */}
-      {!isCollapsed && (
-        <div className={cn("p-4 border-t flex flex-col items-center justify-center flex-shrink-0 gap-2", classes.border)}>
-          <div className="relative w-28 h-28 flex items-center justify-center">
-            <Image
-              src="/logo-italva.png"
-              alt="Brasão de Italva"
-              width={112}
-              height={112}
-              className="object-contain max-w-full max-h-full"
-              priority
-            />
-          </div>
-          <div className="flex flex-col items-center justify-center gap-0.5 text-center">
-            <p className={cn("text-xs font-medium", isDarkTheme ? "text-slate-700" : "text-white/90")}>
-              Prefeitura Municipal de Italva
+      <div className={cn("border-t p-1", classes.border)}>
+        {isCollapsed ? (
+          <button
+            onClick={() => setMenuMode((prev) => (prev === "sophisticated" ? "simple" : "sophisticated"))}
+              className={cn(
+                "w-full rounded-md px-1.5 py-1.5 text-[10px] font-medium transition-all",
+              classes.hoverItem,
+            )}
+            title={menuMode === "sophisticated" ? "Modo sofisticado" : "Modo simples"}
+          >
+            {menuMode === "sophisticated" ? "S" : "M"}
+          </button>
+        ) : (
+          <div className="space-y-1">
+            <p className={cn("text-[11px] uppercase tracking-wide", isDarkTheme ? "text-slate-400" : "text-white/80")}>
+              Visual do menu
             </p>
-            <p className={cn("text-xs font-medium", isDarkTheme ? "text-slate-600" : "text-white/80")}>
-              Secretaria Municipal de Transportes
-            </p>
+            <div className="grid grid-cols-2 gap-0.5 rounded-md p-0.5 bg-black/10 dark:bg-white/5">
+              <button
+                onClick={() => setMenuMode("simple")}
+                className={cn(
+                  "rounded-sm px-1.5 py-0.5 text-[9px] font-medium transition-all",
+                  menuMode === "simple" ? "bg-white/20 text-white dark:bg-primary/20" : classes.hoverItem,
+                )}
+              >
+                Simples
+              </button>
+              <button
+                onClick={() => setMenuMode("sophisticated")}
+                className={cn(
+                  "rounded-sm px-1.5 py-0.5 text-[9px] font-medium transition-all",
+                  menuMode === "sophisticated" ? "bg-white/20 text-white dark:bg-primary/20" : classes.hoverItem,
+                )}
+              >
+                Sofisticado
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   )

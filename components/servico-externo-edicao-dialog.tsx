@@ -57,6 +57,7 @@ export function ServicoExternoDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [servicoExterno, setServicoExterno] = useState<ServicoExterno | null>(null)
+  const [valorInput, setValorInput] = useState("0,00")
   const { toast } = useToast()
 
   const isViewing = !!viewingId && !editingId
@@ -82,6 +83,7 @@ export function ServicoExternoDialog({
         status: "Pendente",
         observacoes: "",
       })
+      setValorInput("0,00")
       setServicoExterno(null)
     }
   }, [open, editingId, viewingId])
@@ -98,6 +100,7 @@ export function ServicoExternoDialog({
           status: servico.status,
           observacoes: servico.observacoes || "",
         })
+        setValorInput((servico.valor || 0).toFixed(2).replace(".", ","))
       } else {
         toast({
           title: "Erro",
@@ -222,11 +225,22 @@ export function ServicoExternoDialog({
                               placeholder="0,00"
                               className="pl-10"
                               {...field}
-                              value={field.value?.toFixed(2).replace(".", ",") || "0,00"}
+                              value={valorInput}
                               onChange={(e) => {
-                                const value = e.target.value.replace(",", ".").replace(/[^0-9.]/g, "")
-                                const numValue = parseFloat(value) || 0
-                                field.onChange(numValue)
+                                const rawValue = e.target.value.replace(/[^\d,.-]/g, "")
+                                const normalized = rawValue.replace(",", ".")
+                                const numValue = parseFloat(normalized)
+
+                                setValorInput(rawValue)
+                                field.onChange(Number.isFinite(numValue) ? numValue : 0)
+                              }}
+                              onBlur={() => {
+                                const normalized = valorInput.replace(",", ".")
+                                const numValue = parseFloat(normalized)
+                                const finalValue = Number.isFinite(numValue) ? numValue : 0
+
+                                field.onChange(finalValue)
+                                setValorInput(finalValue.toFixed(2).replace(".", ","))
                               }}
                             />
                           </div>

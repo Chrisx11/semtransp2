@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { MobileBackButton } from '@/components/mobile-back-button'
+import { jsPDF } from "jspdf"
 
 // Mapa de cores pastel para secretarias
 const secretariaColors: Record<string, string> = {
@@ -69,7 +70,7 @@ const slides = [
   { key: 'troca-pneu', label: 'Troca de Pneu', icon: Disc },
   { key: 'atualizacao-km', label: 'Atualização de Km', icon: Gauge },
   { key: 'registros', label: 'Manutenções Antigas', icon: Wrench },
-  { key: 'observacoes', label: 'Observações', icon: AlertCircle },
+  { key: 'resumo', label: 'Resumo', icon: AlertCircle },
 ]
 
 export default function HistoricosPage() {
@@ -317,6 +318,244 @@ export default function HistoricosPage() {
     if (inicio && new Date(inicio) > date) return false;
     if (fim && new Date(fim) < date) return false;
     return true;
+  }
+
+  function parseTimelineDate(dateStr?: string) {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  const resumoTimeline = React.useMemo(() => {
+    const itens: Array<{ id: string; data: Date; tipo: string; descricao: string[] }> = [];
+
+    ordensServico.forEach((os) => {
+      const data = parseTimelineDate(os.data);
+      if (!data) return;
+      itens.push({
+        id: `os-${os.id}`,
+        data,
+        tipo: "Ordem de Serviço",
+        descricao: [
+          `OS ${os.numero ?? "-"} • Status: ${os.status ?? "-"} • Prioridade: ${os.prioridade ?? "-"}`,
+          `Defeitos relatados: ${os.defeitosRelatados || "-"}`,
+          `Peças/Serviços: ${os.pecasServicos || "-"}`,
+          `Mecânico: ${os.mecanicoInfo || "-"}`,
+          `Km atual: ${os.kmAtual ?? "-"}`,
+        ],
+      });
+    });
+
+    pecasUtilizadas.forEach((peca) => {
+      const data = parseTimelineDate(peca.data);
+      if (!data) return;
+      itens.push({
+        id: `saida-${peca.id}`,
+        data,
+        tipo: "Peça Utilizada",
+        descricao: [
+          `Produto: ${peca.produtoNome || "-"}`,
+          `Categoria: ${peca.categoria || "-"}`,
+          `Quantidade: ${peca.quantidade ?? "-"}`,
+        ],
+      });
+    });
+
+    historicoTrocaOleo.forEach((item) => {
+      const data = parseTimelineDate(item.data);
+      if (!data) return;
+      if (item.tipo === "Troca de Óleo") {
+        itens.push({
+          id: `oleo-${item.id}`,
+          data,
+          tipo: "Troca de Óleo",
+          descricao: [
+            `Km anterior: ${item.kmAnterior ?? "-"}`,
+            `Km atual: ${item.kmAtual ?? "-"}`,
+            `Km próxima troca: ${item.kmProxTroca ?? "-"}`,
+            `Observação: ${item.observacao || "-"}`,
+          ],
+        });
+      } else {
+        itens.push({
+          id: `km-${item.id}`,
+          data,
+          tipo: "Atualização de Km",
+          descricao: [
+            `Km anterior: ${item.kmAnterior ?? "-"}`,
+            `Km atualizado: ${item.kmAtual ?? "-"}`,
+            `Observação: ${item.observacao || "-"}`,
+          ],
+        });
+      }
+    });
+
+    historicoTrocaPneu.forEach((item) => {
+      const data = parseTimelineDate(item.data);
+      if (!data) return;
+      const servicos = [item.alinhamento ? "Alinhamento" : null, item.balanceamento ? "Balanceamento" : null]
+        .filter(Boolean)
+        .join(", ");
+      itens.push({
+        id: `pneu-${item.id}`,
+        data,
+        tipo: "Troca de Pneu",
+        descricao: [
+          `Tipo de pneu: ${item.tipoPneu || "-"}`,
+          `Posições: ${item.posicoes?.length ? item.posicoes.join(", ") : "Todas"}`,
+          `Km: ${item.kmAtual ?? "-"}`,
+          `Serviços: ${servicos || "-"}`,
+          `Observação: ${item.observacao || "-"}`,
+        ],
+      });
+    });
+
+    manutAntigas.forEach((m) => {
+      const data = parseTimelineDate(m.data_servico || m.data);
+      if (!data) return;
+      itens.push({
+        id: `manut-${m.id}`,
+        data,
+        tipo: "Manutenção Antiga",
+        descricao: [
+          `Título: ${m.titulo || "-"}`,
+          `Peças/Serviços: ${m.pecas || "-"}`,
+        ],
+      });
+    });
+
+    observacoes.forEach((obs) => {
+      const data = parseTimelineDate(obs.data_observacao);
+      if (!data) return;
+      itens.push({
+        id: `obs-${obs.id}`,
+        data,
+        tipo: "Observação",
+        descricao: [`${obs.observacao || "-"}`],
+      });
+    });
+
+    return itens.sort((a, b) => b.data.getTime() - a.data.getTime());
+  }, [ordensServico, pecasUtilizadas, historicoTrocaOleo, historicoTrocaPneu, manutAntigas, observacoes]);
+
+  const resumoAgrupadoPorMes = React.useMemo(() => {
+    const grupos = new Map<string, { titulo: string; eventos: typeof resumoTimeline }>();
+    resumoTimeline.forEach((evento) => {
+      const chave = `${evento.data.getFullYear()}-${String(evento.data.getMonth() + 1).padStart(2, "0")}`;
+      if (!grupos.has(chave)) {
+        grupos.set(chave, {
+          titulo: evento.data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" }),
+          eventos: [],
+        });
+      }
+      grupos.get(chave)!.eventos.push(evento);
+    });
+    return Array.from(grupos.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([, grupo]) => grupo);
+  }, [resumoTimeline]);
+
+  const resumoContagemPorTipo = React.useMemo(() => {
+    return resumoTimeline.reduce(
+      (acc, evento) => {
+        acc[evento.tipo] = (acc[evento.tipo] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+  }, [resumoTimeline]);
+
+  function getResumoTipoClasses(tipo: string) {
+    switch (tipo) {
+      case "Ordem de Serviço":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "Peça Utilizada":
+        return "bg-amber-50 text-amber-700 border-amber-200";
+      case "Troca de Óleo":
+        return "bg-cyan-50 text-cyan-700 border-cyan-200";
+      case "Atualização de Km":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "Troca de Pneu":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      case "Manutenção Antiga":
+        return "bg-violet-50 text-violet-700 border-violet-200";
+      default:
+        return "bg-muted text-foreground border-border";
+    }
+  }
+
+  function baixarResumoPdf() {
+    if (!selectedVeiculo) return;
+
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const margem = 12;
+    const largura = 210 - margem * 2;
+    let y = 16;
+    let pagina = 1;
+
+    const desenharRodape = () => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`Página ${pagina}`, 210 - margem, 292, { align: "right" });
+      doc.setTextColor(0, 0, 0);
+    };
+
+    const escreverLinha = (texto: string, tamanho = 10, negrito = false, recuo = 0) => {
+      doc.setFont("helvetica", negrito ? "bold" : "normal");
+      doc.setFontSize(tamanho);
+      const linhas = doc.splitTextToSize(texto, largura - recuo) as string[];
+      linhas.forEach((linha) => {
+        if (y > 280) {
+          desenharRodape();
+          doc.addPage();
+          pagina += 1;
+          y = 16;
+        }
+        doc.text(linha, margem + recuo, y);
+        y += tamanho === 12 ? 6 : 5;
+      });
+    };
+
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, 210, 24, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Resumo de Historico do Veiculo", margem, 10);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, margem, 17);
+    doc.setTextColor(0, 0, 0);
+
+    y = 30;
+    doc.setFillColor(245, 247, 250);
+    doc.roundedRect(margem, y - 4, largura, 22, 2, 2, "F");
+    escreverLinha(`Placa: ${selectedVeiculo.placa || "-"}`, 10, true);
+    escreverLinha(`Veiculo: ${selectedVeiculo.marca || "-"} ${selectedVeiculo.modelo || "-"}`, 10, false);
+    escreverLinha(`Secretaria: ${selectedVeiculo.secretaria || "-"}`, 10, false);
+    y += 2;
+
+    if (resumoTimeline.length === 0) {
+      escreverLinha("Nenhum evento encontrado para este veículo.");
+    } else {
+      resumoTimeline.forEach((evento) => {
+        if (y > 265) {
+          desenharRodape();
+          doc.addPage();
+          pagina += 1;
+          y = 16;
+        }
+        doc.setFillColor(250, 250, 250);
+        doc.roundedRect(margem, y - 3, largura, 7, 1.5, 1.5, "F");
+        escreverLinha(`${evento.data.toLocaleDateString("pt-BR")} - ${evento.tipo}`, 10, true);
+        evento.descricao.forEach((linha) => escreverLinha(`- ${linha}`, 9, false, 2));
+        y += 2.5;
+      });
+    }
+
+    desenharRodape();
+    doc.save(`resumo-historico-${selectedVeiculo.placa || "veiculo"}.pdf`);
   }
 
   // Filtro para troca de óleo
@@ -976,35 +1215,60 @@ export default function HistoricosPage() {
             <div>
               <h2 className={cn("font-bold flex items-center gap-2", isMobile ? "text-base" : "text-xl")}>
                 <AlertCircle className={cn(isMobile ? "h-4 w-4" : "h-5 w-5")} />
-                Observações
+                Resumo
               </h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {observacoes.length} {observacoes.length === 1 ? 'observação cadastrada' : 'observações cadastradas'}
+                {resumoTimeline.length} {resumoTimeline.length === 1 ? 'evento no histórico' : 'eventos no histórico'}
               </p>
             </div>
-            <Button onClick={handleOpenAddObs} size={isMobile ? "sm" : "default"} className="flex items-center gap-2">
-              <Plus className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /> {isMobile ? "" : "Adicionar"}
+            <Button onClick={baixarResumoPdf} size={isMobile ? "sm" : "default"} className="flex items-center gap-2">
+              <FileText className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /> {isMobile ? "" : "Baixar PDF"}
             </Button>
           </div>
-          {observacoes.length === 0 ? (
-            <div className="text-muted-foreground text-center py-8 text-sm">Nenhuma observação cadastrada.</div>
+          {resumoTimeline.length === 0 ? (
+            <div className="text-muted-foreground text-center py-8 text-sm">Nenhum dado de histórico encontrado para este veículo.</div>
           ) : (
-            <div className="space-y-3">
-              {observacoes.map(obs => (
-                <Card key={obs.id}>
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="text-xs text-muted-foreground">
-                        {obs.data_observacao ? new Date(obs.data_observacao).toLocaleDateString() : '-'}
-                      </div>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleOpenEditObs(obs)} className="p-1 rounded hover:bg-muted" title="Editar"><Pencil className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
-                        <button onClick={() => handleDeleteObs(obs.id)} className="p-1 rounded hover:bg-muted text-destructive" title="Excluir"><Trash className={cn(isMobile ? "w-3 h-3" : "w-4 h-4")} /></button>
-                      </div>
-                    </div>
-                    <p className="text-sm whitespace-pre-line break-words">{obs.observacao}</p>
-                  </CardContent>
-                </Card>
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(resumoContagemPorTipo).map(([tipo, total]) => (
+                  <Badge key={tipo} variant="outline" className={cn("text-xs", getResumoTipoClasses(tipo))}>
+                    {tipo}: {total}
+                  </Badge>
+                ))}
+              </div>
+              {resumoAgrupadoPorMes.map((grupo) => (
+                <div key={grupo.titulo} className="space-y-3">
+                  <div className="sticky top-0 z-10 bg-background/95 backdrop-blur py-1">
+                    <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">{grupo.titulo}</h3>
+                  </div>
+                  <div className="relative pl-5 space-y-3">
+                    <div className="absolute left-1.5 top-0 bottom-0 w-px bg-border" />
+                    {grupo.eventos.map((evento) => (
+                      <Card key={evento.id} className="relative">
+                        <span className="absolute -left-[18px] top-4 h-3 w-3 rounded-full bg-primary border-2 border-background" />
+                        <CardContent className="p-3">
+                          <div className="flex justify-between items-start mb-2 gap-2">
+                            <div>
+                              <div className="text-xs text-muted-foreground">
+                                {evento.data.toLocaleDateString("pt-BR")}
+                              </div>
+                              <Badge variant="outline" className={cn("mt-1 text-xs", getResumoTipoClasses(evento.tipo))}>
+                                {evento.tipo}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            {evento.descricao.map((linha, idx) => (
+                              <p key={`${evento.id}-${idx}`} className="text-sm whitespace-pre-line break-words leading-relaxed">
+                                {linha}
+                              </p>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -1233,7 +1497,7 @@ export default function HistoricosPage() {
                       else if (idx === 4) count = historicoTrocaPneu.length;
                       else if (idx === 5) count = historicoTrocaOleo.filter((h: any) => h.tipo === 'Atualização de Km').length;
                       else if (idx === 6) count = manutAntigas.length;
-                      else if (idx === 7) count = observacoes.length;
+                      else if (idx === 7) count = resumoTimeline.length;
                       
                       return (
                         <TabsTrigger 
@@ -1286,7 +1550,7 @@ export default function HistoricosPage() {
                 else if (idx === 4) count = historicoTrocaPneu.length;
                 else if (idx === 5) count = historicoTrocaOleo.filter((h: any) => h.tipo === 'Atualização de Km').length;
                 else if (idx === 6) count = manutAntigas.length;
-                else if (idx === 7) count = observacoes.length;
+                else if (idx === 7) count = resumoTimeline.length;
                 
                 return (
                   <button

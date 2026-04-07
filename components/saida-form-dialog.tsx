@@ -453,7 +453,13 @@ export function SaidaFormDialog({
                     <FormItem>
                       <FormLabel>Quantidade</FormLabel>
                       <FormControl>
-                        <Input type="number" min="1" {...field} disabled={aguardandoRepeticaoAutorizacao || isSubmitting} />
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          {...field}
+                          disabled={aguardandoRepeticaoAutorizacao || isSubmitting}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

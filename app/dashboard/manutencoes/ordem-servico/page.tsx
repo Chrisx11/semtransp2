@@ -1017,67 +1017,67 @@ export default function OrdemServicoPage() {
   }
 
   const desktopContent = (
-    <div className="space-y-6">
-      <Card className="shadow-md border-none">
-        <CardContent className="p-6">
+    <div className="space-y-5">
+      <Card className="border shadow-sm">
+        <CardContent className="p-6 lg:p-7">
           {/* Tabs Navigation */}
-          <div className="flex space-x-1 rounded-lg bg-muted p-1 mb-8">
+          <div className="flex space-x-1 rounded-xl border bg-muted/50 p-1.5 mb-6">
             {abasPermitidas.includes("oficina") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
+                className={`flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeTab === "oficina"
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background/50"
+                    : "text-muted-foreground hover:bg-background/70"
                 }`}
                 onClick={() => setActiveTab("oficina")}
               >
                 <span>Oficina</span>
-                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {contarOrdensPorAba("oficina")}
                 </Badge>
               </button>
             )}
             {abasPermitidas.includes("almoxarifado") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
+                className={`flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeTab === "almoxarifado"
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background/50"
+                    : "text-muted-foreground hover:bg-background/70"
                 }`}
                 onClick={() => setActiveTab("almoxarifado")}
               >
                 <span>Almoxarifado</span>
-                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {contarOrdensPorAba("almoxarifado")}
                 </Badge>
               </button>
             )}
             {abasPermitidas.includes("compras") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
+                className={`flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeTab === "compras"
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background/50"
+                    : "text-muted-foreground hover:bg-background/70"
                 }`}
                 onClick={() => setActiveTab("compras")}
               >
                 <span>Compras</span>
-                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {contarOrdensPorAba("compras")}
                 </Badge>
               </button>
             )}
             {abasPermitidas.includes("finalizados") && (
               <button
-                className={`flex-1 justify-center rounded-md px-3 py-1.5 text-sm font-medium flex items-center gap-2 ${
+                className={`flex-1 justify-center rounded-lg px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeTab === "finalizados"
                     ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-background/50"
+                    : "text-muted-foreground hover:bg-background/70"
                 }`}
                 onClick={() => setActiveTab("finalizados")}
               >
                 <span>Finalizados</span>
-                <Badge variant="secondary" className="text-xs font-bold px-1.5 py-0.5 rounded-none">
+                <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 rounded-full">
                   {contarOrdensPorAba("finalizados")}
                 </Badge>
               </button>
@@ -1085,18 +1085,18 @@ export default function OrdemServicoPage() {
           </div>
 
           {/* Tab Content */}
-          <div className="p-4 border rounded-md">
+          <div className="rounded-xl border bg-background p-5">
             {/* Oficina Tab */}
             {activeTab === "oficina" && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-5">
                   <div className="flex items-center space-x-2">
-                    <div className="relative ml-4">
+                    <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="search"
                         placeholder="Buscar ordens..."
-                        className="pl-8 w-[250px]"
+                        className="pl-8 w-[280px] h-9"
                         value={searchTermOficina}
                         onChange={(e) => setSearchTermOficina(e.target.value)}
                       />
@@ -1109,7 +1109,7 @@ export default function OrdemServicoPage() {
                 </div>
 
                 {/* PADRÃO DE TABELA IGUAL OUTRAS PÁGINAS */}
-                <div className="rounded-md border shadow-sm-custom overflow-hidden">
+                <div className="rounded-xl border overflow-hidden bg-background">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1144,7 +1144,7 @@ export default function OrdemServicoPage() {
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-right">
-                              <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
+                              <Button variant="outline" size="sm" className="h-8" onClick={() => openAcoesDialog(ordem.id)}>
                                 <Settings className="h-3.5 w-3.5 mr-1" />
                                 <span className="text-xs">Ações</span>
                               </Button>
@@ -1206,14 +1206,14 @@ export default function OrdemServicoPage() {
             {/* Almoxarifado Tab */}
             {activeTab === "almoxarifado" && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-5">
                   <div className="flex items-center space-x-2">
-                    <div className="relative ml-4">
+                    <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="search"
                         placeholder="Buscar ordens..."
-                        className="pl-8 w-[250px]"
+                        className="pl-8 w-[280px] h-9"
                         value={searchTermAlmoxarifado}
                         onChange={(e) => setSearchTermAlmoxarifado(e.target.value)}
                       />
@@ -1221,7 +1221,7 @@ export default function OrdemServicoPage() {
                   </div>
                 </div>
 
-                <div className="rounded-md border shadow-sm-custom overflow-hidden">
+                <div className="rounded-xl border overflow-hidden bg-background">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1256,7 +1256,7 @@ export default function OrdemServicoPage() {
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-right">
-                              <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
+                              <Button variant="outline" size="sm" className="h-8" onClick={() => openAcoesDialog(ordem.id)}>
                                 <Settings className="h-3.5 w-3.5 mr-1" />
                                 <span className="text-xs">Ações</span>
                               </Button>
@@ -1318,14 +1318,14 @@ export default function OrdemServicoPage() {
             {/* Compras Tab */}
             {activeTab === "compras" && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-5">
                   <div className="flex items-center space-x-2">
-                    <div className="relative ml-4">
+                    <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="search"
                         placeholder="Buscar ordens..."
-                        className="pl-8 w-[250px]"
+                        className="pl-8 w-[280px] h-9"
                         value={searchTermCompras}
                         onChange={(e) => setSearchTermCompras(e.target.value)}
                       />
@@ -1333,7 +1333,7 @@ export default function OrdemServicoPage() {
                   </div>
                 </div>
 
-                <div className="rounded-md border shadow-sm-custom overflow-hidden">
+                <div className="rounded-xl border overflow-hidden bg-background">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1368,7 +1368,7 @@ export default function OrdemServicoPage() {
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-right">
-                              <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
+                              <Button variant="outline" size="sm" className="h-8" onClick={() => openAcoesDialog(ordem.id)}>
                                 <Settings className="h-3.5 w-3.5 mr-1" />
                                 <span className="text-xs">Ações</span>
                               </Button>
@@ -1430,14 +1430,14 @@ export default function OrdemServicoPage() {
             {/* Finalizados Tab */}
             {activeTab === "finalizados" && (
               <>
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-5">
                   <div className="flex items-center space-x-2">
-                    <div className="relative ml-4">
+                    <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                         type="search"
                         placeholder="Buscar ordens..."
-                        className="pl-8 w-[250px]"
+                        className="pl-8 w-[280px] h-9"
                         value={searchTermFinalizados}
                         onChange={(e) => setSearchTermFinalizados(e.target.value)}
                       />
@@ -1445,7 +1445,7 @@ export default function OrdemServicoPage() {
                   </div>
                 </div>
 
-                <div className="rounded-md border shadow-sm-custom overflow-hidden">
+                <div className="rounded-xl border overflow-hidden bg-background">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1480,7 +1480,7 @@ export default function OrdemServicoPage() {
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><PrioridadeBadge prioridade={ordem.prioridade} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs"><StatusBadge status={ordem.status} /></TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-right">
-                              <Button variant="outline" size="sm" onClick={() => openAcoesDialog(ordem.id)}>
+                              <Button variant="outline" size="sm" className="h-8" onClick={() => openAcoesDialog(ordem.id)}>
                                 <Settings className="h-3.5 w-3.5 mr-1" />
                                 <span className="text-xs">Ações</span>
                               </Button>
