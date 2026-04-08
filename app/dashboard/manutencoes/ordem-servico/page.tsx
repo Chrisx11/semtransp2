@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -506,6 +508,211 @@ export default function OrdemServicoPage() {
       return dataString;
     }
   };
+
+  const gerarRelatorioOrdens = () => {
+    const ordensNaoFinalizadas = (todasOrdensServico || []).filter((os) => os.status !== "Finalizado")
+
+    if (ordensNaoFinalizadas.length === 0) {
+      toast({
+        title: "Sem dados para relatório",
+        description: "Não há ordens de serviço não finalizadas para gerar o PDF.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const ordensPorMecanico = ordensNaoFinalizadas.reduce(
+      (acc, ordem) => {
+        const mecanico = (ordem.mecanicoInfo || "Não informado").trim()
+        if (!acc[mecanico]) acc[mecanico] = []
+        acc[mecanico].push(ordem)
+        return acc
+      },
+      {} as Record<string, OrdemServico[]>,
+    )
+
+    const doc = new jsPDF({ orientation: "landscape" })
+    const dataGeracao = new Date().toLocaleString("pt-BR")
+
+    doc.setFontSize(16)
+    doc.text("Relatório de Ordens de Serviço", 14, 14)
+    doc.setFontSize(10)
+    doc.text("Ordens não finalizadas agrupadas por mecânico e status", 14, 20)
+    doc.text(`Gerado em: ${dataGeracao}`, 14, 26)
+
+    let y = 34
+    const larguraUtil = 270
+    const garantirEspaco = (alturaMinima = 16) => {
+      if (y + alturaMinima > 190) {
+        doc.addPage()
+        y = 14
+      }
+    }
+    const mecanicos = Object.keys(ordensPorMecanico).sort((a, b) => a.localeCompare(b, "pt-BR"))
+
+    mecanicos.forEach((mecanico, idxMecanico) => {
+      const ordensDoMecanico = ordensPorMecanico[mecanico]
+      const ordensPorStatus = ordensDoMecanico.reduce(
+        (acc, ordem) => {
+          if (!acc[ordem.status]) acc[ordem.status] = []
+          acc[ordem.status].push(ordem)
+          return acc
+        },
+        {} as Record<string, OrdemServico[]>,
+      )
+
+      garantirEspaco(18)
+
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      const tituloMecanico = doc.splitTextToSize(`Mecânico: ${mecanico}`, larguraUtil)
+      doc.text(tituloMecanico, 14, y)
+      y += tituloMecanico.length * 5
+
+      const statusList = Object.keys(ordensPorStatus).sort((a, b) => a.localeCompare(b, "pt-BR"))
+      statusList.forEach((status) => {
+        garantirEspaco(16)
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "bold")
+        const tituloStatus = doc.splitTextToSize(`Status: ${status}`, larguraUtil - 2)
+        doc.text(tituloStatus, 16, y)
+        y += tituloStatus.length * 4 + 1
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Data", "Nº OS", "Veículo", "Km Atual", "Solicitante", "Prioridade"]],
+          body: ordensPorStatus[status]
+            .sort((a, b) => (a.data || "").localeCompare(b.data || ""))
+            .map((ordem) => [
+              formatarData(ordem.data),
+              ordem.numero || "—",
+              ordem.veiculoInfo || "—",
+              ordem.kmAtual?.toString() || "—",
+              ordem.solicitanteInfo || "—",
+              ordem.prioridade || "—",
+            ]),
+          margin: { left: 16, right: 14 },
+          theme: "grid",
+          pageBreak: "auto",
+          rowPageBreak: "avoid",
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [41, 98, 255] },
+        })
+
+        y = (doc as any).lastAutoTable.finalY + 6
+      })
+
+      if (idxMecanico < mecanicos.length - 1) {
+        y += 2
+      }
+    })
+
+    doc.save(`relatorio-ordens-servico-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
+
+  const gerarRelatorioPorServicos = () => {
+    const ordensNaoFinalizadas = (todasOrdensServico || []).filter((os) => os.status !== "Finalizado")
+
+    if (ordensNaoFinalizadas.length === 0) {
+      toast({
+        title: "Sem dados para relatório",
+        description: "Não há ordens de serviço não finalizadas para gerar o PDF.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const ordensPorServico = ordensNaoFinalizadas.reduce(
+      (acc, ordem) => {
+        const servico = (ordem.pecasServicos || "Não informado").trim()
+        if (!acc[servico]) acc[servico] = []
+        acc[servico].push(ordem)
+        return acc
+      },
+      {} as Record<string, OrdemServico[]>,
+    )
+
+    const doc = new jsPDF({ orientation: "landscape" })
+    const dataGeracao = new Date().toLocaleString("pt-BR")
+
+    doc.setFontSize(16)
+    doc.text("Relatório por Serviços", 14, 14)
+    doc.setFontSize(10)
+    doc.text("Ordens não finalizadas agrupadas por serviço e status", 14, 20)
+    doc.text(`Gerado em: ${dataGeracao}`, 14, 26)
+
+    let y = 34
+    const larguraUtil = 270
+    const garantirEspaco = (alturaMinima = 16) => {
+      if (y + alturaMinima > 190) {
+        doc.addPage()
+        y = 14
+      }
+    }
+    const servicos = Object.keys(ordensPorServico).sort((a, b) => a.localeCompare(b, "pt-BR"))
+
+    servicos.forEach((servico, idxServico) => {
+      const ordensDoServico = ordensPorServico[servico]
+      const ordensPorStatus = ordensDoServico.reduce(
+        (acc, ordem) => {
+          if (!acc[ordem.status]) acc[ordem.status] = []
+          acc[ordem.status].push(ordem)
+          return acc
+        },
+        {} as Record<string, OrdemServico[]>,
+      )
+
+      garantirEspaco(18)
+
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      const tituloServico = doc.splitTextToSize(`Serviço: ${servico}`, larguraUtil)
+      doc.text(tituloServico, 14, y)
+      y += tituloServico.length * 5
+
+      const statusList = Object.keys(ordensPorStatus).sort((a, b) => a.localeCompare(b, "pt-BR"))
+      statusList.forEach((status) => {
+        garantirEspaco(16)
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "bold")
+        const tituloStatus = doc.splitTextToSize(`Status: ${status}`, larguraUtil - 2)
+        doc.text(tituloStatus, 16, y)
+        y += tituloStatus.length * 4 + 1
+
+        autoTable(doc, {
+          startY: y,
+          head: [["Data", "Nº OS", "Veículo", "Km Atual", "Descrição relatada pelo condutor", "Prioridade"]],
+          body: ordensPorStatus[status]
+            .sort((a, b) => (a.data || "").localeCompare(b.data || ""))
+            .map((ordem) => [
+              formatarData(ordem.data),
+              ordem.numero || "—",
+              ordem.veiculoInfo || "—",
+              ordem.kmAtual?.toString() || "—",
+              ordem.defeitosRelatados || "—",
+              ordem.prioridade || "—",
+            ]),
+          margin: { left: 16, right: 14 },
+          theme: "grid",
+          pageBreak: "auto",
+          rowPageBreak: "avoid",
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [16, 185, 129] },
+          columnStyles: {
+            4: { cellWidth: 95 },
+          },
+        })
+
+        y = (doc as any).lastAutoTable.finalY + 6
+      })
+
+      if (idxServico < servicos.length - 1) {
+        y += 2
+      }
+    })
+
+    doc.save(`relatorio-ordens-por-servicos-${new Date().toISOString().slice(0, 10)}.pdf`)
+  }
 
   // Determinar as abas que o usuário tem permissão para acessar com base nas permissões
   useEffect(() => {
@@ -1102,10 +1309,20 @@ export default function OrdemServicoPage() {
                       />
                     </div>
                   </div>
-                  <Button className="btn-gradient shadow-md-custom" onClick={() => setIsNovaOSDialogOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Nova Ordem de Serviço
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={gerarRelatorioOrdens}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Relatório de Ordens
+                    </Button>
+                    <Button variant="outline" onClick={gerarRelatorioPorServicos}>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Relatório por Serviços
+                    </Button>
+                    <Button className="btn-gradient shadow-md-custom" onClick={() => setIsNovaOSDialogOpen(true)}>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Nova Ordem de Serviço
+                    </Button>
+                  </div>
                 </div>
 
                 {/* PADRÃO DE TABELA IGUAL OUTRAS PÁGINAS */}
