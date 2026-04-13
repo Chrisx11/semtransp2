@@ -2,6 +2,7 @@
 
 import { useState, useEffect, type Dispatch, type SetStateAction } from "react"
 import { getVeiculosSupabase, updateVeiculoSupabase } from "@/services/veiculo-service"
+import { getProdutosSupabase } from "@/services/produto-service"
 import { 
   getTrocasOleo, 
   registrarTrocaOleo, 
@@ -31,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { exportToPDF, exportToExcel } from "@/utils/export-troca-oleo-utils"
+import { cn } from "@/lib/utils"
 
 interface Veiculo {
   id: string
@@ -51,8 +53,14 @@ interface VeiculoComDados extends Veiculo {
   secretaria?: string
 }
 
+interface FiltroRegistradoTroca {
+  veiculoId: string
+  categoria: string
+  produtoId: string
+}
+
 // Definir tipos para ordenação
-type SortColumn = 'veiculo' | 'kmAtual' | 'kmProxTroca' | 'progresso'
+type SortColumn = 'veiculo' | 'kmAtual' | 'kmProxTroca' | 'progresso' | 'acoes'
 type SortDirection = 'asc' | 'desc' | null
 
 export default function TrocaOleoPage() {
@@ -85,6 +93,7 @@ export default function TrocaOleoPage() {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [tipoRegistroAtivo, setTipoRegistroAtivo] = useState<"oleo" | "filtro">("oleo")
+  const [veiculosProntosTroca, setVeiculosProntosTroca] = useState<Record<string, boolean>>({})
 
   // Apenas na aba "Filtro de Combustível": permite remover veículos da lista e depois trazer de volta.
   const [veiculosRemovidos, setVeiculosRemovidos] = useState<string[]>([])
@@ -299,6 +308,20 @@ export default function TrocaOleoPage() {
         case 'progresso':
           comparacao = a.progresso - b.progresso
           break
+        case 'acoes': {
+          const prontoA = veiculosProntosTroca[a.id] ? 1 : 0
+          const prontoB = veiculosProntosTroca[b.id] ? 1 : 0
+
+          // 1) Prontos (botão pintado) primeiro
+          if (prontoA !== prontoB) {
+            comparacao = prontoA - prontoB
+            break
+          }
+
+          // 2) Dentro do mesmo grupo, maior progresso primeiro
+          comparacao = b.progresso - a.progresso
+          break
+        }
       }
       
       return sortDirection === 'asc' ? comparacao : -comparacao
@@ -351,6 +374,16 @@ export default function TrocaOleoPage() {
       if (error) throw error
       
       setVeiculos(veiculosData || [])
+
+      const produtosData = await getProdutosSupabase()
+      const prontidaoMap: Record<string, boolean> = {}
+      await Promise.all(
+        (veiculosData || []).map(async (veiculo) => {
+          const filtrosVeiculo = await getFiltrosDoVeiculoParaPronto(veiculo.id)
+          prontidaoMap[veiculo.id] = verificarProntoParaTroca(filtrosVeiculo, produtosData || [])
+        }),
+      )
+      setVeiculosProntosTroca(prontidaoMap)
       
       // Buscar dados de troca de óleo para cada veículo
       const veiculosPromises = veiculosData.map(async (veiculo) => {
@@ -745,6 +778,61 @@ export default function TrocaOleoPage() {
     return "bg-red-500"
   }
 
+  const getFiltrosDoVeiculoParaPronto = async (veiculoId: string): Promise<FiltroRegistradoTroca[]> => {
+    try {
+      const normalizedId = String(veiculoId).trim()
+
+      let { data, error } = await supabase
+        .from("filtros_registrados")
+        .select("veiculoid, categoria, produtoid")
+        .eq("veiculoid", normalizedId)
+
+      // Mesmo fallback da página de Filtros
+      if (!error && (!data || data.length === 0)) {
+        const { data: allData, error: allError } = await supabase
+          .from("filtros_registrados")
+          .select("veiculoid, categoria, produtoid")
+
+        if (!allError && allData) {
+          data = allData.filter(
+            (item: any) => String(item.veiculoid).trim().toLowerCase() === normalizedId.toLowerCase(),
+          )
+        }
+      }
+
+      if (error || !data) return []
+
+      return data.map((item: any) => ({
+        veiculoId: String(item.veiculoid).trim(),
+        categoria: item.categoria ? String(item.categoria).trim() : "",
+        produtoId: String(item.produtoid).trim(),
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  const verificarProntoParaTroca = (filtros: FiltroRegistradoTroca[], todosProdutos: any[]): boolean => {
+    if (filtros.length === 0) return false
+
+    const categoriasComFiltros = new Set(filtros.map((f) => f.categoria))
+    const produtosMap = new Map(todosProdutos.map((p) => [p.id, p]))
+
+    for (const categoria of categoriasComFiltros) {
+      const filtrosCategoria = filtros.filter((f) => f.categoria === categoria)
+      const temEstoque = filtrosCategoria.some((filtro) => {
+        const produto = produtosMap.get(filtro.produtoId)
+        if (!produto) return false
+        const estoque = typeof produto.estoque === "string" ? parseInt(produto.estoque) : produto.estoque
+        return (estoque || 0) > 0
+      })
+
+      if (!temEstoque) return false
+    }
+
+    return true
+  }
+
   function removerVeiculoDaListaFiltro(veiculoId: string) {
     setVeiculosRemovidos((prev) => {
       if (prev.includes(veiculoId)) return prev
@@ -901,6 +989,7 @@ export default function TrocaOleoPage() {
           onHistorico={abrirHistorico}
           getCorProgresso={getCorProgresso}
           ocultarBotaoRegistrar={ocultarBotaoRegistrar}
+          veiculosProntosTroca={veiculosProntosTroca}
         />
       ) : (
       <div className="space-y-6">
@@ -1066,7 +1155,15 @@ export default function TrocaOleoPage() {
                           {renderSortIcon('progresso')}
                         </div>
                       </TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                      <TableHead
+                        className="text-right cursor-pointer hover:bg-muted/50"
+                        onClick={() => alternarOrdenacao('acoes')}
+                      >
+                        <div className="flex items-center justify-end">
+                          Ações
+                          {renderSortIcon('acoes')}
+                        </div>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1129,6 +1226,10 @@ export default function TrocaOleoPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => abrirDialogTrocaOleo(veiculo, abaDesktop)}
+                                  className={cn(
+                                    veiculosProntosTroca[veiculo.id] &&
+                                      "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800",
+                                  )}
                                 >
                                   Troca de Óleo
                                 </Button>
@@ -1542,6 +1643,7 @@ function TrocaOleoMobileView({
   onHistorico,
   getCorProgresso,
   ocultarBotaoRegistrar,
+  veiculosProntosTroca,
 }: {
   loading: boolean
   searchTerm: string
@@ -1553,6 +1655,7 @@ function TrocaOleoMobileView({
   onHistorico: (veiculo: VeiculoComDados) => void
   getCorProgresso: (progresso: number) => string
   ocultarBotaoRegistrar: boolean
+  veiculosProntosTroca: Record<string, boolean>
 }) {
   const emDia = veiculosResumo.filter(v => (v.kmProxTroca - v.kmAtual) > 500 && v.ultimaTroca).length
   const proximo = veiculosResumo.filter(v => (v.kmProxTroca - v.kmAtual) <= 500 && (v.kmProxTroca - v.kmAtual) > 0 && v.ultimaTroca).length
@@ -1622,7 +1725,14 @@ function TrocaOleoMobileView({
 
                   <div className={`grid gap-2 ${ocultarBotaoRegistrar ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
                     {!ocultarBotaoRegistrar && (
-                      <Button size="sm" onClick={() => onRegistrar(veiculo)}>
+                      <Button
+                        size="sm"
+                        onClick={() => onRegistrar(veiculo)}
+                        className={cn(
+                          veiculosProntosTroca[veiculo.id] &&
+                            "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800",
+                        )}
+                      >
                         Registrar troca
                       </Button>
                     )}

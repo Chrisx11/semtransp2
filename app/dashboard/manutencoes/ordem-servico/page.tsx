@@ -86,19 +86,19 @@ const PrioridadeBadge = ({ prioridade }: { prioridade: string }) => {
   let badgeClasses = ""
   switch (prioridade) {
     case "Baixa":
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#2563EB] border-[#3B82F6]/30 shadow-sm" // Azul
+      badgeClasses = "bg-[#DBEAFE] text-[#1E3A8A] hover:bg-[#BFDBFE] border-[#BFDBFE] shadow-sm" // Azul pastel
       break
     case "Média":
-      badgeClasses = "bg-[#FACC15] text-black hover:bg-[#EAB308] border-[#FACC15]/30 shadow-sm" // Amarelo
+      badgeClasses = "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] border-[#FDE68A] shadow-sm" // Amarelo pastel
       break
     case "Alta":
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#EA580C] border-[#F97316]/30 shadow-sm" // Laranja
+      badgeClasses = "bg-[#FFEDD5] text-[#9A3412] hover:bg-[#FED7AA] border-[#FED7AA] shadow-sm" // Laranja pastel
       break
     case "Urgente":
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#DC2626] border-[#EF4444]/30 shadow-sm" // Vermelho
+      badgeClasses = "bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] border-[#FECACA] shadow-sm" // Vermelho pastel
       break
     default:
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80 border-gray-500/30 shadow-sm" // Cinza
+      badgeClasses = "bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB] border-[#E5E7EB] shadow-sm" // Cinza pastel
   }
   return (
     <Badge 
@@ -121,53 +121,53 @@ const StatusBadge = ({ status }: { status: string }) => {
 
   switch (status) {
     case "Aguardando Mecânico":
-      // Cinza (#6B7280)
-      badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80 border-[#6B7280]/30 shadow-sm"
+      // Cinza pastel
+      badgeClasses = "bg-[#E5E7EB] text-[#374151] hover:bg-[#D1D5DB] border-[#D1D5DB] shadow-sm"
       break
     case "Em Análise":
-      // Amarelo Escuro (#D97706)
-      badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80 border-[#D97706]/30 shadow-sm"
+      // Âmbar pastel
+      badgeClasses = "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] border-[#FDE68A] shadow-sm"
       break
     case "Aguardando aprovação":
-      // Laranja (#F97316)
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"
+      // Laranja pastel
+      badgeClasses = "bg-[#FFEDD5] text-[#9A3412] hover:bg-[#FED7AA] border-[#FED7AA] shadow-sm"
       break
     case "Aguardando OS":
-      // Azul Claro (#3B82F6)
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/80 border-[#3B82F6]/30 shadow-sm"
+      // Azul pastel
+      badgeClasses = "bg-[#DBEAFE] text-[#1E3A8A] hover:bg-[#BFDBFE] border-[#BFDBFE] shadow-sm"
       break
     case "Aguardando Fornecedor":
-      // Roxo (#8B5CF6)
-      badgeClasses = "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/80 border-[#8B5CF6]/30 shadow-sm"
+      // Roxo pastel
+      badgeClasses = "bg-[#EDE9FE] text-[#5B21B6] hover:bg-[#DDD6FE] border-[#DDD6FE] shadow-sm"
       break
     case "Serviço Externo":
-      // Verde Escuro (#047857)
-      badgeClasses = "bg-[#047857] text-white hover:bg-[#047857]/80 border-[#047857]/30 shadow-sm"
+      // Verde escuro pastel
+      badgeClasses = "bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] border-[#A7F3D0] shadow-sm"
       break
     case "Comprar na Rua":
-      // Vermelho Claro (#EF4444)
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80 border-[#EF4444]/30 shadow-sm"
+      // Vermelho pastel
+      badgeClasses = "bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] border-[#FECACA] shadow-sm"
       break
     case "Fila de Serviço":
-      // Ciano (#06B6D4)
-      badgeClasses = "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/80 border-[#06B6D4]/30 shadow-sm"
+      // Ciano pastel
+      badgeClasses = "bg-[#CFFAFE] text-[#155E75] hover:bg-[#A5F3FC] border-[#A5F3FC] shadow-sm"
       break
     case "Em Serviço":
     case "Em andamento":
-      // Verde Claro (#10B981)
-      badgeClasses = "bg-[#10B981] text-white hover:bg-[#10B981]/80 border-[#10B981]/30 shadow-sm"
+      // Verde pastel
+      badgeClasses = "bg-[#DCFCE7] text-[#166534] hover:bg-[#BBF7D0] border-[#BBF7D0] shadow-sm"
       break
     case "Finalizado":
-      // Azul Escuro (#1D4ED8)
-      badgeClasses = "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/80 border-[#1D4ED8]/30 shadow-sm"
+      // Azul escuro pastel
+      badgeClasses = "bg-[#DBEAFE] text-[#1E40AF] hover:bg-[#BFDBFE] border-[#BFDBFE] shadow-sm"
       break
     case "Em Aprovação":
-      // Laranja (#F97316) - mesmo do "Aguardando aprovação"
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#F97316]/80 border-[#F97316]/30 shadow-sm"
+      // Laranja pastel (mesmo de "Aguardando aprovação")
+      badgeClasses = "bg-[#FFEDD5] text-[#9A3412] hover:bg-[#FED7AA] border-[#FED7AA] shadow-sm"
       break
     default:
-      // Cor padrão para status não especificados
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80 border-gray-500/30 shadow-sm"
+      // Cor padrão pastel para status não especificados
+      badgeClasses = "bg-[#F3F4F6] text-[#374151] hover:bg-[#E5E7EB] border-[#E5E7EB] shadow-sm"
   }
 
   return (
@@ -182,6 +182,35 @@ const StatusBadge = ({ status }: { status: string }) => {
       {status}
     </Badge>
   )
+}
+
+const getStatusRowClass = (status: string) => {
+  switch (status) {
+    case "Aguardando Mecânico":
+      return "bg-slate-50/70"
+    case "Em Análise":
+      return "bg-amber-50/60"
+    case "Aguardando aprovação":
+    case "Em Aprovação":
+      return "bg-orange-50/60"
+    case "Aguardando OS":
+      return "bg-blue-50/60"
+    case "Aguardando Fornecedor":
+      return "bg-violet-50/60"
+    case "Serviço Externo":
+      return "bg-emerald-50/60"
+    case "Comprar na Rua":
+      return "bg-red-50/60"
+    case "Fila de Serviço":
+      return "bg-cyan-50/60"
+    case "Em Serviço":
+    case "Em andamento":
+      return "bg-green-50/60"
+    case "Finalizado":
+      return "bg-indigo-50/60"
+    default:
+      return ""
+  }
 }
 
 // Componente para o diálogo de ações
@@ -1351,7 +1380,7 @@ export default function OrdemServicoPage() {
                         </TableRow>
                       ) : paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
-                          <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
+                          <TableRow key={ordem.id} className={cn("border-b hover:bg-muted/50", getStatusRowClass(ordem.status))}>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
@@ -1463,7 +1492,7 @@ export default function OrdemServicoPage() {
                         </TableRow>
                       ) : paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
-                          <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
+                          <TableRow key={ordem.id} className={cn("border-b hover:bg-muted/50", getStatusRowClass(ordem.status))}>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
@@ -1575,7 +1604,7 @@ export default function OrdemServicoPage() {
                         </TableRow>
                       ) : paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
-                          <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
+                          <TableRow key={ordem.id} className={cn("border-b hover:bg-muted/50", getStatusRowClass(ordem.status))}>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>
@@ -1687,7 +1716,7 @@ export default function OrdemServicoPage() {
                         </TableRow>
                       ) : paginatedData.length > 0 ? (
                         paginatedData.map((ordem, index) => (
-                          <TableRow key={ordem.id} className={`border-b hover:bg-muted/50 ${index % 2 === 1 ? "bg-muted/30" : ""}`}>
+                          <TableRow key={ordem.id} className={cn("border-b hover:bg-muted/50", getStatusRowClass(ordem.status))}>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{formatarData(ordem.data)}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.numero}</TableCell>
                             <TableCell className="py-1.5 px-3 align-middle text-xs">{ordem.veiculoInfo}</TableCell>

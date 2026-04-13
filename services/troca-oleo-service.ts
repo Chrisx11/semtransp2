@@ -109,6 +109,20 @@ export async function getUltimaTrocaOleo(veiculoId: string): Promise<TrocaOleo |
       .order("data_troca", { ascending: false })
     
     if (error) {
+      // Em alguns cenários o cliente retorna erro "vazio" para ausência de dados.
+      // Tratar como sem registro para evitar poluição de log.
+      const errorCode = (error as any)?.code
+      const errorStatus = (error as any)?.status
+      const errorMessage = (error as any)?.message
+      const erroSemDados =
+        errorCode === "PGRST116" ||
+        errorStatus === 406 ||
+        (!errorCode && !errorMessage)
+
+      if (erroSemDados) {
+        return null
+      }
+
       console.error("Erro ao buscar trocas de óleo:", error)
       return null
     }
@@ -140,6 +154,18 @@ export async function getUltimaTrocaFiltroCombustivel(veiculoId: string): Promis
       .order("data_troca", { ascending: false })
 
     if (error) {
+      const errorCode = (error as any)?.code
+      const errorStatus = (error as any)?.status
+      const errorMessage = (error as any)?.message
+      const erroSemDados =
+        errorCode === "PGRST116" ||
+        errorStatus === 406 ||
+        (!errorCode && !errorMessage)
+
+      if (erroSemDados) {
+        return null
+      }
+
       console.error("Erro ao buscar trocas:", error)
       return null
     }
