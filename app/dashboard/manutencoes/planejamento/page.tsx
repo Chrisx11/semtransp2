@@ -8,7 +8,12 @@ import { MecanicoCard } from "./components/mecanico-card"
 import { OrdemCard } from "./components/ordem-card"
 import { OrdemPlaceholder } from "./components/ordem-placeholder"
 import { toast } from "sonner"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw, Monitor, MonitorOff } from "lucide-react"
+import {
+  getMecanicosOcultosNaTela,
+  setMecanicoVisivelNaTela,
+  subscribeTelaMecanicosConfig,
+} from "@/lib/tela-mecanicos-config"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useIsMobile } from "@/components/ui/use-mobile"
@@ -24,12 +29,16 @@ function PlanejamentoMobileView({
   error,
   getStatusColor,
   onRefresh,
+  ocultosTela,
+  onToggleVisivelNaTela,
 }: {
   mecanicos: any[]
   loading: boolean
   error: string | null
   getStatusColor: (status: string) => string
   onRefresh: () => void
+  ocultosTela: string[]
+  onToggleVisivelNaTela: (mecanicoId: string, visivel: boolean, nome: string) => void
 }) {
   if (loading) {
     return (
@@ -101,6 +110,8 @@ function PlanejamentoMobileView({
             return numA - numB
           })
 
+          const visivelNaTela = !ocultosTela.includes(mecanico.id)
+
           return (
             <AccordionItem key={mecanico.id} value={mecanico.id} className="border rounded-lg px-2 bg-card max-w-full">
               <AccordionTrigger className="hover:no-underline py-3">
@@ -113,9 +124,26 @@ function PlanejamentoMobileView({
                     </div>
                     <span className="font-semibold text-sm truncate">{mecanico.nome}</span>
                   </div>
-                  <Badge variant="secondary" className="ml-2 flex-shrink-0 text-xs px-1.5 py-0">
-                    {ordensOrdenadas.length}
-                  </Badge>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleVisivelNaTela(mecanico.id, !visivelNaTela, mecanico.nome)
+                      }}
+                      className={cn(
+                        "p-1.5 rounded-md",
+                        visivelNaTela ? "text-primary bg-primary/10" : "text-muted-foreground bg-muted"
+                      )}
+                      title={visivelNaTela ? "Visível na Tela" : "Oculto na Tela"}
+                    >
+                      {visivelNaTela ? <Monitor className="h-4 w-4" /> : <MonitorOff className="h-4 w-4" />}
+                    </button>
+                    <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                      {ordensOrdenadas.length}
+                    </Badge>
+                  </div>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
@@ -197,6 +225,22 @@ export default function PlanejamentoPage() {
   const [activeMecanicoId, setActiveMecanicoId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragType, setDragType] = useState<'ordem' | 'mecanico' | null>(null)
+  const [ocultosTela, setOcultosTela] = useState<string[]>([])
+
+  useEffect(() => {
+    setOcultosTela(getMecanicosOcultosNaTela())
+    return subscribeTelaMecanicosConfig(() => setOcultosTela(getMecanicosOcultosNaTela()))
+  }, [])
+
+  const handleToggleVisivelNaTela = (mecanicoId: string, visivel: boolean, nome: string) => {
+    const next = setMecanicoVisivelNaTela(mecanicoId, visivel)
+    setOcultosTela(next)
+    toast.success(visivel ? `${nome} exibido na Tela` : `${nome} oculto na Tela`, {
+      description: visivel
+        ? "O card aparecerá na página Tela quando houver OS na fila."
+        : "O card não aparecerá na página Tela.",
+    })
+  }
 
   // Sensores para controlar o comportamento do drag-and-drop
   const sensors = useSensors(
@@ -642,6 +686,8 @@ export default function PlanejamentoPage() {
         error={error}
         getStatusColor={getStatusColor}
         onRefresh={carregarDados}
+        ocultosTela={ocultosTela}
+        onToggleVisivelNaTela={handleToggleVisivelNaTela}
       />
     )
   }
@@ -691,10 +737,14 @@ export default function PlanejamentoPage() {
                   {[...mecanicos]
                     .sort((a, b) => b.ordens.length - a.ordens.length)
                     .map(mecanico => (
-                      <MecanicoCard 
-                        key={mecanico.id} 
-                        mecanico={mecanico} 
+                      <MecanicoCard
+                        key={mecanico.id}
+                        mecanico={mecanico}
                         getStatusColor={getStatusColor}
+                        visivelNaTela={!ocultosTela.includes(mecanico.id)}
+                        onToggleVisivelNaTela={(id, visivel) =>
+                          handleToggleVisivelNaTela(id, visivel, mecanico.nome)
+                        }
                       />
                     ))}
                 </SortableContext>
@@ -714,10 +764,11 @@ export default function PlanejamentoPage() {
                 )}
                 {activeMecanico && dragType === 'mecanico' && (
                   <div className="w-full max-w-[350px] opacity-80">
-                    <MecanicoCard 
-                      mecanico={activeMecanico} 
+                    <MecanicoCard
+                      mecanico={activeMecanico}
                       getStatusColor={getStatusColor}
                       isDragging={true}
+                      visivelNaTela={!ocultosTela.includes(activeMecanico.id)}
                     />
                   </div>
                 )}

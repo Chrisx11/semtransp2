@@ -49,11 +49,48 @@ const generateId = (): string => {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 9)
 }
 
-// Função para gerar um número de OS
+// Extrai o sequencial numérico de um número de OS (ex: OS-260042 -> 42)
+const extrairSequencialNumeroOS = (numero: string, yearPrefix: string): number | null => {
+  if (!numero?.toUpperCase().startsWith(yearPrefix.toUpperCase())) return null
+  const match = numero.match(/^OS-\d{2}(\d+)$/i)
+  if (!match) return null
+  const seq = parseInt(match[1], 10)
+  return Number.isNaN(seq) ? null : seq
+}
+
+// Função para gerar um número de OS a partir da lista (localStorage)
 const generateNumeroOS = (ordens: OrdemServico[]): string => {
   const year = new Date().getFullYear().toString().substring(2)
-  const count = ordens.length + 1
-  return `OS-${year}${count.toString().padStart(4, "0")}`
+  const prefix = `OS-${year}`
+  let maxSeq = 0
+  for (const ordem of ordens) {
+    const seq = extrairSequencialNumeroOS(ordem.numero, prefix)
+    if (seq !== null) maxSeq = Math.max(maxSeq, seq)
+  }
+  return `${prefix}${(maxSeq + 1).toString().padStart(4, "0")}`
+}
+
+// Busca o próximo número de OS no Supabase (não depende da contagem de linhas retornadas)
+async function getProximoNumeroOSSupabase(): Promise<string> {
+  const year = new Date().getFullYear().toString().substring(2)
+  const prefix = `OS-${year}`
+
+  const { data, error } = await supabase
+    .from("ordens_servico")
+    .select("numero")
+    .like("numero", `${prefix}%`)
+    .order("numero", { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+
+  let nextSeq = 1
+  if (data?.[0]?.numero) {
+    const seq = extrairSequencialNumeroOS(data[0].numero, prefix)
+    if (seq !== null) nextSeq = seq + 1
+  }
+
+  return `${prefix}${nextSeq.toString().padStart(4, "0")}`
 }
 
 // Função para obter todas as ordens de serviço
@@ -360,9 +397,31 @@ export const searchOrdensServico = (query: string): OrdemServico[] => {
 
 // Funções assíncronas para Supabase
 export async function getOrdensServicoSupabase(): Promise<OrdemServico[]> {
-  const { data, error } = await supabase.from("ordens_servico").select("*").order("createdAt", { ascending: false })
-  if (error) throw error
-  return data || []
+  // O Supabase/PostgREST retorna no máximo 1000 registros por requisição
+  let allData: OrdemServico[] = []
+  let from = 0
+  const pageSize = 1000
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("ordens_servico")
+      .select("*")
+      .order("createdAt", { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+
+    if (data && data.length > 0) {
+      allData = [...allData, ...data]
+      from += pageSize
+      hasMore = data.length === pageSize
+    } else {
+      hasMore = false
+    }
+  }
+
+  return allData
 }
 
 export async function getOrdemServicoByIdSupabase(id: string): Promise<OrdemServico | null> {
@@ -377,9 +436,7 @@ export async function addOrdemServicoSupabase(
   usuarioNome?: string
 ): Promise<OrdemServico> {
   const now = new Date().toISOString()
-  // Buscar todas as ordens para gerar o número sequencial
-  const todasOrdens = await getOrdensServicoSupabase()
-  const numero = generateNumeroOS(todasOrdens)
+  const numero = await getProximoNumeroOSSupabase()
   const id = crypto.randomUUID()
   const newOrdem: OrdemServico = {
     ...ordem,
@@ -703,7 +760,8 @@ export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: stri
       const { data, error } = await supabase
         .from('ordens_servico')
         .select('*')
-        .order('ordem_execucao', { ascending: true });
+        .order('ordem_execucao', { ascending: true })
+        .limit(10000);
       
       if (error) {
         console.error('Erro ao buscar ordens de serviço:', error);
@@ -717,7 +775,11 @@ export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: stri
       
       // Usar todas as ordens, sem filtrar por status
       ordens = data;
-      console.log('Ordens encontradas (todas):', ordens.length);
+      console.log('=== ORDENS BRUTAS DO BANCO ===');
+      console.log(`Total: ${ordens.length} ordens`);
+      ordens.forEach((o: any, idx: number) => {
+        console.log(`[${idx}] ID: ${o.id}, Número: ${o.numero}, Status: ${o.status}, Mecânico: ${o.mecanicoInfo}, Ordem Exec: ${o.ordem_execucao}`);
+      });
     } catch (queryError) {
       console.error('Erro na consulta de ordens:', queryError);
       return [];
@@ -725,12 +787,15 @@ export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: stri
 
     // Agrupamos por mecânico
     const mecanicosMap = new Map<string, {id: string, nome: string, ordens: OrdemServico[]}>();
+    let ordensComMecanico = 0;
+    let ordensSemMecanico = 0;
     
     ordens.forEach((ordem: any) => {
       try {
-        // Verificar se ordem tem os campos necessários
-        if (!ordem.mecanicoId || !ordem.mecanicoInfo) {
-          console.warn('Ordem sem mecânico associado:', ordem.id);
+        // Verificar se ordem tem os campos necessários (incluindo strings vazias)
+        if (!ordem.mecanicoId?.trim() || !ordem.mecanicoInfo?.trim()) {
+          console.warn('Ordem sem mecânico associado:', { id: ordem.id, numero: ordem.numero, status: ordem.status, mecanicoId: ordem.mecanicoId, mecanicoInfo: ordem.mecanicoInfo });
+          ordensSemMecanico++;
           return; // Pular esta ordem
         }
 
@@ -757,9 +822,25 @@ export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: stri
         }
         
         mecanicosMap.get(mecanicoId)?.ordens.push(ordem);
+        ordensComMecanico++;
       } catch (ordenError) {
         console.error('Erro ao processar ordem:', ordenError, ordem);
       }
+    });
+    
+    // Log detalhado do agrupamento
+    console.log('=== RESUMO DE AGRUPAMENTO ===');
+    console.log(`Total de ordens buscadas: ${ordens.length}`);
+    console.log(`Ordens com mecânico: ${ordensComMecanico}`);
+    console.log(`Ordens sem mecânico: ${ordensSemMecanico}`);
+    console.log(`Mecânicos únicos: ${mecanicosMap.size}`);
+    
+    // Log detalhado de cada mecânico e suas ordens
+    mecanicosMap.forEach((mecanico) => {
+      console.log(`${mecanico.nome}: ${mecanico.ordens.length} ordens`);
+      mecanico.ordens.forEach(ordem => {
+        console.log(`  - ${ordem.numero}: ${ordem.status} (ordem_execucao: ${ordem.ordem_execucao})`);
+      });
     });
     
     // Se não tiver nenhum mecânico com ordens, adicionar pelo menos um placeholder
@@ -772,7 +853,14 @@ export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: stri
     }
     
     // Convertemos o Map para um array e ordenamos os mecânicos por nome
-    return Array.from(mecanicosMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+    const mecanicosArray = Array.from(mecanicosMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
+    console.log('=== RESULTADO FINAL ===');
+    console.log(`Total de mecânicos retornando: ${mecanicosArray.length}`);
+    mecanicosArray.forEach(m => {
+      console.log(`${m.nome}: ${m.ordens.length} ordens`);
+    });
+    
+    return mecanicosArray;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     console.error('Exceção ao buscar ordens agrupadas por mecânico:', errorMessage);

@@ -1,0 +1,13 @@
+-- =============================================================================
+-- ÍNDICE — correção de números de OS duplicados
+-- Este arquivo foi dividido em passos menores (menos confusão no Supabase).
+-- Use os arquivos abaixo NA ORDEM:
+--
+--   1. identificar-ordens-servico-numero-duplicado.sql   (só leitura)
+--   2. corrigir-ordens-servico-preview-apenas.sql        (só leitura)
+--   3. corrigir-ordens-servico-backup.sql                (backup + RLS)
+--   4. corrigir-ordens-servico-aplicar.sql               (UPDATE)
+--
+-- Reverter: corrigir-ordens-servico-reverter.sql
+-- Guia:    README-CORRIGIR-NUMEROS-OS-DUPLICADOS.md
+-- =============================================================================

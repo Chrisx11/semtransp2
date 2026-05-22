@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { toast } from "@/hooks/use-toast"
 import { GlobalNotifications } from "@/components/global-notifications"
 import { useIsMobile } from "@/components/ui/use-mobile"
+import { subscribeTelaFullscreen } from "@/lib/tela-fullscreen"
 
 export default function DashboardLayout({
   children,
@@ -24,6 +25,18 @@ export default function DashboardLayout({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarHidden, setSidebarHidden] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [telaFullscreen, setTelaFullscreen] = useState(false)
+
+  const isTelaPage = pathname?.includes("/manutencoes/tela") ?? false
+  const telaKiosk = isTelaPage && telaFullscreen
+
+  useEffect(() => {
+    return subscribeTelaFullscreen(setTelaFullscreen)
+  }, [])
+
+  useEffect(() => {
+    if (!isTelaPage) setTelaFullscreen(false)
+  }, [isTelaPage])
 
   // Carregar preferência de sidebar do localStorage
   useEffect(() => {
@@ -126,28 +139,43 @@ export default function DashboardLayout({
           backgroundSize: '40px 40px'
         }}
       />
-      {!sidebarHidden && !isMobile && (
+      {!telaKiosk && !sidebarHidden && !isMobile && (
         <Sidebar isCollapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       )}
       <div
         className="flex-1 flex flex-col relative z-10 min-w-0 overflow-x-hidden"
         style={{
-          marginLeft: isMobile || sidebarHidden ? '0' : (sidebarCollapsed ? '64px' : '256px'),
-          transition: 'margin-left 0.3s ease-in-out'
+          marginLeft: telaKiosk || isMobile || sidebarHidden ? "0" : sidebarCollapsed ? "64px" : "256px",
+          transition: "margin-left 0.3s ease-in-out",
         }}
       >
         {/* Header fixo no topo */}
-        {!isMobile && (
-          <DashboardHeader 
-            sidebarCollapsed={sidebarCollapsed} 
+        {!telaKiosk && !isMobile && (
+          <DashboardHeader
+            sidebarCollapsed={sidebarCollapsed}
             sidebarHidden={sidebarHidden}
             onToggleSidebarVisibility={toggleSidebarVisibility}
           />
         )}
-        
-        {/* Conteúdo principal com padding-top para compensar o header */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className={isMobile ? "px-0 pt-0 pb-0 page-transition w-full min-w-0 overflow-x-hidden" : "px-6 pt-6 pb-6 page-transition"} style={isMobile ? {} : { paddingTop: 'calc(68px + 24px)' }}>
+
+        {/* Conteúdo principal */}
+        <main
+          className={
+            telaKiosk
+              ? "flex-1 overflow-hidden h-screen"
+              : "flex-1 overflow-y-auto overflow-x-hidden"
+          }
+        >
+          <div
+            className={
+              telaKiosk
+                ? "h-screen w-full overflow-hidden"
+                : isMobile
+                  ? "px-0 pt-0 pb-0 page-transition w-full min-w-0 overflow-x-hidden"
+                  : "px-6 pt-6 pb-6 page-transition"
+            }
+            style={telaKiosk || isMobile ? {} : { paddingTop: "calc(68px + 24px)" }}
+          >
             {children}
           </div>
         </main>

@@ -1,7 +1,8 @@
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { User, ArrowUpDown, GripHorizontal } from 'lucide-react'
+import { User, GripHorizontal, Monitor, MonitorOff } from 'lucide-react'
+import { isMecanicoVisivelNaTela } from '@/lib/tela-mecanicos-config'
 import { OrdemServico } from '@/services/ordem-servico-service'
 import { OrdemCard } from './ordem-card'
 import { OrdemPlaceholder } from './ordem-placeholder'
@@ -16,9 +17,18 @@ interface MecanicoCardProps {
   }
   getStatusColor: (status: string) => string
   isDragging?: boolean
+  visivelNaTela?: boolean
+  onToggleVisivelNaTela?: (mecanicoId: string, visivel: boolean) => void
 }
 
-export const MecanicoCard: React.FC<MecanicoCardProps> = ({ mecanico, getStatusColor, isDragging = false }) => {
+export const MecanicoCard: React.FC<MecanicoCardProps> = ({
+  mecanico,
+  getStatusColor,
+  isDragging = false,
+  visivelNaTela: visivelNaTelaProp,
+  onToggleVisivelNaTela,
+}) => {
+  const visivelNaTela = visivelNaTelaProp ?? isMecanicoVisivelNaTela(mecanico.id)
   // Configuração para tornar o próprio card sortable
   const {
     attributes,
@@ -97,9 +107,30 @@ export const MecanicoCard: React.FC<MecanicoCardProps> = ({ mecanico, getStatusC
               {ordensOrdenadas.length}
             </span>
           </CardTitle>
-          <div 
-            {...listeners} 
-            className="p-1.5 hover:bg-white/20 rounded-md cursor-move flex items-center justify-center ml-2"
+          <button
+            type="button"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleVisivelNaTela?.(mecanico.id, !visivelNaTela)
+            }}
+            className={cn(
+              "p-1.5 rounded-md flex items-center justify-center ml-1 transition-colors",
+              visivelNaTela
+                ? "bg-white/25 hover:bg-white/35 text-white"
+                : "bg-white/10 hover:bg-white/20 text-white/60"
+            )}
+            title={visivelNaTela ? "Exibindo na Tela — clique para ocultar" : "Oculto na Tela — clique para exibir"}
+          >
+            {visivelNaTela ? (
+              <Monitor className="h-5 w-5" />
+            ) : (
+              <MonitorOff className="h-5 w-5" />
+            )}
+          </button>
+          <div
+            {...listeners}
+            className="p-1.5 hover:bg-white/20 rounded-md cursor-move flex items-center justify-center ml-1"
             title="Arrastar para reorganizar mecânicos"
           >
             <GripHorizontal className="h-5 w-5 text-white/70" />

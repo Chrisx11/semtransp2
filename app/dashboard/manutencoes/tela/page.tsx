@@ -1,477 +1,221 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { getOrdensServicoSupabase, type OrdemServico } from "@/services/ordem-servico-service"
+import {
+  getOrdensAgrupadasPorMecanicoSupabase,
+  type OrdemServico,
+} from "@/services/ordem-servico-service"
+import {
+  isMecanicoVisivelNaTela,
+  subscribeTelaMecanicosConfig,
+} from "@/lib/tela-mecanicos-config"
 import { cn } from "@/lib/utils"
-import { Wrench, Clock, FileText, AlertCircle, Package, CheckCircle, Calendar, Car, ChevronLeft, ChevronRight } from "lucide-react"
+import { Wrench, ChevronLeft, ChevronRight, User, Maximize2, Minimize2 } from "lucide-react"
+import { setTelaFullscreenAtivo } from "@/lib/tela-fullscreen"
 import { useIsMobile } from "@/components/ui/use-mobile"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
 import { MobileBackButton } from "@/components/mobile-back-button"
 
-// Componente para exibir a prioridade com a cor apropriada
-const PrioridadeBadge = ({ prioridade, isMobile = false }: { prioridade: string; isMobile?: boolean }) => {
-  let badgeClasses = ""
-  switch (prioridade) {
-    case "Baixa":
-      badgeClasses = "bg-[#3B82F6] text-white hover:bg-[#2563EB]" // Azul
-      break
-    case "Média":
-      badgeClasses = "bg-[#FACC15] text-black hover:bg-[#EAB308]" // Amarelo
-      break
-    case "Alta":
-      badgeClasses = "bg-[#F97316] text-white hover:bg-[#EA580C]" // Laranja
-      break
-    case "Urgente":
-      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#DC2626]" // Vermelho
-      break
-    default:
-      badgeClasses = "bg-gray-500 text-white hover:bg-gray-500/80" // Cinza
-  }
-  const sizeClasses = isMobile ? "text-[10px] px-1 py-0" : "text-[10px] px-1.5 py-0.5"
-  return <Badge className={cn("font-medium rounded-none", sizeClasses, badgeClasses)} variant="outline">{prioridade}</Badge>
+const STATUS_TELA = new Set(["Em Serviço", "Fila de Serviço", "Aguardando Mecânico"])
+
+const prioridadeCor: Record<string, string> = {
+  Urgente: "bg-red-500",
+  Alta: "bg-orange-500",
+  Média: "bg-yellow-400 text-black",
+  Baixa: "bg-blue-500",
 }
 
-// Função auxiliar para obter as cores do status
-const getStatusColors = (status: string) => {
-  switch (status) {
-    case "Aguardando Mecânico":
-      return {
-        bg: "bg-[#6B7280]",
-        bgLight: "bg-[#6B7280]/10",
-        border: "border-[#6B7280]/30",
-        text: "text-[#6B7280]",
-        badge: "bg-[#6B7280] text-white hover:bg-[#6B7280]/90",
-        icon: FileText
-      }
-    case "Em Análise":
-      return {
-        bg: "bg-[#D97706]",
-        bgLight: "bg-[#D97706]/10",
-        border: "border-[#D97706]/30",
-        text: "text-[#D97706]",
-        badge: "bg-[#D97706] text-white hover:bg-[#D97706]/90",
-        icon: AlertCircle
-      }
-    case "Aguardando aprovação":
-      return {
-        bg: "bg-[#F97316]",
-        bgLight: "bg-[#F97316]/10",
-        border: "border-[#F97316]/30",
-        text: "text-[#F97316]",
-        badge: "bg-[#F97316] text-white hover:bg-[#F97316]/90",
-        icon: Clock
-      }
-    case "Aguardando OS":
-      return {
-        bg: "bg-[#3B82F6]",
-        bgLight: "bg-[#3B82F6]/10",
-        border: "border-[#3B82F6]/30",
-        text: "text-[#3B82F6]",
-        badge: "bg-[#3B82F6] text-white hover:bg-[#3B82F6]/90",
-        icon: Package
-      }
-    case "Aguardando Fornecedor":
-      return {
-        bg: "bg-[#8B5CF6]",
-        bgLight: "bg-[#8B5CF6]/10",
-        border: "border-[#8B5CF6]/30",
-        text: "text-[#8B5CF6]",
-        badge: "bg-[#8B5CF6] text-white hover:bg-[#8B5CF6]/90",
-        icon: Package
-      }
-    case "Serviço Externo":
-      return {
-        bg: "bg-[#047857]",
-        bgLight: "bg-[#047857]/10",
-        border: "border-[#047857]/30",
-        text: "text-[#047857]",
-        badge: "bg-[#047857] text-white hover:bg-[#047857]/90",
-        icon: Wrench
-      }
-    case "Comprar na Rua":
-      return {
-        bg: "bg-[#EF4444]",
-        bgLight: "bg-[#EF4444]/10",
-        border: "border-[#EF4444]/30",
-        text: "text-[#EF4444]",
-        badge: "bg-[#EF4444] text-white hover:bg-[#EF4444]/90",
-        icon: AlertCircle
-      }
-    case "Fila de Serviço":
-      return {
-        bg: "bg-[#06B6D4]",
-        bgLight: "bg-[#06B6D4]/10",
-        border: "border-[#06B6D4]/30",
-        text: "text-[#06B6D4]",
-        badge: "bg-[#06B6D4] text-white hover:bg-[#06B6D4]/90",
-        icon: Clock
-      }
-    case "Em Serviço":
-    case "Em andamento":
-      return {
-        bg: "bg-[#10B981]",
-        bgLight: "bg-[#10B981]/10",
-        border: "border-[#10B981]/30",
-        text: "text-[#10B981]",
-        badge: "bg-[#10B981] text-white hover:bg-[#10B981]/90",
-        icon: Wrench
-      }
-    case "Finalizado":
-      return {
-        bg: "bg-[#1D4ED8]",
-        bgLight: "bg-[#1D4ED8]/10",
-        border: "border-[#1D4ED8]/30",
-        text: "text-[#1D4ED8]",
-        badge: "bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90",
-        icon: CheckCircle
-      }
-    case "Em Aprovação":
-      return {
-        bg: "bg-[#F97316]",
-        bgLight: "bg-[#F97316]/10",
-        border: "border-[#F97316]/30",
-        text: "text-[#F97316]",
-        badge: "bg-[#F97316] text-white hover:bg-[#F97316]/90",
-        icon: Clock
-      }
-    default:
-      return {
-        bg: "bg-gray-500",
-        bgLight: "bg-gray-500/10",
-        border: "border-gray-500/30",
-        text: "text-gray-500",
-        badge: "bg-gray-500 text-white hover:bg-gray-500/90",
-        icon: AlertCircle
-      }
-  }
+const statusCor: Record<string, string> = {
+  "Em Serviço": "bg-emerald-500",
+  "Fila de Serviço": "bg-cyan-500",
+  "Aguardando Mecânico": "bg-slate-500",
 }
 
-// Componente para exibir o status com a cor apropriada
-const StatusBadge = ({ status, isMobile = false }: { status: string; isMobile?: boolean }) => {
-  const colors = getStatusColors(status)
-  const sizeClasses = isMobile ? "text-[10px] px-1 py-0.5" : "text-xs px-2 py-1"
+function extrairNomeMecanico(info?: string) {
+  if (!info) return "Sem mecânico"
+  return info.replace(/\s*\([^)]*\)\s*$/, "").trim()
+}
+
+function extrairPlaca(veiculoInfo?: string) {
+  if (!veiculoInfo) return "—"
+  return veiculoInfo.split(" - ")[0]?.trim() || veiculoInfo
+}
+
+function ordenarOrdens(ordens: OrdemServico[]) {
+  return [...ordens]
+    .filter((o) => STATUS_TELA.has(o.status))
+    .sort((a, b) => {
+      if (a.ordem_execucao != null && b.ordem_execucao != null) {
+        return a.ordem_execucao - b.ordem_execucao
+      }
+      if (a.ordem_execucao != null) return -1
+      if (b.ordem_execucao != null) return 1
+      const numA = parseInt(a.numero.replace(/\D/g, ""), 10) || 0
+      const numB = parseInt(b.numero.replace(/\D/g, ""), 10) || 0
+      return numA - numB
+    })
+}
+
+function OrdemTelaItem({ ordem }: { ordem: OrdemServico }) {
+  const statusClass = statusCor[ordem.status] ?? "bg-muted"
+  const prioridadeClass = prioridadeCor[ordem.prioridade] ?? "bg-muted"
+
   return (
-    <Badge className={cn("font-semibold shadow-sm border-0 rounded-none", sizeClasses, colors.badge)}>
-      {status}
-    </Badge>
+    <div
+      className={cn(
+        "rounded-lg border bg-card/80 p-3 shadow-sm",
+        ordem.status === "Em Serviço" && "ring-2 ring-emerald-500/40"
+      )}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <p className="text-lg font-bold tracking-tight truncate">{extrairPlaca(ordem.veiculoInfo)}</p>
+          <p className="text-sm font-semibold text-muted-foreground">{ordem.numero}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {ordem.ordem_execucao != null && (
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+              {ordem.ordem_execucao}
+            </span>
+          )}
+          <Badge className={cn("text-[10px] border-0", prioridadeClass)}>{ordem.prioridade}</Badge>
+        </div>
+      </div>
+      <Badge className={cn("mb-2 text-xs border-0", statusClass)}>{ordem.status}</Badge>
+      <p className="text-sm leading-snug line-clamp-3 text-foreground/90">
+        {ordem.defeitosRelatados?.trim() || "Sem descrição informada"}
+      </p>
+    </div>
   )
 }
 
-// Componente para o card de ordem de serviço
-interface OrdemCardProps {
-  ordem: OrdemServico
-}
-
-const OrdemCard = ({ ordem }: OrdemCardProps) => {
-  // Função para formatar a data de yyyy-mm-dd para dd/mm/yyyy
-  const formatarData = (dataString: string) => {
-    if (!dataString) return "—";
-    
-    try {
-      const [ano, mes, dia] = dataString.split('-');
-      if (ano && mes && dia) {
-        return `${dia}/${mes}/${ano}`;
-      }
-      return dataString;
-    } catch (error) {
-      return dataString;
-    }
-  };
-
-  const colors = getStatusColors(ordem.status)
-  const StatusIcon = colors.icon
-
+function MecanicoTelaCard({
+  nome,
+  ordens,
+}: {
+  nome: string
+  ordens: OrdemServico[]
+}) {
   return (
-    <Card className={cn(
-      "group relative overflow-hidden transition-all duration-200",
-      "border-2",
-      colors.border
-    )}>
-      {/* Barra lateral colorida */}
-      <div className={cn(
-        "absolute left-0 top-0 bottom-0 w-1",
-        colors.bg
-      )} />
-      
-      <CardContent 
-        className="p-2 relative"
-        style={{
-          background: ordem.status === "Aguardando Mecânico" ? "linear-gradient(to bottom right, rgba(107, 114, 128, 0.15), rgba(107, 114, 128, 0.05))" :
-                      ordem.status === "Em Análise" ? "linear-gradient(to bottom right, rgba(217, 119, 6, 0.15), rgba(217, 119, 6, 0.05))" :
-                      ordem.status === "Aguardando aprovação" ? "linear-gradient(to bottom right, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.05))" :
-                      ordem.status === "Aguardando OS" ? "linear-gradient(to bottom right, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05))" :
-                      ordem.status === "Aguardando Fornecedor" ? "linear-gradient(to bottom right, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.05))" :
-                      ordem.status === "Serviço Externo" ? "linear-gradient(to bottom right, rgba(4, 120, 87, 0.15), rgba(4, 120, 87, 0.05))" :
-                      ordem.status === "Comprar na Rua" ? "linear-gradient(to bottom right, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05))" :
-                      ordem.status === "Fila de Serviço" ? "linear-gradient(to bottom right, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.05))" :
-                      ordem.status === "Em Serviço" || ordem.status === "Em andamento" ? "linear-gradient(to bottom right, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05))" :
-                      ordem.status === "Finalizado" ? "linear-gradient(to bottom right, rgba(29, 78, 216, 0.15), rgba(29, 78, 216, 0.05))" :
-                      ordem.status === "Em Aprovação" ? "linear-gradient(to bottom right, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.05))" :
-                      "linear-gradient(to bottom right, rgba(107, 114, 128, 0.15), rgba(107, 114, 128, 0.05))"
-        }}
-      >
-        {/* Header com número e badges */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-1.5 flex-1 min-w-0">
-            <div className={cn(
-              "p-1 rounded flex-shrink-0",
-              colors.bg
-            )}>
-              <StatusIcon className="h-3 w-3 text-white" />
-            </div>
-            <h3 className="text-sm font-bold text-foreground truncate" style={{ fontWeight: 700, letterSpacing: '0.02em' }}>
-              {ordem.numero}
-            </h3>
+    <Card className="flex flex-col h-full border-2 shadow-lg overflow-hidden bg-card">
+      <CardHeader className="py-3 px-4 bg-primary text-primary-foreground flex-shrink-0">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+            <User className="h-5 w-5" />
           </div>
-          <div className="flex-shrink-0">
-            <StatusBadge status={ordem.status} />
-          </div>
-        </div>
-        
-        {/* Informações do veículo e data */}
-        <div className="space-y-1">
-          <div className="flex items-center gap-1.5">
-            <Car className={cn("h-3 w-3 flex-shrink-0", colors.text)} />
-            <p className="text-xs font-medium text-foreground truncate" style={{ letterSpacing: '0.01em' }}>
-              {ordem.veiculoInfo}
-            </p>
-          </div>
-
-          {/* O que deve ser feito (igual ao foco visual do planejamento) */}
-          <div className={cn("rounded px-2 py-1", colors.bgLight, "border", colors.border)}>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mb-0.5">
-              O que fazer
-            </p>
-            <p className="text-xs text-foreground line-clamp-2">
-              {ordem.defeitosRelatados?.trim() || "Sem descrição informada"}
-            </p>
-          </div>
-          
-          <div className="flex items-center justify-between gap-1.5">
-            <div className="flex items-center gap-1.5">
-              <Calendar className={cn("h-3 w-3 flex-shrink-0", colors.text)} />
-              <p className="text-xs font-medium text-foreground">
-                {formatarData(ordem.data)}
-              </p>
-            </div>
-            <PrioridadeBadge prioridade={ordem.prioridade} />
-          </div>
-        </div>
+          <span className="truncate flex-1">{nome}</span>
+          <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0 text-sm">
+            {ordens.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0 bg-muted/30">
+        {ordens.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground py-8">Nenhuma OS na fila</p>
+        ) : (
+          ordens.map((ordem) => <OrdemTelaItem key={ordem.id} ordem={ordem} />)
+        )}
       </CardContent>
     </Card>
   )
 }
 
-// Componente Mobile View
-function TelaMobileView({ 
-  mecanicosComOrdens, 
-  loading 
-}: { 
-  mecanicosComOrdens: { [key: string]: OrdemServico[] }
-  loading: boolean 
-}) {
-  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
-    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
-    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
-    return nomeA.localeCompare(nomeB)
-  })
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px] p-4">
-        <div className="text-center">
-          <Wrench className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-muted-foreground">Carregando ordens de serviço...</h2>
-        </div>
-      </div>
-    )
-  }
-
-  if (sortedMecanicos.length === 0) {
-    return (
-      <div className="text-center p-6 bg-muted/50 rounded-lg m-4">
-        <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" />
-        <h2 className="text-xl font-bold">Nenhuma ordem de serviço em andamento</h2>
-        <p className="text-sm text-muted-foreground mt-2">Todas as ordens foram finalizadas</p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="p-2 space-y-3 max-w-full overflow-x-hidden">
-      <div className="w-[96%] pl-3 pr-0 mb-2">
-        <MobileBackButton />
-      </div>
-
-      <Accordion type="single" collapsible className="w-full space-y-2">
-        {sortedMecanicos.map((mecanicoId) => {
-          const ordensOriginais = mecanicosComOrdens[mecanicoId]
-          const nomeMecanicoOriginal = ordensOriginais[0]?.mecanicoInfo || "Sem mecânico atribuído"
-          const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
-          
-          const ordens = ordensOriginais
-            .filter(ordem =>
-              ordem.status === "Em Serviço" ||
-              ordem.status === "Fila de Serviço" ||
-              ordem.status === "Aguardando Mecânico"
-            )
-            .sort((a, b) => {
-              if (a.ordem_execucao && b.ordem_execucao) {
-                return a.ordem_execucao - b.ordem_execucao
-              }
-              if (a.ordem_execucao) return -1
-              if (b.ordem_execucao) return 1
-              const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
-              const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
-              return numA - numB
-            })
-
-          return (
-            <AccordionItem key={mecanicoId} value={mecanicoId} className="border rounded-lg px-2 bg-card max-w-full">
-              <AccordionTrigger className="hover:no-underline py-3">
-                <div className="flex items-center justify-between w-full pr-1 min-w-0">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <Wrench className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <span className="font-semibold text-sm truncate">{nomeMecanico}</span>
-                  </div>
-                  <Badge variant="secondary" className="ml-2 flex-shrink-0 text-xs px-1.5 py-0">
-                    {ordens.length}
-                  </Badge>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-1.5 pt-1.5 pb-2">
-                  {ordens.map(ordem => (
-                    <OrdemCard key={ordem.id} ordem={ordem} />
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          )
-        })}
-      </Accordion>
-    </div>
-  )
-}
+type MecanicoTela = { id: string; nome: string; ordens: OrdemServico[] }
 
 export default function TelaManutencoesPage() {
   const isMobile = useIsMobile()
-  const [mecanicosComOrdens, setMecanicosComOrdens] = useState<{ [key: string]: OrdemServico[] }>({})
-  const [ordensAlmoxarifado, setOrdensAlmoxarifado] = useState<OrdemServico[]>([])
-  const [ordensCompras, setOrdensCompras] = useState<OrdemServico[]>([])
+  const [mecanicos, setMecanicos] = useState<MecanicoTela[]>([])
   const [loading, setLoading] = useState(true)
-  const [initialLoading, setInitialLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(0)
-  const [viewMode, setViewMode] = useState<"mecanicos" | "setores">("mecanicos")
+  const [hora, setHora] = useState("")
+  const [telaCheia, setTelaCheia] = useState(false)
 
-  const getSetorAtualDaOS = (ordem: OrdemServico): string | null => {
-    const ultimoEvento = ordem.historico?.length ? ordem.historico[ordem.historico.length - 1] : null
-    const destino = ultimoEvento?.para?.trim()
-    if (destino) return destino
+  const mecanicosPorPagina = isMobile ? 1 : 4
 
-    // Fallback (caso historico não exista por alguma razão)
-    if (ordem.status === "Em Análise" || ordem.status === "Aguardando OS") return "Almoxarifado"
-    if (ordem.status === "Em Aprovação" || ordem.status === "Aguardando Fornecedor" || ordem.status === "Comprar na Rua") return "Compras"
-    return null
-  }
-
-  // Função para buscar dados
-  const fetchData = async ({ silent = false }: { silent?: boolean } = {}) => {
+  const carregar = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     try {
       if (!silent) setLoading(true)
-      const allOrdens = await getOrdensServicoSupabase()
-      const ordensNaoFinalizadas = allOrdens.filter((ordem) => ordem.status !== "Finalizado")
+      const dados = await getOrdensAgrupadasPorMecanicoSupabase()
+      const lista: MecanicoTela[] = dados
+        .filter((m) => m.id !== "sem-mecanico" && isMecanicoVisivelNaTela(m.id))
+        .map((m) => ({
+          id: m.id,
+          nome: m.nome || extrairNomeMecanico(m.ordens[0]?.mecanicoInfo),
+          ordens: ordenarOrdens(m.ordens),
+        }))
+        .filter((m) => m.ordens.length > 0)
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
 
-      const almox = ordensNaoFinalizadas.filter((ordem) => getSetorAtualDaOS(ordem) === "Almoxarifado")
-      const compras = ordensNaoFinalizadas.filter((ordem) => getSetorAtualDaOS(ordem) === "Compras")
-
-      const sortByNumero = (a: OrdemServico, b: OrdemServico) => {
-        const numA = parseInt(a.numero.replace(/\D/g, ""), 10) || 0
-        const numB = parseInt(b.numero.replace(/\D/g, ""), 10) || 0
-        return numB - numA
-      }
-
-      setOrdensAlmoxarifado(almox.sort(sortByNumero))
-      setOrdensCompras(compras.sort(sortByNumero))
-
-      const ordensAtivas = allOrdens.filter(
-        (ordem) =>
-          ordem.status === "Em Serviço" ||
-          ordem.status === "Fila de Serviço" ||
-          ordem.status === "Aguardando Mecânico"
-      )
-      // Agrupar ordens por mecânico
-      const mecanicosMap: { [key: string]: OrdemServico[] } = {}
-      for (const ordem of ordensAtivas) {
-        const mecanicoId = ordem.mecanicoId || "sem-mecanico"
-        if (!mecanicosMap[mecanicoId]) {
-          mecanicosMap[mecanicoId] = []
-        }
-        mecanicosMap[mecanicoId].push(ordem)
-      }
-      // Ordenar os mecânicos por nome
-      const sortedMecanicos = Object.keys(mecanicosMap).sort((a, b) => {
-        const nomeA = mecanicosMap[a][0]?.mecanicoInfo || "Sem mecânico"
-        const nomeB = mecanicosMap[b][0]?.mecanicoInfo || "Sem mecânico"
-        return nomeA.localeCompare(nomeB)
-      })
-      // Ordenar as ordens de cada mecânico por prioridade e ordem_execucao
-      sortedMecanicos.forEach(mecanicoId => {
-        mecanicosMap[mecanicoId] = mecanicosMap[mecanicoId].sort((a, b) => {
-          const prioridadeOrder = { "Urgente": 0, "Alta": 1, "Média": 2, "Baixa": 3 }
-          const prioridadeA = prioridadeOrder[a.prioridade as keyof typeof prioridadeOrder] ?? 4
-          const prioridadeB = prioridadeOrder[b.prioridade as keyof typeof prioridadeOrder] ?? 4
-          if (prioridadeA !== prioridadeB) return prioridadeA - prioridadeB
-          const ordemExecucaoA = a.ordem_execucao !== undefined ? a.ordem_execucao : null
-          const ordemExecucaoB = b.ordem_execucao !== undefined ? b.ordem_execucao : null
-          if (ordemExecucaoA !== null && ordemExecucaoB !== null) return ordemExecucaoA - ordemExecucaoB
-          if (ordemExecucaoA !== null) return -1
-          if (ordemExecucaoB !== null) return 1
-          const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
-          const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
-          return numA - numB
-        })
-      })
-      setMecanicosComOrdens(mecanicosMap)
+      setMecanicos(lista)
     } catch (error) {
-      console.error("Erro ao buscar dados:", error)
+      console.error("Erro ao carregar tela:", error)
     } finally {
       if (!silent) setLoading(false)
-      if (initialLoading) {
-        setInitialLoading(false)
-        setLoading(false)
-      }
     }
-  }
-
-  useEffect(() => {
-    fetchData({ silent: false })
-    const timerDados = setInterval(() => { fetchData({ silent: true }) }, 10000)
-    return () => { clearInterval(timerDados) }
   }, [])
 
-  // Alternância automática entre Mecânicos e Setores
   useEffect(() => {
-    if (isMobile) return
-    const timerView = setInterval(() => {
-      setViewMode((prev) => (prev === "mecanicos" ? "setores" : "mecanicos"))
-    }, 5000)
-    return () => clearInterval(timerView)
-  }, [isMobile])
+    carregar()
+    const timerDados = setInterval(() => carregar({ silent: true }), 10000)
+    return () => clearInterval(timerDados)
+  }, [carregar])
 
-  const sortedMecanicos = Object.keys(mecanicosComOrdens).sort((a, b) => {
-    const nomeA = mecanicosComOrdens[a][0]?.mecanicoInfo || "Sem mecânico"
-    const nomeB = mecanicosComOrdens[b][0]?.mecanicoInfo || "Sem mecânico"
-    return nomeA.localeCompare(nomeB)
-  })
+  useEffect(() => {
+    return subscribeTelaMecanicosConfig(() => carregar({ silent: true }))
+  }, [carregar])
 
-  const mecanicosPorPagina = 4
-  const totalPages = Math.max(1, Math.ceil(sortedMecanicos.length / mecanicosPorPagina))
-  const startIndex = currentPage * mecanicosPorPagina
-  const visibleMecanicos = sortedMecanicos.slice(startIndex, startIndex + mecanicosPorPagina)
+  useEffect(() => {
+    const tick = () => {
+      setHora(
+        new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+      )
+    }
+    tick()
+    const t = setInterval(tick, 30000)
+    return () => clearInterval(t)
+  }, [])
+
+  const aplicarTelaCheia = useCallback(async (ativo: boolean) => {
+    setTelaCheia(ativo)
+    setTelaFullscreenAtivo(ativo)
+    try {
+      if (ativo) {
+        await document.documentElement.requestFullscreen()
+      } else if (document.fullscreenElement) {
+        await document.exitFullscreen()
+      }
+    } catch {
+      // Modo kiosk do app funciona mesmo se o navegador bloquear fullscreen nativo
+    }
+  }, [])
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      if (!document.fullscreenElement && telaCheia) {
+        setTelaCheia(false)
+        setTelaFullscreenAtivo(false)
+      }
+    }
+    document.addEventListener("fullscreenchange", onFullscreenChange)
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange)
+  }, [telaCheia])
+
+  useEffect(() => {
+    return () => {
+      setTelaFullscreenAtivo(false)
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {})
+      }
+    }
+  }, [])
+
+  const totalPages = Math.max(1, Math.ceil(mecanicos.length / mecanicosPorPagina))
+  const visibleMecanicos = useMemo(() => {
+    const start = currentPage * mecanicosPorPagina
+    return mecanicos.slice(start, start + mecanicosPorPagina)
+  }, [mecanicos, currentPage, mecanicosPorPagina])
 
   useEffect(() => {
     if (currentPage > totalPages - 1) {
@@ -479,211 +223,134 @@ export default function TelaManutencoesPage() {
     }
   }, [currentPage, totalPages])
 
-  if (isMobile) {
-    return <TelaMobileView mecanicosComOrdens={mecanicosComOrdens} loading={loading} />
-  }
+  useEffect(() => {
+    if (isMobile || mecanicos.length <= mecanicosPorPagina) return
+    const timer = setInterval(() => {
+      setCurrentPage((p) => (p + 1) % totalPages)
+    }, 12000)
+    return () => clearInterval(timer)
+  }, [isMobile, mecanicos.length, mecanicosPorPagina, totalPages])
 
-  if (loading && initialLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
-          <Wrench className="h-16 w-16 animate-spin text-primary mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-muted-foreground">Carregando ordens de serviço...</h2>
+          <Wrench className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Carregando fila da oficina...</p>
         </div>
       </div>
     )
   }
 
-  const hasAnyOS = sortedMecanicos.length > 0 || ordensAlmoxarifado.length > 0 || ordensCompras.length > 0
-
   return (
-    <div className="h-[calc(100vh-4rem)] p-2 overflow-hidden font-sans" style={{ fontFamily: 'Inter, system-ui, -apple-system, sans-serif', letterSpacing: '0.01em' }}>
-      {!hasAnyOS ? (
-        <Card className="border-2 h-full">
-          <CardContent className="text-center p-12 h-full flex items-center justify-center">
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-4 rounded-full bg-primary/10">
-                <CheckCircle className="h-12 w-12 text-primary" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Nenhuma ordem de serviço em andamento</h2>
-                <p className="text-muted-foreground">Todas as ordens foram finalizadas</p>
-              </div>
-            </div>
+    <div
+      className={cn(
+        "flex flex-col gap-3",
+        telaCheia
+          ? "h-screen p-3 overflow-hidden"
+          : isMobile
+            ? "p-2 min-h-0"
+            : "h-[calc(100vh-4rem)] p-3 overflow-hidden"
+      )}
+    >
+      <div className="flex items-center justify-between gap-2 flex-shrink-0">
+        {isMobile && !telaCheia ? (
+          <MobileBackButton />
+        ) : (
+          <div className="flex items-center gap-2 min-w-0">
+            <Wrench className="h-6 w-6 text-primary flex-shrink-0" />
+            <h1 className="text-xl font-bold truncate">Fila da Oficina</h1>
+          </div>
+        )}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            {hora && <span className="font-mono tabular-nums">{hora}</span>}
+            {totalPages > 1 && (
+              <span>
+                {currentPage + 1} / {totalPages}
+              </span>
+            )}
+          </div>
+          <Button
+            variant={telaCheia ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => aplicarTelaCheia(!telaCheia)}
+            className="gap-1.5"
+            title={telaCheia ? "Sair da tela cheia" : "Tela cheia"}
+          >
+            {telaCheia ? (
+              <>
+                <Minimize2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Tela cheia</span>
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {mecanicos.length === 0 ? (
+        <Card className="flex-1 flex items-center justify-center border-dashed">
+          <CardContent className="text-center py-16">
+            <Wrench className="h-14 w-14 text-muted-foreground/40 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">Nenhum mecânico na tela</h2>
+            <p className="text-muted-foreground max-w-md text-sm">
+              Ative os mecânicos no Planejamento (ícone de monitor no card) ou aguarde novas ordens na fila.
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="h-full flex flex-col gap-2">
-          {/* Alternador de visualização */}
-          <div className="flex items-center justify-between gap-2 flex-shrink-0">
-            <div className="sr-only" aria-hidden="true">
-              <button
-                type="button"
-                onClick={() => setViewMode("mecanicos")}
-                className={cn(
-                  "px-3 py-1 text-sm font-semibold rounded-sm transition-colors",
-                  viewMode === "mecanicos" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Mecânicos
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("setores")}
-                className={cn(
-                  "px-3 py-1 text-sm font-semibold rounded-sm transition-colors",
-                  viewMode === "setores" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Setores
-              </button>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="hidden md:inline">OS:</span>
-              <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5">
-                {ordensAlmoxarifado.length + ordensCompras.length + Object.values(mecanicosComOrdens).reduce((acc, arr) => acc + arr.length, 0)}
-              </Badge>
-            </div>
-          </div>
-
-          {viewMode === "setores" ? (
-            <div className="grid grid-cols-2 gap-2 flex-1 min-h-0">
-              <Card className="border-2 overflow-hidden flex flex-col min-h-0">
-                <div className="p-2 border-b bg-gradient-to-r from-[#3B82F6]/10 to-[#3B82F6]/5 flex items-center justify-between gap-2 flex-shrink-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Package className="h-4 w-4 text-[#3B82F6] flex-shrink-0" />
-                    <h3 className="font-bold text-sm truncate">Almoxarifado</h3>
-                  </div>
-                  <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 flex-shrink-0">
-                    {ordensAlmoxarifado.length}
-                  </Badge>
-                </div>
-                <div className="p-2 space-y-1.5 overflow-y-auto bg-muted/20 flex-1 min-h-0">
-                  {ordensAlmoxarifado.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p className="text-xs">Nenhuma OS no Almoxarifado</p>
-                    </div>
-                  ) : (
-                    ordensAlmoxarifado.map((ordem) => <OrdemCard key={ordem.id} ordem={ordem} />)
-                  )}
-                </div>
-              </Card>
-
-              <Card className="border-2 overflow-hidden flex flex-col min-h-0">
-                <div className="p-2 border-b bg-gradient-to-r from-[#F97316]/10 to-[#F97316]/5 flex items-center justify-between gap-2 flex-shrink-0">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-4 w-4 text-[#F97316] flex-shrink-0" />
-                    <h3 className="font-bold text-sm truncate">Compras</h3>
-                  </div>
-                  <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 flex-shrink-0">
-                    {ordensCompras.length}
-                  </Badge>
-                </div>
-                <div className="p-2 space-y-1.5 overflow-y-auto bg-muted/20 flex-1 min-h-0">
-                  {ordensCompras.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p className="text-xs">Nenhuma OS em Compras</p>
-                    </div>
-                  ) : (
-                    ordensCompras.map((ordem) => <OrdemCard key={ordem.id} ordem={ordem} />)
-                  )}
-                </div>
-              </Card>
-            </div>
-          ) : (
-            <>
-
-          {/* Navegação estilo carrossel: 4 mecânicos por página */}
-          {sortedMecanicos.length > mecanicosPorPagina && (
-            <div className="flex items-center justify-between px-1">
+        <>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 flex-shrink-0">
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
                 disabled={currentPage === 0}
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage + 1} de {totalPages}
-              </span>
               <Button
                 variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={currentPage >= totalPages - 1}
               >
-                Próxima
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           )}
 
           <div
-            className="grid gap-2 h-full"
-            style={{
-              gridTemplateColumns: `repeat(${Math.min(visibleMecanicos.length, 4)}, minmax(280px, 1fr))`
-            }}
+            className={cn(
+              "flex-1 min-h-0 gap-3",
+              isMobile
+                ? "flex flex-col overflow-y-auto"
+                : "grid",
+              !isMobile &&
+                `grid-cols-${Math.min(visibleMecanicos.length, 4)}`
+            )}
+            style={
+              !isMobile
+                ? {
+                    gridTemplateColumns: `repeat(${Math.min(visibleMecanicos.length, 4)}, minmax(0, 1fr))`,
+                  }
+                : undefined
+            }
           >
-          {visibleMecanicos.map(mecanicoId => {
-            const ordensOriginais = mecanicosComOrdens[mecanicoId]
-            const nomeMecanicoOriginal = ordensOriginais[0]?.mecanicoInfo || "Sem mecânico atribuído"
-            const nomeMecanico = nomeMecanicoOriginal.replace(/\s*\([^)]*\)\s*$/, '').trim()
-            // Filtrar pelos status permitidos e ordenar igual ao planejamento
-            const ordens = ordensOriginais
-              .filter(ordem =>
-                ordem.status === "Em Serviço" ||
-                ordem.status === "Fila de Serviço" ||
-                ordem.status === "Aguardando Mecânico"
-              )
-              .sort((a, b) => {
-                if (a.ordem_execucao && b.ordem_execucao) {
-                  return a.ordem_execucao - b.ordem_execucao
-                }
-                if (a.ordem_execucao) return -1
-                if (b.ordem_execucao) return 1
-                const numA = parseInt(a.numero.replace(/\D/g, ''), 10) || 0
-                const numB = parseInt(b.numero.replace(/\D/g, ''), 10) || 0
-                return numA - numB
-              })
-            
-            return (
-              <Card key={mecanicoId} className="flex flex-col h-full shadow-md border-2 overflow-hidden">
-                {/* Header do mecânico */}
-                <div className="p-2 border-b bg-gradient-to-r from-primary/5 to-primary/10 flex-shrink-0">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-sm truncate" title={nomeMecanico} style={{ fontWeight: 600, letterSpacing: '-0.01em' }}>
-              {nomeMecanico}
-            </h3>
-                    </div>
-                    <Badge variant="secondary" className="text-xs font-bold px-2 py-0.5 flex-shrink-0">
-                      {ordens.length}
-                    </Badge>
-                  </div>
-                </div>
-
-                {/* Lista de ordens */}
-                <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-0 bg-muted/20">
-                  {ordens.length === 0 ? (
-                    <div className="text-center py-4 text-muted-foreground">
-                      <p className="text-xs">Nenhuma ordem disponível</p>
-                    </div>
-                  ) : (
-                    ordens.map(ordem => (
-                      <OrdemCard key={ordem.id} ordem={ordem} />
-                    ))
-                  )}
-                </div>
-              </Card>
-            )
-          })}
+            {visibleMecanicos.map((mecanico) => (
+              <MecanicoTelaCard key={mecanico.id} nome={mecanico.nome} ordens={mecanico.ordens} />
+            ))}
           </div>
-            </>
-          )}
-        </div>
+        </>
       )}
     </div>
   )
-} 
+}
