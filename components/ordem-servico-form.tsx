@@ -14,7 +14,23 @@ import { SelecionarVeiculoDialog } from "@/components/selecionar-veiculo-dialog"
 import { SelecionarResponsavelDialog } from "@/components/selecionar-responsavel-dialog"
 import type { Veiculo } from "@/services/veiculo-service"
 import type { Colaborador } from "@/services/colaborador-service"
-import { addOrdemServicoSupabase, updateOrdemServicoSupabase, type OrdemServico } from "@/services/ordem-servico-service"
+import {
+  addOrdemServicoSupabase,
+  updateOrdemServicoSupabase,
+  buscarOrdemAbertaPorVeiculo,
+  obterSetorDescricaoOrdem,
+  type OrdemServico,
+  type OrdemAbertaResumo,
+} from "@/services/ordem-servico-service"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Loader2, AlertCircle } from "lucide-react"
 import { getVeiculoById } from "@/services/veiculo-service"
 import { getColaboradorById } from "@/services/colaborador-service"
 import { Input } from "@/components/ui/input"
@@ -83,6 +99,9 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   const [selectedSolicitante, setSelectedSolicitante] = useState<Colaborador | null>(null)
   const [selectedMecanico, setSelectedMecanico] = useState<Colaborador | null>(null)
   const [loadingVeiculo, setLoadingVeiculo] = useState(false)
+  const [verificacaoOpen, setVerificacaoOpen] = useState(false)
+  const [verificacaoBloqueada, setVerificacaoBloqueada] = useState(false)
+  const [ordemConflito, setOrdemConflito] = useState<OrdemAbertaResumo | null>(null)
 
   // Atualizar os valores padrão do formulário
   const form = useForm<FormValues>({
@@ -267,56 +286,9 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
     form.setValue("mecanicoId", colaborador.id)
   }
 
-  // Função para enviar o formulário
-  const onSubmit = async (data: FormValues) => {
+  const executarSalvamento = async (data: FormValues) => {
     try {
-      console.log("Dados do formulário:", data)
-      
-      // Verificar se os campos obrigatórios foram preenchidos
-      if (!selectedVeiculo || !selectedSolicitante || !selectedMecanico) {
-        toast({
-          title: "Campos obrigatórios",
-          description: "Selecione veículo, solicitante e mecânico antes de salvar.",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      if (!selectedVeiculo.id || !selectedSolicitante.id || !selectedMecanico.id) {
-        toast({
-          title: "Erro ao criar ordem de serviço",
-          description: "Todos os campos obrigatórios devem ser preenchidos (veículo, solicitante, mecânico).",
-          variant: "destructive",
-        })
-        setIsSubmitting(false)
-        return
-      }
-
-      // Validar se o Km Atual é maior ou igual ao Km Atual do veículo
-      if (data.kmAtual) {
-        const kmAtualNum = Number(data.kmAtual)
-        // Garantir que kmAtualVeiculo seja sempre um número válido
-        const kmAtualVeiculo = typeof selectedVeiculo.kmAtual === 'number' 
-          ? selectedVeiculo.kmAtual 
-          : (Number(selectedVeiculo.kmAtual) || 0)
-        
-        if (isNaN(kmAtualNum) || kmAtualNum < kmAtualVeiculo) {
-          form.setError("kmAtual", {
-            type: "manual",
-            message: `O Km Atual deve ser igual ou maior que ${kmAtualVeiculo.toLocaleString()} km (Km atual do veículo)`,
-          })
-          toast({
-            title: "Validação de Km Atual",
-            description: `O Km Atual informado (${kmAtualNum.toLocaleString()} km) deve ser igual ou maior que o Km Atual do veículo (${kmAtualVeiculo.toLocaleString()} km)`,
-            variant: "destructive",
-          })
-          setIsSubmitting(false)
-          return
-        }
-      }
-
-      try {
-        setIsSubmitting(true)
+      setIsSubmitting(true)
 
         // Prepara os dados para enviar
         const formData = {
@@ -456,24 +428,84 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
           console.log("Nova ordem criada com sucesso:", novaOrdem);
           onSuccess();
         }
-      } catch (error) {
-        console.error("Erro ao salvar ordem de serviço:", error);
-        toast({
-          title: isEdicao ? "Erro ao atualizar ordem de serviço" : "Erro ao criar ordem de serviço",
-          description: error instanceof Error ? error.message : "Ocorreu um erro inesperado",
-          variant: "destructive",
-        });
-      }
     } catch (error) {
-      console.error("Erro no processamento do formulário:", error);
+      console.error("Erro ao salvar ordem de serviço:", error)
       toast({
         title: isEdicao ? "Erro ao atualizar ordem de serviço" : "Erro ao criar ordem de serviço",
         description: error instanceof Error ? error.message : "Ocorreu um erro inesperado",
         variant: "destructive",
-      });
+      })
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
+  }
+
+  const onSubmit = async (data: FormValues) => {
+    if (!selectedVeiculo || !selectedSolicitante || !selectedMecanico) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Selecione veículo, solicitante e mecânico antes de salvar.",
+        variant: "destructive",
+      })
+      return
+    }
+    if (!selectedVeiculo.id || !selectedSolicitante.id || !selectedMecanico.id) {
+      toast({
+        title: "Erro ao criar ordem de serviço",
+        description: "Todos os campos obrigatórios devem ser preenchidos (veículo, solicitante, mecânico).",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (data.kmAtual) {
+      const kmAtualNum = Number(data.kmAtual)
+      const kmAtualVeiculo =
+        typeof selectedVeiculo.kmAtual === "number"
+          ? selectedVeiculo.kmAtual
+          : Number(selectedVeiculo.kmAtual) || 0
+
+      if (isNaN(kmAtualNum) || kmAtualNum < kmAtualVeiculo) {
+        form.setError("kmAtual", {
+          type: "manual",
+          message: `O Km Atual deve ser igual ou maior que ${kmAtualVeiculo.toLocaleString()} km (Km atual do veículo)`,
+        })
+        toast({
+          title: "Validação de Km Atual",
+          description: `O Km Atual informado (${kmAtualNum.toLocaleString()} km) deve ser igual ou maior que o Km Atual do veículo (${kmAtualVeiculo.toLocaleString()} km)`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    if (!isEdicao) {
+      setVerificacaoOpen(true)
+      setVerificacaoBloqueada(false)
+      setOrdemConflito(null)
+
+      try {
+        const existente = await buscarOrdemAbertaPorVeiculo(selectedVeiculo.id)
+        if (existente) {
+          setOrdemConflito(existente)
+          setVerificacaoBloqueada(true)
+          return
+        }
+      } catch (error) {
+        console.error("Erro ao verificar OS existente:", error)
+        setVerificacaoOpen(false)
+        toast({
+          title: "Erro na verificação",
+          description: "Não foi possível verificar ordens em aberto para este veículo. Tente novamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setVerificacaoOpen(false)
+    }
+
+    await executarSalvamento(data)
   }
 
   // Verificar se todos os campos da primeira aba estão preenchidos
@@ -705,7 +737,7 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
                   <Button type="button" variant="outline" className="mr-2" onClick={onCancel}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting || verificacaoOpen}>
                     {isSubmitting ? "Salvando..." : isEdicao ? "Atualizar Ordem de Serviço" : "Salvar Ordem de Serviço"}
                   </Button>
                 </div>
@@ -734,6 +766,93 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
         onSelect={handleMecanicoSelect}
         filtroFuncao="Mecânico"
       />
+
+      <Dialog
+        open={verificacaoOpen}
+        onOpenChange={(open) => {
+          if (!open && verificacaoBloqueada) {
+            setVerificacaoOpen(false)
+            setVerificacaoBloqueada(false)
+            setOrdemConflito(null)
+          }
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => {
+            if (!verificacaoBloqueada) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            if (!verificacaoBloqueada) e.preventDefault()
+          }}
+        >
+          {verificacaoBloqueada && ordemConflito ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                  Já existe uma OS para este veículo
+                </DialogTitle>
+                <DialogDescription>
+                  Não é possível abrir outra ordem enquanto houver uma OS ativa (não finalizada) para o
+                  mesmo veículo.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
+                <p>
+                  <span className="font-medium text-muted-foreground">Veículo: </span>
+                  {ordemConflito.veiculoInfo}
+                </p>
+                <p>
+                  <span className="font-medium text-muted-foreground">Número da OS: </span>
+                  {ordemConflito.numero}
+                </p>
+                <p>
+                  <span className="font-medium text-muted-foreground">Status: </span>
+                  {ordemConflito.status}
+                </p>
+                <p>
+                  <span className="font-medium text-muted-foreground">Setor: </span>
+                  {obterSetorDescricaoOrdem(ordemConflito)}
+                </p>
+                {ordemConflito.mecanicoInfo && (
+                  <p>
+                    <span className="font-medium text-muted-foreground">Mecânico: </span>
+                    {ordemConflito.mecanicoInfo.replace(/\s*\([^)]*\)\s*$/, "").trim()}
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setVerificacaoOpen(false)
+                    setVerificacaoBloqueada(false)
+                    setOrdemConflito(null)
+                  }}
+                >
+                  Entendi
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Verificando existência de Ordem de Serviço</DialogTitle>
+                <DialogDescription>
+                  Consultando se já existe uma OS em aberto para este veículo...
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col items-center justify-center py-10 gap-4">
+                <Loader2 className="h-14 w-14 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground text-center animate-pulse">
+                  Aguarde um momento
+                </p>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

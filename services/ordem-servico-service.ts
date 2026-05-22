@@ -430,6 +430,63 @@ export async function getOrdemServicoByIdSupabase(id: string): Promise<OrdemServ
   return data
 }
 
+/** Status em que a OS é considerada encerrada (permite nova OS para o mesmo veículo) */
+export const STATUS_ORDEM_ENCERRADA = ["Finalizado", "Concluída"] as const
+
+export type OrdemAbertaResumo = Pick<
+  OrdemServico,
+  "id" | "numero" | "status" | "veiculoInfo" | "mecanicoInfo" | "historico"
+>
+
+export function obterSetorDescricaoOrdem(ordem: {
+  status: string
+  historico?: EventoHistorico[]
+}): string {
+  const { status, historico } = ordem
+
+  if (
+    status === "Em Análise" ||
+    status === "Aguardando OS" ||
+    status === "Aguardando Fornecedor" ||
+    status === "Comprar na Rua"
+  ) {
+    return "Almoxarifado"
+  }
+  if (status === "Em Aprovação" || status === "Aguardando aprovação") {
+    return "Compras"
+  }
+
+  const ultimo = historico?.length ? historico[historico.length - 1] : null
+  if (ultimo?.para && ultimo.para !== "Sistema") {
+    return ultimo.para
+  }
+
+  return "Oficina"
+}
+
+/** Busca OS em aberto para o veículo (exclui finalizadas/concluídas) */
+export async function buscarOrdemAbertaPorVeiculo(
+  veiculoId: string,
+  excluirOrdemId?: string
+): Promise<OrdemAbertaResumo | null> {
+  const encerradas = new Set<string>(STATUS_ORDEM_ENCERRADA)
+
+  const { data, error } = await supabase
+    .from("ordens_servico")
+    .select("id, numero, status, veiculoInfo, mecanicoInfo, historico, createdAt")
+    .eq("veiculoId", veiculoId)
+    .order("createdAt", { ascending: false })
+
+  if (error) throw error
+  if (!data?.length) return null
+
+  const aberta = data.find(
+    (o) => !encerradas.has(o.status) && (!excluirOrdemId || o.id !== excluirOrdemId)
+  )
+
+  return aberta ?? null
+}
+
 export async function addOrdemServicoSupabase(
   ordem: Omit<OrdemServico, "id" | "numero" | "createdAt" | "updatedAt" | "historico">,
   usuarioId?: string,
