@@ -798,126 +798,54 @@ export async function atualizarOrdemExecucaoSupabase(ordemId: string, novaOrdem:
 // Função para obter ordens de serviço agrupadas por mecânico
 export async function getOrdensAgrupadasPorMecanicoSupabase(): Promise<{id: string, nome: string, ordens: OrdemServico[]}[]> {
   try {
-    // Verificar se conseguimos conectar ao Supabase
-    const { data: tableInfo, error: tableError } = await supabase
-      .from('ordens_servico')
-      .select('id')
-      .limit(1);
-    
-    if (tableError) {
-      console.error('Erro ao verificar tabela de ordens de serviço:', tableError);
-      return [];
-    }
-    
-    // Buscar todas as ordens de serviço sem filtrar por status
-    let ordens: any[] = [];
-    
-    try {
-      // Buscar todos os registros, sem filtrar por status
-      const { data, error } = await supabase
-        .from('ordens_servico')
-        .select('*')
-        .order('ordem_execucao', { ascending: true })
-        .limit(10000);
-      
-      if (error) {
-        console.error('Erro ao buscar ordens de serviço:', error);
-        return [];
-      }
-      
-      if (!data || !Array.isArray(data)) {
-        console.warn('Dados de ordens inválidos ou vazios:', data);
-        return [];
-      }
-      
-      // Usar todas as ordens, sem filtrar por status
-      ordens = data;
-      console.log('=== ORDENS BRUTAS DO BANCO ===');
-      console.log(`Total: ${ordens.length} ordens`);
-      ordens.forEach((o: any, idx: number) => {
-        console.log(`[${idx}] ID: ${o.id}, Número: ${o.numero}, Status: ${o.status}, Mecânico: ${o.mecanicoInfo}, Ordem Exec: ${o.ordem_execucao}`);
-      });
-    } catch (queryError) {
-      console.error('Erro na consulta de ordens:', queryError);
-      return [];
+    const ordens = await getOrdensServicoSupabase()
+
+    const { data: colaboradores, error: colaboradoresError } = await supabase
+      .from("colaboradores")
+      .select("id, nome")
+
+    if (colaboradoresError) {
+      console.warn("Erro ao buscar nomes de colaboradores para agrupamento:", colaboradoresError)
     }
 
-    // Agrupamos por mecânico
-    const mecanicosMap = new Map<string, {id: string, nome: string, ordens: OrdemServico[]}>();
-    let ordensComMecanico = 0;
-    let ordensSemMecanico = 0;
-    
-    ordens.forEach((ordem: any) => {
-      try {
-        // Verificar se ordem tem os campos necessários (incluindo strings vazias)
-        if (!ordem.mecanicoId?.trim() || !ordem.mecanicoInfo?.trim()) {
-          console.warn('Ordem sem mecânico associado:', { id: ordem.id, numero: ordem.numero, status: ordem.status, mecanicoId: ordem.mecanicoId, mecanicoInfo: ordem.mecanicoInfo });
-          ordensSemMecanico++;
-          return; // Pular esta ordem
-        }
+    const nomesPorId = new Map<string, string>(
+      (colaboradores || []).map((colab: { id: string; nome: string }) => [colab.id, colab.nome]),
+    )
 
-        const mecanicoId = ordem.mecanicoId;
-        let mecanicoNome = 'Mecânico';
-        
-        // Extrair o nome do mecânico da string mecanicoInfo com tratamento de erros
-        try {
-          if (ordem.mecanicoInfo && typeof ordem.mecanicoInfo === 'string') {
-            // Tenta extrair o nome do formato "Nome (ID)"
-            const match = ordem.mecanicoInfo.match(/(.*?)\s*\([^)]*\)*/);
-            mecanicoNome = match ? match[1].trim() : ordem.mecanicoInfo;
-          }
-        } catch (e) {
-          console.warn('Erro ao extrair nome do mecânico:', e);
-        }
-        
-        if (!mecanicosMap.has(mecanicoId)) {
-          mecanicosMap.set(mecanicoId, {
-            id: mecanicoId,
-            nome: mecanicoNome,
-            ordens: []
-          });
-        }
-        
-        mecanicosMap.get(mecanicoId)?.ordens.push(ordem);
-        ordensComMecanico++;
-      } catch (ordenError) {
-        console.error('Erro ao processar ordem:', ordenError, ordem);
+    const extrairNomeMecanico = (mecanicoInfo?: string, mecanicoId?: string) => {
+      const info = typeof mecanicoInfo === "string" ? mecanicoInfo.trim() : ""
+      if (info) {
+        const match = info.match(/(.*?)\s*\([^)]*\)*/)
+        const nomeInfo = match ? match[1].trim() : info
+        if (nomeInfo) return nomeInfo
       }
-    });
-    
-    // Log detalhado do agrupamento
-    console.log('=== RESUMO DE AGRUPAMENTO ===');
-    console.log(`Total de ordens buscadas: ${ordens.length}`);
-    console.log(`Ordens com mecânico: ${ordensComMecanico}`);
-    console.log(`Ordens sem mecânico: ${ordensSemMecanico}`);
-    console.log(`Mecânicos únicos: ${mecanicosMap.size}`);
-    
-    // Log detalhado de cada mecânico e suas ordens
-    mecanicosMap.forEach((mecanico) => {
-      console.log(`${mecanico.nome}: ${mecanico.ordens.length} ordens`);
-      mecanico.ordens.forEach(ordem => {
-        console.log(`  - ${ordem.numero}: ${ordem.status} (ordem_execucao: ${ordem.ordem_execucao})`);
-      });
-    });
-    
-    // Se não tiver nenhum mecânico com ordens, adicionar pelo menos um placeholder
-    if (mecanicosMap.size === 0) {
-      mecanicosMap.set('sem-mecanico', {
-        id: 'sem-mecanico',
-        nome: 'Sem Mecânico',
-        ordens: []
-      });
+
+      const id = typeof mecanicoId === "string" ? mecanicoId.trim() : ""
+      if (id && nomesPorId.has(id)) return nomesPorId.get(id) as string
+      if (id) return `Mecânico ${id.slice(0, 8)}`
+      return "Sem Mecânico"
     }
-    
-    // Convertemos o Map para um array e ordenamos os mecânicos por nome
-    const mecanicosArray = Array.from(mecanicosMap.values()).sort((a, b) => a.nome.localeCompare(b.nome));
-    console.log('=== RESULTADO FINAL ===');
-    console.log(`Total de mecânicos retornando: ${mecanicosArray.length}`);
-    mecanicosArray.forEach(m => {
-      console.log(`${m.nome}: ${m.ordens.length} ordens`);
-    });
-    
-    return mecanicosArray;
+
+    const mecanicosMap = new Map<string, {id: string, nome: string, ordens: OrdemServico[]}>()
+
+    ordens.forEach((ordem) => {
+      const mecanicoId = typeof ordem.mecanicoId === "string" ? ordem.mecanicoId.trim() : ""
+      const mecanicoInfo = typeof ordem.mecanicoInfo === "string" ? ordem.mecanicoInfo.trim() : ""
+      const nome = extrairNomeMecanico(mecanicoInfo, mecanicoId)
+      const groupId = mecanicoId || (mecanicoInfo ? `sem-id:${nome.toLowerCase()}` : "sem-mecanico")
+
+      if (!mecanicosMap.has(groupId)) {
+        mecanicosMap.set(groupId, {
+          id: groupId,
+          nome,
+          ordens: [],
+        })
+      }
+
+      mecanicosMap.get(groupId)?.ordens.push(ordem)
+    })
+
+    return Array.from(mecanicosMap.values()).sort((a, b) => a.nome.localeCompare(b.nome))
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     console.error('Exceção ao buscar ordens agrupadas por mecânico:', errorMessage);
