@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, type Dispatch, type SetStateAction } from "react"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 import { getVeiculosSupabase, updateVeiculoSupabase } from "@/services/veiculo-service"
 import { getProdutosSupabase } from "@/services/produto-service"
 import { 
@@ -59,6 +61,18 @@ interface FiltroRegistradoTroca {
   produtoId: string
 }
 
+interface UltimaTrocaItem {
+  id: string
+  veiculoId: string
+  placa: string
+  modelo: string
+  marca: string
+  dataTroca: string
+  kmAtual: number
+  kmProximaTroca: number
+  observacao: string | null
+}
+
 // Definir tipos para ordenação
 type SortColumn = 'veiculo' | 'kmAtual' | 'kmProxTroca' | 'progresso' | 'acoes'
 type SortDirection = 'asc' | 'desc' | null
@@ -94,6 +108,9 @@ export default function TrocaOleoPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
   const [tipoRegistroAtivo, setTipoRegistroAtivo] = useState<"oleo" | "filtro">("oleo")
   const [veiculosProntosTroca, setVeiculosProntosTroca] = useState<Record<string, boolean>>({})
+  const [ultimasTrocasDialogOpen, setUltimasTrocasDialogOpen] = useState(false)
+  const [ultimasTrocas, setUltimasTrocas] = useState<UltimaTrocaItem[]>([])
+  const [ultimasTrocasLoading, setUltimasTrocasLoading] = useState(false)
 
   // Apenas na aba "Filtro de Combustível": permite remover veículos da lista e depois trazer de volta.
   const [veiculosRemovidos, setVeiculosRemovidos] = useState<string[]>([])
@@ -486,6 +503,104 @@ export default function TrocaOleoPage() {
       })
     } finally {
       setExportLoading(false)
+    }
+  }
+
+  const carregarUltimasTrocas = async () => {
+    try {
+      setUltimasTrocasLoading(true)
+
+      const { data, error } = await supabase
+        .from("trocas_oleo")
+        .select(`
+          id,
+          veiculo_id,
+          data_troca,
+          km_atual,
+          km_proxima_troca,
+          observacao,
+          tipo_servico,
+          veiculo:veiculos(placa, modelo, marca)
+        `)
+        .eq("tipo_servico", "Troca de Óleo")
+        .order("data_troca", { ascending: false })
+
+      if (error) throw error
+
+      const itens = (data || []) as any[]
+      const veiculosUnicos = new Set<string>()
+      const ultimas: UltimaTrocaItem[] = []
+
+      for (const item of itens) {
+        const veiculoId = String(item.veiculo_id || "")
+        if (!veiculoId || veiculosUnicos.has(veiculoId)) continue
+
+        veiculosUnicos.add(veiculoId)
+        ultimas.push({
+          id: item.id,
+          veiculoId,
+          placa: item.veiculo?.placa || "—",
+          modelo: item.veiculo?.modelo || "—",
+          marca: item.veiculo?.marca || "",
+          dataTroca: item.data_troca,
+          kmAtual: Number(item.km_atual || 0),
+          kmProximaTroca: Number(item.km_proxima_troca || 0),
+          observacao: item.observacao || null,
+        })
+      }
+
+      setUltimasTrocas(ultimas)
+      setUltimasTrocasDialogOpen(true)
+    } catch (error) {
+      console.error("Erro ao carregar últimas trocas:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar relatório",
+        description: "Não foi possível carregar o relatório de últimas trocas.",
+      })
+    } finally {
+      setUltimasTrocasLoading(false)
+    }
+  }
+
+  const handleExportUltimasTrocasPDF = async () => {
+    try {
+      const doc = new jsPDF("landscape")
+      const dataGeracao = new Date().toLocaleString("pt-BR")
+
+      doc.setFontSize(16)
+      doc.text("Relatório - Últimas Trocas de Óleo", 14, 14)
+      doc.setFontSize(10)
+      doc.text("Somente a troca mais recente de cada veículo", 14, 20)
+      doc.text(`Gerado em: ${dataGeracao}`, 14, 26)
+
+      autoTable(doc, {
+        startY: 32,
+        head: [["Data", "Placa", "Veículo", "Km Atual", "Próxima Troca", "Observação"]],
+        body: ultimasTrocas.map((item) => [
+          new Date(item.dataTroca).toLocaleDateString("pt-BR"),
+          item.placa,
+          `${item.modelo} ${item.marca}`.trim(),
+          `${item.kmAtual.toLocaleString()} km`,
+          `${item.kmProximaTroca.toLocaleString()} km`,
+          item.observacao || "—",
+        ]),
+        styles: { fontSize: 9, cellPadding: 2.5 },
+        headStyles: { fillColor: [30, 64, 175] },
+      })
+
+      doc.save("relatorio_ultimas_trocas_oleo.pdf")
+      toast({
+        title: "PDF gerado",
+        description: "Relatório de últimas trocas baixado com sucesso.",
+      })
+    } catch (error) {
+      console.error("Erro ao gerar PDF de últimas trocas:", error)
+      toast({
+        variant: "destructive",
+        title: "Erro ao gerar PDF",
+        description: "Não foi possível gerar o PDF de últimas trocas.",
+      })
     }
   }
   
@@ -1059,6 +1174,15 @@ export default function TrocaOleoPage() {
                   <FileSpreadsheet className="mr-2 h-4 w-4" />
                   Relatório Excel
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={carregarUltimasTrocas}
+                  disabled={ultimasTrocasLoading}
+                  className="w-full md:w-auto"
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  Últimas trocas
+                </Button>
 
                 {abaDesktop === "filtro" && (
                   <Button
@@ -1575,6 +1699,69 @@ export default function TrocaOleoPage() {
               {loading ? "Excluindo..." : "Excluir"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ultimasTrocasDialogOpen} onOpenChange={setUltimasTrocasDialogOpen}>
+        <DialogContent className="max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Relatório - Últimas trocas</DialogTitle>
+            <DialogDescription>
+              Exibe somente a troca de óleo mais recente de cada veículo, da data mais recente para a mais antiga.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              onClick={handleExportUltimasTrocasPDF}
+              disabled={ultimasTrocasLoading || ultimasTrocas.length === 0}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              Gerar PDF
+            </Button>
+          </div>
+
+          <div className="max-h-[70vh] overflow-y-auto">
+            {ultimasTrocasLoading ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Carregando relatório...
+              </div>
+            ) : ultimasTrocas.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Nenhuma troca de óleo encontrada.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Placa</TableHead>
+                    <TableHead>Veículo</TableHead>
+                    <TableHead>Km Atual</TableHead>
+                    <TableHead>Próxima Troca</TableHead>
+                    <TableHead>Observação</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ultimasTrocas.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {new Date(item.dataTroca).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell className="font-medium">{item.placa}</TableCell>
+                      <TableCell>{`${item.modelo} ${item.marca}`.trim()}</TableCell>
+                      <TableCell>{item.kmAtual.toLocaleString()} km</TableCell>
+                      <TableCell>{item.kmProximaTroca.toLocaleString()} km</TableCell>
+                      <TableCell className="max-w-[280px] truncate" title={item.observacao || ""}>
+                        {item.observacao || "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 

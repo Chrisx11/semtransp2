@@ -117,11 +117,12 @@ const setorFilters: { id: "Oficina" | "Almoxarifado" | "Compras" | "Finalizado";
 interface OrdemServicoMobileViewProps {
   ordens: OrdemServico[]
   loading: boolean
+  canCreateOS: boolean
   onNovaOS: () => void
   onAction: (action: string, ordemId: string) => void
 }
 
-export function OrdemServicoMobileView({ ordens, loading, onNovaOS, onAction }: OrdemServicoMobileViewProps) {
+export function OrdemServicoMobileView({ ordens, loading, canCreateOS, onNovaOS, onAction }: OrdemServicoMobileViewProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedSetor, setSelectedSetor] = useState<"Oficina" | "Almoxarifado" | "Compras" | "Finalizado" | "all">("all")
 
@@ -206,13 +207,15 @@ export function OrdemServicoMobileView({ ordens, loading, onNovaOS, onAction }: 
         })}
       </div>
 
-      <Button
-        className="fixed bottom-5 right-5 z-50 rounded-full shadow-lg flex items-center gap-2 px-5 py-3 text-base"
-        style={{ minWidth: 112 }}
-        onClick={onNovaOS}
-      >
-        <PlusCircle className="h-5 w-5 mr-1" /> Nova Ordem
-      </Button>
+      {canCreateOS && (
+        <Button
+          className="fixed bottom-5 right-5 z-50 rounded-full shadow-lg flex items-center gap-2 px-5 py-3 text-base"
+          style={{ minWidth: 112 }}
+          onClick={onNovaOS}
+        >
+          <PlusCircle className="h-5 w-5 mr-1" /> Nova Ordem
+        </Button>
+      )}
 
       {loading ? (
         <div className="flex justify-center items-center h-32">

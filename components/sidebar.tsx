@@ -315,6 +315,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
       requiredPermission: { modulo: "dashboard", acao: "visualizar" }
     },
     {
+      title: "Relatórios",
+      href: "/dashboard/relatorios",
+      icon: BarChart3,
+      requiredPermission: { modulo: "relatorios", acao: "visualizar" }
+    },
+    {
       title: "Configurações",
       href: "/dashboard/configuracoes",
       icon: Settings,

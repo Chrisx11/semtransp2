@@ -30,6 +30,7 @@ export const rotasPermissoes: Record<string, {
   pagina?: string;
 }> = {
   "/dashboard": { modulo: "dashboard", acao: "visualizar" },
+  "/dashboard/relatorios": { modulo: "relatorios", acao: "visualizar" },
   "/dashboard/veiculos": { modulo: "veiculos", acao: "visualizar" },
   "/dashboard/produtos": { modulo: "produtos", acao: "visualizar" },
   "/dashboard/colaboradores": { modulo: "colaboradores", acao: "visualizar" },
@@ -255,7 +256,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const allModules = [
         'dashboard', 'colaboradores', 'veiculos', 'produtos', 'filtros', 'entradas', 'saidas',
         'painel', 'tela', 'planejamento', 'trocaOleo', 'trocaPneu', 'historico', 'custoVeiculo',
-        'configuracoes', 'borracharia', 'lavador', 'servicoExterno', 'ordemServico'
+        'relatorios', 'abrirOrdemServico', 'configuracoes', 'borracharia', 'lavador', 'servicoExterno', 'ordemServico'
       ]
       
       allModules.forEach(moduleId => {
@@ -939,7 +940,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const allModules = [
         'dashboard', 'colaboradores', 'veiculos', 'produtos', 'filtros', 'entradas', 'saidas',
         'painel', 'tela', 'planejamento', 'trocaOleo', 'trocaPneu', 'historico', 'custoVeiculo',
-        'configuracoes', 'borracharia', 'lavador', 'ordemServico'
+        'relatorios', 'abrirOrdemServico', 'configuracoes', 'borracharia', 'lavador', 'ordemServico'
       ];
       
       // Para cada módulo, verificar se o usuário tem permissão

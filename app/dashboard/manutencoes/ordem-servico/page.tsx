@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Card, CardContent } from "@/components/ui/card"
@@ -522,6 +522,42 @@ export default function OrdemServicoPage() {
 
   // Toast
   const { toast } = useToast()
+
+  const canCreateOS = useMemo(() => {
+    if (!user) return false
+    if (user.perfil === "admin") return true
+
+    const custom = user.permissoes_customizadas as any
+    if (custom) {
+      const abrirOSPerm = custom.abrirOrdemServico
+
+      if (Array.isArray(abrirOSPerm)) {
+        return abrirOSPerm.includes("visualizar")
+      }
+
+      if (abrirOSPerm && typeof abrirOSPerm === "object") {
+        const acoes = Array.isArray(abrirOSPerm.acoes) ? abrirOSPerm.acoes : []
+        return acoes.includes("visualizar")
+      }
+
+      return false
+    }
+
+    // Fallback para perfis legados sem permissões customizadas explícitas
+    return user.perfil === "gestor" || user.perfil === "oficina"
+  }, [user])
+
+  const handleOpenNovaOSDialog = () => {
+    if (!canCreateOS) {
+      toast({
+        title: "Acesso negado",
+        description: "Você não possui permissão para abrir Ordem de Serviço.",
+        variant: "destructive",
+      })
+      return
+    }
+    setIsNovaOSDialogOpen(true)
+  }
 
   // Função para formatar a data de yyyy-mm-dd para dd/mm/yyyy
   const formatarData = (dataString: string) => {
@@ -1347,7 +1383,7 @@ export default function OrdemServicoPage() {
                       <FileText className="mr-2 h-4 w-4" />
                       Relatório por Serviços
                     </Button>
-                    <Button className="btn-gradient shadow-md-custom" onClick={() => setIsNovaOSDialogOpen(true)}>
+                    <Button className="btn-gradient shadow-md-custom" onClick={handleOpenNovaOSDialog} disabled={!canCreateOS}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Nova Ordem de Serviço
                     </Button>
@@ -1794,7 +1830,8 @@ export default function OrdemServicoPage() {
     <OrdemServicoMobileView
       ordens={todasOrdensServico}
       loading={isCarregandoOrdens}
-      onNovaOS={() => setIsNovaOSDialogOpen(true)}
+      canCreateOS={canCreateOS}
+      onNovaOS={handleOpenNovaOSDialog}
       onAction={(action, id) => handleAction(action, id)}
     />
   ) : (
