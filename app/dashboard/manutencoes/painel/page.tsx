@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Calendar,
   CheckCircle2,
+  Gauge,
   Clock,
   FileText,
   TrendingUp,
@@ -798,6 +799,84 @@ export default function PainelManutencaoPage() {
     }
   }, [ordensFiltradas])
 
+  const metricasPainel = React.useMemo(() => {
+    const ordensAbertas = ordens.filter((o) => o.status.toLowerCase() !== "finalizado")
+    const agora = Date.now()
+    const umDiaMs = 1000 * 60 * 60 * 24
+
+    const ordensAtrasadas7Dias = ordensAbertas.filter((o) => {
+      const inicio = new Date(o.createdAt).getTime()
+      if (Number.isNaN(inicio)) return false
+      return (agora - inicio) / umDiaMs > 7
+    })
+
+    const ordensCriticas = ordensAbertas.filter((o) => o.prioridade === "Urgente" || o.prioridade === "Alta")
+    const ordensSemMecanico = ordensAbertas.filter((o) => !o.mecanicoId || o.mecanicoId === "sem-mecanico")
+
+    const taxaAtraso =
+      ordensAbertas.length > 0 ? Math.round((ordensAtrasadas7Dias.length / ordensAbertas.length) * 100) : 0
+    const taxaSemMecanico =
+      ordensAbertas.length > 0 ? Math.round((ordensSemMecanico.length / ordensAbertas.length) * 100) : 0
+
+    const rankingSetores = ordensAbertas.reduce(
+      (acc, ordem) => {
+        const setorAtual = getSetorAtual(ordem).nome
+        acc[setorAtual] = (acc[setorAtual] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    const topSetores = Object.entries(rankingSetores)
+      .map(([setor, quantidade]) => ({ setor, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade)
+      .slice(0, 5)
+
+    const topMecanicosAbertos = Object.entries(
+      ordensAbertas.reduce(
+        (acc, ordem) => {
+          const chave = ordem.mecanicoId || "sem-mecanico"
+          const nome = ordem.mecanicoInfo || "Sem mecânico atribuído"
+          if (!acc[chave]) acc[chave] = { nome, total: 0 }
+          acc[chave].total++
+          return acc
+        },
+        {} as Record<string, { nome: string; total: number }>,
+      ),
+    )
+      .map(([id, dados]) => ({ id, ...dados }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5)
+
+    const topVeiculosAtrasados = Object.entries(
+      ordensAtrasadas7Dias.reduce(
+        (acc, ordem) => {
+          if (!acc[ordem.veiculoId]) {
+            acc[ordem.veiculoId] = { veiculo: ordem.veiculoInfo, total: 0 }
+          }
+          acc[ordem.veiculoId].total++
+          return acc
+        },
+        {} as Record<string, { veiculo: string; total: number }>,
+      ),
+    )
+      .map(([id, dados]) => ({ id, ...dados }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5)
+
+    return {
+      ordensAbertas: ordensAbertas.length,
+      ordensAtrasadas7Dias: ordensAtrasadas7Dias.length,
+      ordensCriticas: ordensCriticas.length,
+      ordensSemMecanico: ordensSemMecanico.length,
+      taxaAtraso,
+      taxaSemMecanico,
+      topSetores,
+      topMecanicosAbertos,
+      topVeiculosAtrasados,
+    }
+  }, [ordens])
+
   return (
     <div className="space-y-6">
       {/* Botão de voltar no mobile */}
@@ -901,6 +980,7 @@ export default function PainelManutencaoPage() {
         <TabsList>
           <TabsTrigger value="status">Status</TabsTrigger>
           <TabsTrigger value="mecanicos">Mecânicos</TabsTrigger>
+          <TabsTrigger value="metricas">Métricas</TabsTrigger>
           <TabsTrigger value="relatorios">Relatórios</TabsTrigger>
         </TabsList>
 
@@ -1303,6 +1383,128 @@ export default function PainelManutencaoPage() {
               )}
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        {/* Aba de Métricas */}
+        <TabsContent value="metricas" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  Backlog em aberto
+                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metricasPainel.ordensAbertas}</div>
+                <p className="text-xs text-muted-foreground">Ordens ainda não finalizadas</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  Atrasadas &gt; 7 dias
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metricasPainel.ordensAtrasadas7Dias}</div>
+                <p className="text-xs text-muted-foreground">{metricasPainel.taxaAtraso}% do backlog atual</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  Criticidade (Alta/Urgente)
+                  <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metricasPainel.ordensCriticas}</div>
+                <p className="text-xs text-muted-foreground">Ordens que exigem priorização imediata</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                  Sem mecânico
+                  <Gauge className="h-4 w-4 text-muted-foreground" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{metricasPainel.ordensSemMecanico}</div>
+                <p className="text-xs text-muted-foreground">{metricasPainel.taxaSemMecanico}% sem responsável</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Gargalo por setor</CardTitle>
+                <CardDescription>Setores com mais ordens em aberto</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metricasPainel.topSetores.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem dados disponíveis</p>
+                ) : (
+                  <div className="space-y-3">
+                    {metricasPainel.topSetores.map((item) => (
+                      <div key={item.setor} className="flex items-center justify-between">
+                        <span className="text-sm">{item.setor}</span>
+                        <Badge variant="secondary">{item.quantidade}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Carga por mecânico</CardTitle>
+                <CardDescription>Quem está com mais ordens abertas</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metricasPainel.topMecanicosAbertos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem dados disponíveis</p>
+                ) : (
+                  <div className="space-y-3">
+                    {metricasPainel.topMecanicosAbertos.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <span className="text-sm truncate pr-2">{item.nome}</span>
+                        <Badge variant="secondary">{item.total}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Veículos mais atrasados</CardTitle>
+                <CardDescription>Com maior incidência de ordens &gt; 7 dias</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {metricasPainel.topVeiculosAtrasados.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Sem dados disponíveis</p>
+                ) : (
+                  <div className="space-y-3">
+                    {metricasPainel.topVeiculosAtrasados.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between">
+                        <span className="text-sm truncate pr-2">{item.veiculo}</span>
+                        <Badge variant="secondary">{item.total}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Aba de Relatórios */}

@@ -100,24 +100,21 @@ export default function DashboardLayout({
   // Mostrar um indicador de carregamento enquanto verifica a autenticação
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-white">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center justify-center space-y-6">
-          {/* Ícone */}
           <div className="relative">
             <img 
               src="/icons/icon-192x192.png" 
               alt="SEMTRANSP" 
-              className="w-24 h-24 animate-pulse"
+              className="h-20 w-20 animate-pulse opacity-90"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
+              <div className="h-7 w-7 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           </div>
-          
-          {/* Texto */}
-          <div className="text-center space-y-1">
-            <p className="text-sm font-semibold text-gray-700">Prefeitura Municipal de Italva</p>
-            <p className="text-xs text-gray-600">Secretaria Municipal de Transportes</p>
+          <div className="space-y-1 text-center">
+            <p className="text-sm font-semibold text-foreground">Prefeitura Municipal de Italva</p>
+            <p className="text-xs text-muted-foreground">Secretaria Municipal de Transportes</p>
           </div>
         </div>
       </div>
@@ -130,15 +127,10 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-background via-background to-muted/20 overflow-x-hidden">
-      {/* Padrão de fundo sutil */}
-      <div 
-        className="fixed inset-0 opacity-[0.015] pointer-events-none z-0"
-        style={{
-          backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--foreground)) 1px, transparent 0)`,
-          backgroundSize: '40px 40px'
-        }}
-      />
+    <div className="flex h-screen overflow-x-hidden bg-background">
+      <div className="pointer-events-none fixed inset-0 z-0" aria-hidden="true">
+        <div className="absolute right-0 top-0 h-[420px] w-[420px] rounded-full bg-primary/[0.03] blur-3xl dark:bg-primary/[0.06]" />
+      </div>
       {!telaKiosk && !sidebarHidden && !isMobile && (
         <Sidebar isCollapsed={sidebarCollapsed} onToggle={toggleSidebar} />
       )}
@@ -172,9 +164,9 @@ export default function DashboardLayout({
                 ? "h-screen w-full overflow-hidden"
                 : isMobile
                   ? "px-0 pt-0 pb-0 page-transition w-full min-w-0 overflow-x-hidden"
-                  : "px-6 pt-6 pb-6 page-transition"
+                  : "px-5 pb-6 pt-5 page-transition lg:px-6"
             }
-            style={telaKiosk || isMobile ? {} : { paddingTop: "calc(68px + 24px)" }}
+            style={telaKiosk || isMobile ? {} : { paddingTop: "calc(64px + 20px)" }}
           >
             {children}
           </div>

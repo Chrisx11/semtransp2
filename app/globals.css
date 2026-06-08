@@ -4,93 +4,78 @@
 
 @layer base {
   :root {
-    /* Paleta profissional - tema claro */
-    /* Background neutro e limpo */
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --background: 220 20% 97%;
+    --foreground: 222 47% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 222 47% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 222 47% 10%;
 
-    /* Azul corporativo profissional - confiável e moderno */
-    --primary: 217 91% 60%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
 
-    /* Cinza neutro para elementos secundários */
-    --secondary: 210 20% 98%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 220 15% 93%;
+    --secondary-foreground: 222 47% 10%;
 
-    /* Muted com tom neutro suave */
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 15% 93%;
+    --muted-foreground: 220 12% 52%;
 
-    /* Accent sutil e elegante */
-    --accent: 210 20% 96%;
-    --accent-foreground: 222 47% 11%;
+    --accent: 220 15% 93%;
+    --accent-foreground: 222 47% 10%;
 
-    /* Destructive - vermelho profissional */
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Bordas e inputs com contraste adequado */
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 220 18% 88%;
+    --input: 220 18% 88%;
+    --ring: 221 83% 53%;
 
-    /* Variáveis de cores profissionais */
-    --primary-light: 217 91% 70%;
-    --primary-dark: 217 91% 50%;
-    /* Success - verde corporativo */
+    --primary-light: 221 83% 63%;
+    --primary-dark: 221 83% 43%;
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-    /* Warning - laranja profissional */
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    /* Info - azul informativo */
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
-    /* Superfícies com variação sutil */
     --surface-1: 0 0% 100%;
-    --surface-2: 210 20% 99%;
-    --surface-3: 210 20% 97%;
+    --surface-2: 220 20% 98%;
+    --surface-3: 220 20% 96%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
   }
 
   .dark {
-    --background: 222 47% 12%;
-    --foreground: 210 40% 96%;
+    --background: 224 40% 8%;
+    --foreground: 210 30% 94%;
 
-    --card: 217 33% 15%;
-    --card-foreground: 210 40% 96%;
+    --card: 224 35% 11%;
+    --card-foreground: 210 30% 94%;
 
-    --popover: 217 33% 15%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 224 35% 11%;
+    --popover-foreground: 210 30% 94%;
 
-    /* Azul primário com alto contraste */
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 224 30% 14%;
+    --secondary-foreground: 210 30% 94%;
 
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 70%;
+    --muted: 224 30% 14%;
+    --muted-foreground: 215 20% 58%;
 
-    --accent: 217 33% 20%;
-    --accent-foreground: 210 40% 96%;
+    --accent: 224 30% 14%;
+    --accent-foreground: 210 30% 94%;
 
     --destructive: 0 65% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
+    --border: 224 30% 17%;
+    --input: 224 30% 17%;
     --ring: 217 91% 60%;
 
-    /* Variáveis complementares */
     --primary-light: 217 91% 70%;
     --primary-dark: 217 91% 50%;
     --success: 142 71% 45%;
@@ -99,9 +84,9 @@
     --warning-foreground: 0 0% 100%;
     --info: 199 89% 48%;
     --info-foreground: 0 0% 100%;
-    --surface-1: 222 47% 12%;
-    --surface-2: 217 33% 15%;
-    --surface-3: 217 33% 20%;
+    --surface-1: 224 40% 8%;
+    --surface-2: 224 35% 11%;
+    --surface-3: 224 30% 14%;
   }
 }
 
@@ -221,7 +206,7 @@
   }
 
   .gradient-sidebar {
-    background: linear-gradient(180deg, hsl(222, 47%, 11%) 0%, hsl(217, 33%, 15%) 100%);
+    background: linear-gradient(180deg, hsl(224, 42%, 9%) 0%, hsl(222, 38%, 12%) 100%);
   }
 
   .gradient-sidebar-accent {

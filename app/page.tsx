@@ -8,7 +8,6 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -18,17 +17,14 @@ import {
 } from "@/components/ui/dialog"
 import {
   ArrowRight,
-  Car,
   CheckCircle,
   Download,
   Loader2,
   Lock,
-  MonitorSmartphone,
   Settings,
   ShieldCheck,
-  Smartphone,
+  Truck,
   User,
-  Wrench,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -206,115 +202,88 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_32%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.14),_transparent_28%)] bg-slate-50 dark:bg-slate-950">
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05]">
-        <div
-          className="h-full w-full"
-          style={{
-            backgroundImage: "radial-gradient(circle at 2px 2px, currentColor 1px, transparent 0)",
-            backgroundSize: "32px 32px",
-          }}
-        />
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
+      {/* Subtle background glow */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute left-1/2 top-1/3 h-[480px] w-[480px] -translate-x-1/2 animate-[pulse_10s_ease-in-out_infinite] rounded-full bg-blue-500/8 blur-[100px] dark:bg-blue-600/10" />
       </div>
 
-      <div className="absolute right-5 top-5 z-50">
-        <ThemeToggle />
-      </div>
+      <div className="relative z-10 mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-10 lg:px-8 lg:py-10">
+        {/* Hero panel */}
+        <section className="relative order-2 flex min-h-[380px] flex-col justify-center overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-blue-950 to-blue-900 p-6 text-white lg:order-1 lg:min-h-0 lg:p-12">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-blue-600/10 via-transparent to-transparent" aria-hidden="true" />
 
-      <div className="relative z-10 mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-8 px-4 py-8 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-10">
-        <section className="order-2 flex flex-col justify-center rounded-[2rem] border border-white/60 bg-gradient-to-br from-blue-700 via-blue-800 to-indigo-900 p-6 text-white shadow-2xl shadow-blue-950/20 dark:border-white/10 lg:order-1 lg:p-10">
-          <div className="mb-8 flex flex-wrap items-center gap-3">
-            <Badge className="border-0 bg-white/15 px-3 py-1 text-white backdrop-blur">
-              Sistema de manutenção da frota
-            </Badge>
-            <Badge className="border border-white/20 bg-white/10 px-3 py-1 text-white backdrop-blur">
+          <div className="relative z-10">
+            <p className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-blue-300/60">
               Prefeitura Municipal de Italva
-            </Badge>
-          </div>
-
-          <div className="max-w-2xl">
-            <p className="mb-3 text-sm font-medium uppercase tracking-[0.24em] text-blue-100/80">
-              SEMTRANSP
             </p>
-            <h1 className="max-w-xl text-4xl font-bold leading-tight tracking-tight lg:text-6xl">
-              Gestão de oficina, frota e ordens de serviço em um só lugar.
-            </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-blue-100/85 lg:text-lg">
-              Controle a manutenção dos veículos, acompanhe o fluxo das ordens e tenha uma
-              operação mais organizada no computador ou no celular.
-            </p>
-          </div>
 
-          <div className="mt-10 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
-                <Car className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-semibold">Gestão da frota</h3>
-              <p className="mt-1 text-sm text-blue-100/80">
-                Veículos, manutenção preventiva e acompanhamento do histórico.
+            <div className="max-w-2xl">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-blue-300/70">
+                SEMTRANSP
+              </p>
+              <h1 className="max-w-xl text-4xl font-extrabold leading-[1.05] tracking-tight lg:text-[3.5rem] lg:leading-[1.02]">
+                Gestão de oficina, frota e ordens de serviço em um só lugar.
+              </h1>
+              <p className="mt-5 max-w-lg text-sm leading-relaxed text-blue-100/70 lg:text-base">
+                Controle a manutenção dos veículos, acompanhe o fluxo das ordens e tenha uma
+                operação mais organizada no computador ou no celular.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-white/15">
-                <Wrench className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-semibold">Ordens em tempo real</h3>
-              <p className="mt-1 text-sm text-blue-100/80">
-                Oficina, almoxarifado e compras trabalhando com a mesma informação.
-              </p>
-            </div>
-          </div>
+            <p className="mt-10 max-w-md text-sm leading-relaxed text-blue-100/55">
+              Da oficina ao almoxarifado — um fluxo integrado para manter a frota municipal
+              sempre em operação.
+            </p>
 
-          <div className="mt-6 grid gap-3 text-sm text-blue-100/85 sm:grid-cols-3">
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
-              <ShieldCheck className="h-4 w-4 flex-shrink-0" />
-              <span>Acesso seguro por usuário</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
-              <Settings className="h-4 w-4 flex-shrink-0" />
-              <span>Controle de estoque e serviços</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur">
-              <CheckCircle className="h-4 w-4 flex-shrink-0" />
-              <span>Fluxo operacional mais organizado</span>
-            </div>
+            <ul className="mt-8 flex flex-col gap-3 sm:flex-row sm:gap-8">
+              <li className="flex items-center gap-2 text-sm text-blue-100/65">
+                <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 text-blue-400/80" />
+                Acesso seguro
+              </li>
+              <li className="flex items-center gap-2 text-sm text-blue-100/65">
+                <Settings className="h-3.5 w-3.5 flex-shrink-0 text-blue-400/80" />
+                Estoque e serviços
+              </li>
+              <li className="flex items-center gap-2 text-sm text-blue-100/65">
+                <CheckCircle className="h-3.5 w-3.5 flex-shrink-0 text-blue-400/80" />
+                Fluxo organizado
+              </li>
+            </ul>
           </div>
         </section>
 
+        {/* Login panel */}
         <section className="order-1 flex items-center justify-center lg:order-2">
-          <div className="w-full max-w-lg space-y-5">
-            <Card className="overflow-hidden border-white/70 bg-white/85 shadow-2xl shadow-slate-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/80">
-              <CardHeader className="space-y-4 border-b border-slate-200/70 pb-6 dark:border-slate-800">
-                <div className="flex items-start justify-between gap-3">
+          <div className="w-full max-w-lg lg:max-w-xl">
+            <Card className="overflow-hidden border-0 bg-white/80 shadow-xl shadow-slate-900/5 backdrop-blur-xl dark:bg-slate-900/70 dark:shadow-slate-950/30">
+              <CardHeader className="space-y-4 px-7 pb-2 pt-8 sm:px-9">
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <CardTitle className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">
+                    <div className="mb-3 flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                      <Truck className="h-4 w-4" />
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">SEMTRANSP</span>
+                    </div>
+                    <CardTitle className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-3xl">
                       Acessar o sistema
                     </CardTitle>
-                    <CardDescription className="mt-2 text-base text-slate-600 dark:text-slate-400">
-                      Entre com seu usuário e senha para abrir o painel do SEMTRANSP.
+                    <CardDescription className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+                      Entre com seu usuário e senha para abrir o painel.
                     </CardDescription>
                   </div>
-                  <div className="hidden rounded-2xl bg-primary/10 p-3 text-primary sm:flex">
-                    <MonitorSmartphone className="h-6 w-6" />
-                  </div>
+                  <ThemeToggle />
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary" className="rounded-full px-3 py-1">
-                    {deviceType === "mobile" ? "Acesso móvel" : "Acesso em computador"}
-                  </Badge>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {deviceType === "mobile" ? "Acesso móvel" : "Acesso em computador"}
                   {isInstalled && (
-                    <Badge className="rounded-full border-0 bg-emerald-600 px-3 py-1 text-white">
-                      Aplicativo instalado
-                    </Badge>
+                    <span className="text-emerald-600 dark:text-emerald-400"> · Aplicativo instalado</span>
                   )}
-                </div>
+                </p>
               </CardHeader>
 
               <form onSubmit={handleSubmit}>
-                <CardContent className="space-y-5 p-6">
+                <CardContent className="space-y-5 px-7 py-7 sm:px-9">
                   <div className="space-y-2">
                     <Label
                       htmlFor="username"
@@ -323,7 +292,7 @@ export default function LoginPage() {
                       Usuário
                     </Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <User className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         id="username"
                         name="username"
@@ -331,7 +300,7 @@ export default function LoginPage() {
                         type="text"
                         value={formData.username}
                         onChange={handleChange}
-                        className="h-12 rounded-xl border-slate-200 bg-white pl-10 shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-slate-700 dark:bg-slate-800"
+                        className="h-12 rounded-xl border-slate-200/60 bg-transparent pl-11 transition focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:border-slate-700/60 dark:bg-transparent"
                         disabled={isLoading}
                         autoComplete="username"
                       />
@@ -346,7 +315,7 @@ export default function LoginPage() {
                       Senha
                     </Label>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                       <Input
                         id="senha"
                         name="senha"
@@ -354,57 +323,38 @@ export default function LoginPage() {
                         placeholder="Digite sua senha"
                         value={formData.senha}
                         onChange={handleChange}
-                        className="h-12 rounded-xl border-slate-200 bg-white pl-10 shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/20 dark:border-slate-700 dark:bg-slate-800"
+                        className="h-12 rounded-xl border-slate-200/60 bg-transparent pl-11 transition focus-visible:ring-2 focus-visible:ring-blue-500/20 dark:border-slate-700/60 dark:bg-transparent"
                         disabled={isLoading}
                         autoComplete="current-password"
                       />
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-xl bg-white p-2 text-primary shadow-sm dark:bg-slate-900">
-                        {deviceType === "mobile" ? (
-                          <Smartphone className="h-4 w-4" />
-                        ) : (
-                          <MonitorSmartphone className="h-4 w-4" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {installTitle}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                          {installDescription}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="mt-1 h-auto px-0 text-primary"
-                          onClick={handleInstall}
-                          disabled={isInstalling}
-                        >
-                          {isInstalling ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Preparando instalação...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="mr-2 h-4 w-4" />
-                              {installTitle}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
+                  {/* PWA install */}
+                  <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                    <p className="min-w-0 flex-1 text-xs text-slate-500 dark:text-slate-400">
+                      {installDescription}
+                    </p>
+                    <button
+                      type="button"
+                      className="flex flex-shrink-0 items-center gap-1.5 text-xs font-medium text-blue-600 transition hover:text-blue-700 disabled:opacity-50 dark:text-blue-400 dark:hover:text-blue-300"
+                      onClick={handleInstall}
+                      disabled={isInstalling}
+                    >
+                      {isInstalling ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      {installTitle}
+                    </button>
                   </div>
                 </CardContent>
 
-                <CardFooter className="flex flex-col gap-4 border-t border-slate-200/70 p-6 dark:border-slate-800">
+                <CardFooter className="flex flex-col gap-4 px-7 pb-8 pt-2 sm:px-9">
                   <Button
                     type="submit"
-                    className="h-12 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-base font-semibold text-white shadow-lg shadow-blue-900/20 transition hover:from-blue-700 hover:to-indigo-700"
+                    className="h-12 w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-sm font-semibold text-white shadow-md shadow-blue-500/20 transition-all duration-200 hover:scale-[1.01] hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -420,7 +370,7 @@ export default function LoginPage() {
                     )}
                   </Button>
 
-                  <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-center text-[11px] text-slate-400 dark:text-slate-500">
                     © 2025 Christian Nunes Marvila. Todos os direitos reservados.
                   </p>
                 </CardFooter>

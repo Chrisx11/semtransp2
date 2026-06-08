@@ -242,7 +242,7 @@ function FiltrosMobileView({
 
       {/* Filtros de Status */}
       <div className="w-[96%] mb-4 pl-0 pr-0">
-        <Card className="p-4 shadow-sm">
+        <Card className="rounded-2xl p-4 shadow-sm">
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-3">
               <Filter className="h-4 w-4 text-primary" />
@@ -310,7 +310,7 @@ function FiltrosMobileView({
 
       {/* Filtros de Progresso */}
       <div className="w-[96%] mb-4 pl-0 pr-0">
-        <Card className="p-4 shadow-sm">
+        <Card className="rounded-2xl p-4 shadow-sm">
           <div className="space-y-3">
             <div className="flex items-center gap-2 mb-3">
               <Gauge className="h-4 w-4 text-primary" />
@@ -390,7 +390,7 @@ function FiltrosMobileView({
             return (
               <Card
                 key={veiculo.id}
-                className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full"
+                className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-all duration-200 w-full"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-3 min-w-0">
@@ -412,15 +412,15 @@ function FiltrosMobileView({
                               {veiculo.status}
                             </Badge>
                             {totalFiltros === 0 ? (
-                              <div className="bg-yellow-500 rounded-full p-1.5 shadow-sm" title="Nenhum filtro registrado">
+                              <div className="bg-yellow-500 rounded-full p-1.5 shadow-sm transition-all" title="Nenhum filtro registrado">
                                 <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             ) : prontoParaTroca ? (
-                              <div className="bg-green-500 rounded-full p-1.5 shadow-sm" title="Pronto para troca">
+                              <div className="bg-green-500 rounded-full p-1.5 shadow-sm transition-all" title="Pronto para troca">
                                 <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             ) : (
-                              <div className="bg-red-500 rounded-full p-1.5 shadow-sm" title="Não está pronto">
+                              <div className="bg-red-500 rounded-full p-1.5 shadow-sm transition-all" title="Não está pronto">
                                 <Oil className="h-3.5 w-3.5 text-white" />
                               </div>
                             )}
@@ -512,8 +512,8 @@ function FiltrosMobileView({
         </div>
       ) : (
         <div className="text-center py-16 text-muted-foreground w-[96%] pl-0 pr-0">
-          <Car className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-          <p className="text-base font-medium mb-1">Nenhum veículo encontrado</p>
+          <Car className="h-16 w-16 text-muted-foreground/50 mx-auto mb-3" />
+          <p className="text-lg font-semibold mb-1">Nenhum veículo encontrado</p>
           <p className="text-sm">Tente usar termos diferentes na busca ou remover os filtros</p>
         </div>
       )}
@@ -1374,7 +1374,7 @@ export default function FiltrosPage() {
                   const temFiltros = filtros.length > 0
                   
                   return (
-                    <Card key={header} className={`border ${temFiltros ? 'border-primary/20 bg-primary/5' : 'border-border/50 bg-muted/30'}`}>
+                    <Card key={header} className={`border ${temFiltros ? 'border-primary/30 bg-primary/5 shadow-sm' : 'border-dashed border-border/50 bg-muted/20'}`}>
                       <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                           <h3 className="font-medium text-sm text-foreground/90">{header}</h3>
@@ -1424,7 +1424,7 @@ export default function FiltrosPage() {
                                   {editMode && (
                                     <button
                                       type="button"
-                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md p-0.5 transition-colors flex-shrink-0"
                                       onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
                                       title="Remover filtro"
                                     >
@@ -1505,7 +1505,7 @@ export default function FiltrosPage() {
                                   {editMode && (
                                     <button
                                       type="button"
-                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors flex-shrink-0"
+                                      className="ml-1 text-red-500 hover:text-red-700 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md p-0.5 transition-colors flex-shrink-0"
                                       onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
                                       title="Remover filtro"
                                     >
@@ -1546,7 +1546,7 @@ export default function FiltrosPage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Categoria do Filtro</label>
                 <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full rounded-xl h-10">
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1558,11 +1558,11 @@ export default function FiltrosPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Produto</label>
-                <Button variant="outline" className="w-full" onClick={() => setProdutoDialogOpen(true)}>
+                <Button variant="outline" className="w-full rounded-xl h-10" onClick={() => setProdutoDialogOpen(true)}>
                   {selectedProduto ? selectedProduto.descricao : "Selecionar Produto"}
                 </Button>
               </div>
-              <Button onClick={handleRegister} disabled={!selectedCategoria || !selectedProduto} className="w-full">
+              <Button onClick={handleRegister} disabled={!selectedCategoria || !selectedProduto} className="w-full h-11 rounded-xl">
                 Registrar Filtro
               </Button>
             </div>
@@ -1579,7 +1579,7 @@ export default function FiltrosPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="shadow-md-custom">
+      <Card className="border-0 shadow-sm">
         <CardContent className="p-6">
           <div className="flex flex-col gap-4 mb-6">
             {/* Barra de busca e botão atualizar */}
@@ -1590,7 +1590,7 @@ export default function FiltrosPage() {
                 <Input
                   type="text"
                   placeholder="Buscar veículo por placa, modelo ou marca..."
-                  className="pl-8 w-full"
+                  className="pl-8 w-full rounded-xl h-10"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                 />
@@ -1602,7 +1602,7 @@ export default function FiltrosPage() {
                   variant="outline"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="flex items-center gap-2 w-full md:w-auto"
+                  className="flex items-center gap-2 w-full md:w-auto rounded-xl h-10"
                 >
                   <RotateCcw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
                   {isRefreshing ? "Atualizando..." : "Atualizar"}
@@ -1610,7 +1610,7 @@ export default function FiltrosPage() {
                 <Button
                   variant="default"
                   onClick={() => setMargemDialogOpen(true)}
-                  className="flex items-center gap-2 w-full md:w-auto"
+                  className="flex items-center gap-2 w-full md:w-auto rounded-xl h-10"
                 >
                   <FileText className="h-4 w-4" />
                   Relatório
@@ -1627,12 +1627,14 @@ export default function FiltrosPage() {
                   <Filter className="h-4 w-4 text-primary" />
                   <span className="text-sm font-medium text-foreground/90">Status dos Filtros</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     variant={statusFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter('all')}
-                    className="flex items-center gap-1.5 h-8 px-3"
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium cursor-pointer transition-all duration-150 border h-auto ${
+                      statusFilter === 'all' ? 'shadow-sm ring-2 ring-offset-1' : ''
+                    }`}
                   >
                     Todos ({veiculos.length})
                   </Button>
@@ -1640,9 +1642,9 @@ export default function FiltrosPage() {
                     variant={statusFilter === 'pronto' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter('pronto')}
-                    className={`flex items-center gap-1.5 h-8 px-3 ${
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium cursor-pointer transition-all duration-150 border h-auto ${
                       statusFilter === 'pronto' 
-                        ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm' 
+                        ? 'bg-green-500 hover:bg-green-600 text-white border-green-500 shadow-sm ring-2 ring-offset-1' 
                         : 'border-green-500/50 text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-500'
                     }`}
                   >
@@ -1653,9 +1655,9 @@ export default function FiltrosPage() {
                     variant={statusFilter === 'nao-pronto' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter('nao-pronto')}
-                    className={`flex items-center gap-1.5 h-8 px-3 ${
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium cursor-pointer transition-all duration-150 border h-auto ${
                       statusFilter === 'nao-pronto' 
-                        ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm' 
+                        ? 'bg-red-500 hover:bg-red-600 text-white border-red-500 shadow-sm ring-2 ring-offset-1' 
                         : 'border-red-500/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-500'
                     }`}
                   >
@@ -1666,9 +1668,9 @@ export default function FiltrosPage() {
                     variant={statusFilter === 'sem-cadastro' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setStatusFilter('sem-cadastro')}
-                    className={`flex items-center gap-1.5 h-8 px-3 ${
+                    className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium cursor-pointer transition-all duration-150 border h-auto ${
                       statusFilter === 'sem-cadastro' 
-                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm' 
+                        ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500 shadow-sm ring-2 ring-offset-1' 
                         : 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20 hover:border-yellow-500'
                     }`}
                   >
@@ -1763,7 +1765,7 @@ export default function FiltrosPage() {
           return (
             <Card
             key={veiculo.id}
-              className="hover:shadow-md transition-all duration-300 border hover:border-primary/30 overflow-hidden group relative bg-card/50 backdrop-blur-sm"
+              className="hover:shadow-md transition-shadow duration-200 border hover:border-primary/30 overflow-hidden group relative bg-card/50 backdrop-blur-sm"
             >
               <div className="absolute top-3 right-3 z-10">
                 {totalFiltros === 0 ? (
@@ -1973,7 +1975,7 @@ export default function FiltrosPage() {
                     if (filtros.length === 0) return null
                     
                     return (
-                      <Card key={header} className="border border-border/50 hover:border-primary/30 transition-colors">
+                      <Card key={header} className="border border-primary/30 bg-primary/5 shadow-sm hover:border-primary/30 transition-colors">
                         <CardHeader className="pb-2 pt-3 px-3">
                           <div className="flex items-center justify-between">
                             <h3 className="text-xs font-medium text-foreground/90">{header}</h3>
@@ -2000,7 +2002,7 @@ export default function FiltrosPage() {
                               .map(({ filtro, produto, estoque, emEstoque }) => (
                                 <div
                                   key={filtro.produtoId + filtro.categoria}
-                                  className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
+                                  className={`group flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-all duration-150 ${
                                     emEstoque 
                                       ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
                                       : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
@@ -2024,7 +2026,7 @@ export default function FiltrosPage() {
                                   {editMode && (
                                     <button
                                       type="button"
-                                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
+                                      className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md p-0.5 transition-opacity flex-shrink-0"
                                       onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
                                       title="Remover"
                                     >
@@ -2073,7 +2075,7 @@ export default function FiltrosPage() {
                                 return (
                                   <div
                                     key={filtro.produtoId + filtro.categoria}
-                                    className={`group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-xs transition-colors ${
+                                    className={`group flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition-all duration-150 ${
                                       emEstoque 
                                         ? "bg-green-50/50 dark:bg-green-950/10 border-l-2 border-green-500/50" 
                                         : "bg-red-50/50 dark:bg-red-950/10 border-l-2 border-red-500/50"
@@ -2102,7 +2104,7 @@ export default function FiltrosPage() {
                                     {editMode && (
                                       <button
                                         type="button"
-                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity flex-shrink-0"
+                                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md p-0.5 transition-opacity flex-shrink-0"
                                         onClick={() => removeFiltroRegistrado(selectedVeiculo?.id || '', filtro.categoria, filtro.produtoId, setFiltrosRegistrados)}
                                         title="Remover"
                                       >
@@ -2152,7 +2154,7 @@ export default function FiltrosPage() {
             <div>
               <label className="block text-sm font-medium mb-1">Categoria do Filtro</label>
               <Select value={selectedCategoria} onValueChange={setSelectedCategoria}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full rounded-xl h-10">
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2164,11 +2166,11 @@ export default function FiltrosPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Produto</label>
-              <Button variant="outline" className="w-full" onClick={() => setProdutoDialogOpen(true)}>
+              <Button variant="outline" className="w-full rounded-xl h-10" onClick={() => setProdutoDialogOpen(true)}>
                 {selectedProduto ? selectedProduto.descricao : "Selecionar Produto"}
               </Button>
             </div>
-            <Button onClick={handleRegister} disabled={!selectedCategoria || !selectedProduto} className="w-full">
+            <Button onClick={handleRegister} disabled={!selectedCategoria || !selectedProduto} className="w-full h-11 rounded-xl">
               Registrar Filtro
             </Button>
           </div>

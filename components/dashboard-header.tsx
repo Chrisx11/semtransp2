@@ -161,66 +161,54 @@ export function DashboardHeader({ sidebarCollapsed, sidebarHidden, onToggleSideb
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-gradient-to-r from-background/95 via-background/90 to-background/95 backdrop-blur-xl shadow-sm"
+      className="fixed top-0 left-0 right-0 z-50 h-16 border-b border-border bg-background/80 backdrop-blur-md"
       style={{
-        height: '68px',
         marginLeft: sidebarHidden ? '0' : (sidebarCollapsed ? '64px' : '256px'),
         transition: 'margin-left 0.3s ease-in-out',
-        boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
       }}
     >
-      <div className="flex h-full items-center justify-between px-6">
-        {/* Lado esquerdo - Botão de menu e título */}
-        <div className="flex items-center gap-3">
-          {/* Botão para mostrar/ocultar sidebar */}
+      <div className="flex h-full items-center justify-between px-5 lg:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
             onClick={onToggleSidebarVisibility}
-            className="relative h-9 w-9 hover:bg-accent/50"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={sidebarHidden ? "Mostrar menu lateral" : "Ocultar menu lateral"}
             title={sidebarHidden ? "Mostrar menu lateral" : "Ocultar menu lateral"}
           >
             {sidebarHidden ? (
-              <Menu className="h-5 w-5" />
+              <Menu className="h-4 w-4" />
             ) : (
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             )}
           </Button>
-          
-          {/* Título e descrição da página */}
-          <div className="flex flex-col justify-center">
-            <h1 className="text-lg font-semibold tracking-tight leading-none">
+
+          <div className="min-w-0 border-l border-border pl-3">
+            <h1 className="truncate text-[15px] font-semibold tracking-tight text-foreground">
               {currentPageInfo.title}
             </h1>
-            <p className="text-xs text-muted-foreground mt-0.5 leading-none">
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
               {currentPageInfo.description}
             </p>
           </div>
         </div>
 
-        {/* Lado direito - ações do usuário */}
-        <div className="flex items-center gap-3">
-          {/* Toggle de tema */}
+        <div className="flex shrink-0 items-center gap-1 rounded-lg border border-border bg-card/50 p-1">
           <ThemeToggle />
-          
-          {/* Toggle de som */}
           <SoundToggle />
-          
-          {/* Dropdown de notificações */}
           <NotificationsDropdown />
-          
-          {/* Menu do usuário */}
+          <div className="mx-0.5 h-5 w-px bg-border" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="flex items-center gap-2 h-9 px-3 hover:bg-accent/50"
+                className="h-8 gap-2 px-2 hover:bg-muted"
               >
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
-                  <User className="h-4 w-4" />
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <User className="h-3.5 w-3.5" />
                 </div>
-                <span className="hidden md:block text-sm font-medium">
+                <span className="hidden max-w-[140px] truncate text-[13px] font-medium md:block">
                   {user?.nome || user?.login || "Usuário"}
                 </span>
               </Button>

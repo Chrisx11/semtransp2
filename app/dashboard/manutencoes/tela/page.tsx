@@ -65,26 +65,28 @@ function OrdemTelaItem({ ordem }: { ordem: OrdemServico }) {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-card/80 p-3 shadow-sm",
-        ordem.status === "Em Serviço" && "ring-2 ring-emerald-500/40"
+        "rounded-lg border bg-card/80 p-4 shadow-sm border-l-4",
+        ordem.status === "Em Serviço" && "border-l-emerald-500 ring-2 ring-emerald-500/60 shadow-lg shadow-emerald-500/10",
+        ordem.status === "Fila de Serviço" && "border-l-cyan-500",
+        ordem.status === "Aguardando Mecânico" && "border-l-slate-500",
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="min-w-0">
-          <p className="text-lg font-bold tracking-tight truncate">{extrairPlaca(ordem.veiculoInfo)}</p>
-          <p className="text-sm font-semibold text-muted-foreground">{ordem.numero}</p>
+          <p className="text-2xl font-black tracking-widest truncate">{extrairPlaca(ordem.veiculoInfo)}</p>
+          <p className="text-sm font-mono text-muted-foreground">{ordem.numero}</p>
         </div>
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           {ordem.ordem_execucao != null && (
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-base font-black">
               {ordem.ordem_execucao}
             </span>
           )}
-          <Badge className={cn("text-[10px] border-0", prioridadeClass)}>{ordem.prioridade}</Badge>
+          <Badge className={cn("text-xs border-0 px-3 py-1.5 rounded-full", prioridadeClass)}>{ordem.prioridade}</Badge>
         </div>
       </div>
-      <Badge className={cn("mb-2 text-xs border-0", statusClass)}>{ordem.status}</Badge>
-      <p className="text-sm leading-snug line-clamp-3 text-foreground/90">
+      <Badge className={cn("mb-2 text-xs border-0 px-3 py-1.5 rounded-full", statusClass)}>{ordem.status}</Badge>
+      <p className="text-base leading-relaxed line-clamp-3 text-foreground/90">
         {ordem.defeitosRelatados?.trim() || "Sem descrição informada"}
       </p>
     </div>
@@ -99,21 +101,21 @@ function MecanicoTelaCard({
   ordens: OrdemServico[]
 }) {
   return (
-    <Card className="flex flex-col h-full border-2 shadow-lg overflow-hidden bg-card">
-      <CardHeader className="py-3 px-4 bg-primary text-primary-foreground flex-shrink-0">
-        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-foreground/20">
+    <Card className="flex flex-col h-full border-2 border-primary/20 shadow-lg overflow-hidden bg-card">
+      <CardHeader className="py-4 px-5 bg-primary text-primary-foreground flex-shrink-0">
+        <CardTitle className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary-foreground/20">
             <User className="h-5 w-5" />
           </div>
           <span className="truncate flex-1">{nome}</span>
-          <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0 text-sm">
+          <Badge variant="secondary" className="bg-primary-foreground/20 text-primary-foreground border-0 text-base font-bold">
             {ordens.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0 bg-muted/30">
         {ordens.length === 0 ? (
-          <p className="text-center text-sm text-muted-foreground py-8">Nenhuma OS na fila</p>
+          <p className="text-center text-base text-muted-foreground py-8">Nenhuma OS na fila</p>
         ) : (
           ordens.map((ordem) => <OrdemTelaItem key={ordem.id} ordem={ordem} />)
         )}
@@ -259,23 +261,23 @@ export default function TelaManutencoesPage() {
         ) : (
           <div className="flex items-center gap-2 min-w-0">
             <Wrench className="h-6 w-6 text-primary flex-shrink-0" />
-            <h1 className="text-xl font-bold truncate">Fila da Oficina</h1>
+            <h1 className="text-2xl font-black tracking-tight truncate">Fila da Oficina</h1>
           </div>
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            {hora && <span className="font-mono tabular-nums">{hora}</span>}
+            {hora && <span className="font-mono tabular-nums text-lg font-semibold">{hora}</span>}
             {totalPages > 1 && (
-              <span>
+              <span className="rounded-full bg-muted px-3 py-1 text-sm font-medium">
                 {currentPage + 1} / {totalPages}
               </span>
             )}
           </div>
           <Button
             variant={telaCheia ? "secondary" : "outline"}
-            size="sm"
+            size="default"
             onClick={() => aplicarTelaCheia(!telaCheia)}
-            className="gap-1.5"
+            className="gap-1.5 rounded-xl px-4"
             title={telaCheia ? "Sair da tela cheia" : "Tela cheia"}
           >
             {telaCheia ? (
@@ -296,9 +298,9 @@ export default function TelaManutencoesPage() {
       {mecanicos.length === 0 ? (
         <Card className="flex-1 flex items-center justify-center border-dashed">
           <CardContent className="text-center py-16">
-            <Wrench className="h-14 w-14 text-muted-foreground/40 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">Nenhum mecânico na tela</h2>
-            <p className="text-muted-foreground max-w-md text-sm">
+            <Wrench className="h-20 w-20 text-muted-foreground/40 mx-auto mb-4" />
+            <h2 className="text-3xl font-bold mb-2">Nenhum mecânico na tela</h2>
+            <p className="text-muted-foreground max-w-md text-base">
               Ative os mecânicos no Planejamento (ícone de monitor no card) ou aguarde novas ordens na fila.
             </p>
           </CardContent>
