@@ -108,7 +108,7 @@ function Via({ compra, label }: { compra: Compra; label: string }) {
     <div style={{ fontFamily: "Arial, sans-serif", color: C.black, background: C.white, boxSizing: "border-box" }}>
 
       {/* ── HEADER ── */}
-      <div style={{ display: "flex", alignItems: "center", borderBottom: `2px solid ${C.navy}`, paddingBottom: 4, marginBottom: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", borderBottom: `2px solid ${C.navy}`, paddingBottom: 7, marginBottom: 0 }}>
         <div style={{ flex: 1.2 }}>
           <div style={{ fontSize: 17, fontWeight: 900, color: C.navy, letterSpacing: 1, lineHeight: 1 }}>
             SEM<span style={{ color: C.mid }}>TRANSP</span>
@@ -139,20 +139,20 @@ function Via({ compra, label }: { compra: Compra; label: string }) {
 
       {/* ── INFO STRIP ── */}
       <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: `1px solid ${C.border}`, marginBottom: 0 }}>
-        <div style={{ flex: 2.5, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+        <div style={{ flex: 2.5, borderRight: `1px solid ${C.border}`, padding: "5px 6px", background: C.xlight }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Fornecedor</div>
           <div style={{ fontSize: 10, fontWeight: 700, color: C.navy }}>{compra.fornecedor || "—"}</div>
         </div>
-        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "5px 6px", background: C.xlight }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Nº NF Fornecedor</div>
           <div style={{ fontSize: 9, fontWeight: 600, color: C.navy }}>{compra.notaFornecedor || "—"}</div>
         </div>
-        <div style={{ flex: 0.8, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+        <div style={{ flex: 0.8, borderRight: `1px solid ${C.border}`, padding: "5px 6px", background: C.xlight }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Status</div>
           <div style={{ fontSize: 9, fontWeight: 700, color: C.navy }}>{STATUS_LABEL[compra.status]}</div>
         </div>
         {/* Total box integrado ao header */}
-        <div style={{ flex: 0.9, padding: "3px 8px", background: C.blue, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+        <div style={{ flex: 0.9, padding: "5px 8px", background: C.blue, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div style={{ fontSize: 7, color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase" }}>TOTAL DO PEDIDO</div>
           <div style={{ fontSize: 13, color: C.white, fontWeight: 900, lineHeight: 1.1 }}>
             {hasValues ? formatBRL(total) : "A definir"}
@@ -186,9 +186,9 @@ function Via({ compra, label }: { compra: Compra; label: string }) {
             </tr>
           ))}
           {/* linhas em branco para preencher */}
-          {Array.from({ length: Math.max(0, 8 - compra.itens.length) }).map((_, i) => (
+          {Array.from({ length: Math.max(0, 14 - compra.itens.length) }).map((_, i) => (
             <tr key={`b${i}`} style={{ background: (compra.itens.length + i) % 2 === 0 ? C.white : C.xlight }}>
-              <td style={{ ...td, height: 14 }}>&nbsp;</td>
+              <td style={{ ...td, height: 18 }}>&nbsp;</td>
               <td style={td}>&nbsp;</td>
               <td style={td}>&nbsp;</td>
               <td style={td}>&nbsp;</td>
@@ -200,20 +200,20 @@ function Via({ compra, label }: { compra: Compra; label: string }) {
 
       {/* ── RODAPÉ ── */}
       <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none" }}>
-        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "4px 6px" }}>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "6px 8px" }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Observações</div>
-          <div style={{ fontSize: 8, color: C.text, minHeight: 20, whiteSpace: "pre-wrap" }}>{compra.observacoes || "—"}</div>
+          <div style={{ fontSize: 8, color: C.text, minHeight: 36, whiteSpace: "pre-wrap" }}>{compra.observacoes || "—"}</div>
         </div>
-        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "4px 6px" }}>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "6px 8px" }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Assinatura do Secretário</div>
-          <div style={{ marginTop: 14, borderTop: `1px solid ${C.black}`, paddingTop: 2, textAlign: "center" }}>
+          <div style={{ marginTop: 28, borderTop: `1px solid ${C.black}`, paddingTop: 3, textAlign: "center" }}>
             <div style={{ fontSize: 8, fontWeight: 700 }}>Leonardo Almeida</div>
             <div style={{ fontSize: 7, color: C.muted }}>Secretário de Transportes</div>
           </div>
         </div>
-        <div style={{ flex: 1, padding: "4px 6px" }}>
+        <div style={{ flex: 1, padding: "6px 8px" }}>
           <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Assinatura do Fornecedor</div>
-          <div style={{ marginTop: 14, borderTop: `1px solid ${C.black}`, paddingTop: 2 }}>&nbsp;</div>
+          <div style={{ marginTop: 28, borderTop: `1px solid ${C.black}`, paddingTop: 3 }}>&nbsp;</div>
         </div>
       </div>
     </div>
