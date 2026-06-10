@@ -69,108 +69,235 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Print view ──────────────────────────────────────────────────────────────
 
+const C = {
+  navy:   "#1e3a5f",
+  blue:   "#1d4ed8",
+  mid:    "#2563eb",
+  light:  "#dbeafe",
+  xlight: "#eff6ff",
+  border: "#93c5fd",
+  text:   "#1e3a5f",
+  muted:  "#64748b",
+  white:  "#ffffff",
+  black:  "#000000",
+}
+
 function PrintView({ compra }: { compra: Compra }) {
   const total = totalCompra(compra.itens)
+  const hasValues = compra.itens.some((i) => i.valorUnitario != null)
+  const subtotal = compra.itens.reduce((a, i) => a + (i.quantidade ?? 0) * (i.valorUnitario ?? 0), 0)
+
+  const tdBase: React.CSSProperties = {
+    border: `1px solid ${C.border}`,
+    padding: "5px 8px",
+    fontSize: 11,
+    color: C.text,
+  }
+
   return (
-    <div id="print-area" className="font-sans text-sm text-black bg-white p-8 max-w-[780px] mx-auto">
-      {/* Header */}
-      <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-3">
-        <div>
-          <p className="text-xl font-bold uppercase tracking-wide">Secretaria Municipal de Transportes</p>
-          <p className="text-xs">CNPJ: 30.417.158/0001-22</p>
-          <p className="text-xs">Avenida Herivelton Alves Marinho, 168 — CEP: 28.250-000</p>
+    <div
+      id="print-area"
+      style={{
+        fontFamily: "Arial, sans-serif",
+        fontSize: 12,
+        color: C.black,
+        background: C.white,
+        padding: "20px 24px",
+        maxWidth: 780,
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* ── HEADER ── */}
+      <div style={{ display: "flex", alignItems: "stretch", borderBottom: `3px solid ${C.navy}`, paddingBottom: 10, marginBottom: 0 }}>
+        {/* Left – org */}
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 22, fontWeight: 900, color: C.navy, letterSpacing: 1, lineHeight: 1 }}>
+            SEM<span style={{ color: C.mid }}>TRANSP</span>
+          </div>
+          <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Secretaria Municipal de Transportes</div>
+          <div style={{ fontSize: 9, color: C.muted }}>Manutenção e Controle da Frota Municipal</div>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold">{String(compra.numero).padStart(6, "0")}</p>
-          <p className="text-xs font-semibold uppercase">Pedido de Compra</p>
-          <p className="text-xs">{formatDate(compra.dataPedido)}</p>
+
+        {/* Center – doc type */}
+        <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
+          <div style={{ fontSize: 15, fontWeight: 900, color: C.navy, letterSpacing: 1 }}>PEDIDO DE{"\n"}COMPRA</div>
+          <div style={{
+            border: `1px solid ${C.mid}`,
+            borderRadius: 4,
+            padding: "2px 8px",
+            fontSize: 9,
+            color: C.mid,
+            fontWeight: 700,
+          }}>
+            Controle Interno — Não Fiscal
+          </div>
+          <div style={{
+            background: C.mid,
+            borderRadius: 4,
+            padding: "2px 10px",
+            fontSize: 9,
+            color: C.white,
+            fontWeight: 700,
+          }}>
+            VIA SECRETARIA
+          </div>
+        </div>
+
+        {/* Right – number + date */}
+        <div style={{ flex: 1, textAlign: "right" }}>
+          <div style={{ fontSize: 32, fontWeight: 900, color: C.mid, letterSpacing: 1 }}>
+            {String(compra.numero).padStart(6, "0")}
+          </div>
+          <div style={{ fontSize: 10, color: C.muted }}>{formatDate(compra.dataPedido)}</div>
+          {compra.dataEntrega && (
+            <div style={{ fontSize: 9, color: C.muted }}>Entrega: {formatDate(compra.dataEntrega)}</div>
+          )}
         </div>
       </div>
 
-      {/* Fornecedor / Nota */}
-      <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
-        <div className="border border-gray-400 rounded p-2">
-          <p className="font-semibold mb-1">Fornecedor</p>
-          <p>{compra.fornecedor || "—"}</p>
+      {/* ── INFO ROW ── */}
+      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none", marginBottom: 0 }}>
+        <div style={{ flex: 2, borderRight: `1px solid ${C.border}`, padding: "6px 10px", background: C.xlight }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Fornecedor</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{compra.fornecedor || "—"}</div>
         </div>
-        <div className="border border-gray-400 rounded p-2">
-          <p className="font-semibold mb-1">Nº Nota Fiscal do Fornecedor</p>
-          <p>{compra.notaFornecedor || "—"}</p>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "6px 10px", background: C.xlight }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>CNPJ Secretaria</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.navy }}>30.417.158/0001-22</div>
+        </div>
+        <div style={{ flex: 1, padding: "6px 10px", background: C.xlight }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Status</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{STATUS_LABEL[compra.status]}</div>
         </div>
       </div>
 
-      {/* Items table */}
-      <table className="w-full border-collapse mb-4 text-xs">
+      {/* address strip */}
+      <div style={{ background: C.light, padding: "3px 10px", fontSize: 9, color: C.text, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, marginBottom: 0 }}>
+        Endereço: Avenida Herivelton Alves Marinho, 168 — CEP: 28.250-000
+      </div>
+
+      {/* ── ITEMS TABLE ── */}
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 0 }}>
+        <colgroup>
+          <col style={{ width: "5%" }} />
+          <col />
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "22%" }} />
+        </colgroup>
         <thead>
-          <tr className="bg-gray-200">
-            <th className="border border-gray-400 px-2 py-1 text-left w-8">#</th>
-            <th className="border border-gray-400 px-2 py-1 text-left">Descrição do Produto / Serviço</th>
-            <th className="border border-gray-400 px-2 py-1 text-center w-20">Qtde</th>
-            <th className="border border-gray-400 px-2 py-1 text-right w-28">Valor Unit.</th>
-            <th className="border border-gray-400 px-2 py-1 text-right w-28">Total</th>
+          <tr style={{ background: C.navy, color: C.white }}>
+            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>#</th>
+            <th style={{ ...tdBase, color: C.white, textAlign: "left", borderColor: C.navy }}>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>QTD</th>
+            <th style={{ ...tdBase, color: C.white, textAlign: "right", borderColor: C.navy }}>VALOR</th>
+            <th style={{ ...tdBase, color: C.white, textAlign: "right", borderColor: C.navy }}>TOTAL</th>
+            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>RESUMO</th>
           </tr>
         </thead>
         <tbody>
           {compra.itens.map((item, idx) => (
-            <tr key={item.id}>
-              <td className="border border-gray-400 px-2 py-1 text-center">{idx + 1}</td>
-              <td className="border border-gray-400 px-2 py-1">{item.descricao}</td>
-              <td className="border border-gray-400 px-2 py-1 text-center">{item.quantidade}</td>
-              <td className="border border-gray-400 px-2 py-1 text-right">
+            <tr key={item.id} style={{ background: idx % 2 === 0 ? C.white : C.xlight }}>
+              <td style={{ ...tdBase, textAlign: "center" }}>{idx + 1}</td>
+              <td style={{ ...tdBase }}>{item.descricao}</td>
+              <td style={{ ...tdBase, textAlign: "center" }}>{item.quantidade}</td>
+              <td style={{ ...tdBase, textAlign: "right" }}>
                 {item.valorUnitario != null ? formatBRL(item.valorUnitario) : "—"}
               </td>
-              <td className="border border-gray-400 px-2 py-1 text-right">
+              <td style={{ ...tdBase, textAlign: "right" }}>
                 {item.valorUnitario != null ? formatBRL(item.quantidade * item.valorUnitario) : "—"}
               </td>
+              {/* Summary column: show labels only on first rows */}
+              {idx === 0 && (
+                <td
+                  rowSpan={compra.itens.length}
+                  style={{
+                    ...tdBase,
+                    verticalAlign: "top",
+                    padding: 0,
+                    background: C.white,
+                  }}
+                >
+                  <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Subtotal Itens</div>
+                    <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>
+                      {hasValues ? formatBRL(subtotal) : "—"}
+                    </div>
+                  </div>
+                  <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Nº Nota Fornecedor</div>
+                    <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>
+                      {compra.notaFornecedor || "—"}
+                    </div>
+                  </div>
+                  {compra.dataPagamento && (
+                    <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Pagamento</div>
+                      <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>{formatDate(compra.dataPagamento)}</div>
+                    </div>
+                  )}
+                  {/* Total box */}
+                  <div style={{ background: C.blue, padding: "8px 10px", marginTop: "auto" }}>
+                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase" }}>TOTAL DO PEDIDO</div>
+                    <div style={{ fontSize: 16, color: C.white, fontWeight: 900, marginTop: 2 }}>
+                      {hasValues ? formatBRL(total) : "A definir"}
+                    </div>
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
-          {/* blank rows to fill space */}
-          {Array.from({ length: Math.max(0, 8 - compra.itens.length) }).map((_, i) => (
-            <tr key={`blank-${i}`}>
-              <td className="border border-gray-400 px-2 py-1">&nbsp;</td>
-              <td className="border border-gray-400 px-2 py-1">&nbsp;</td>
-              <td className="border border-gray-400 px-2 py-1">&nbsp;</td>
-              <td className="border border-gray-400 px-2 py-1">&nbsp;</td>
-              <td className="border border-gray-400 px-2 py-1">&nbsp;</td>
+          {/* blank filler rows */}
+          {Array.from({ length: Math.max(0, 6 - compra.itens.length) }).map((_, i) => (
+            <tr key={`blank-${i}`} style={{ background: (compra.itens.length + i) % 2 === 0 ? C.white : C.xlight }}>
+              <td style={{ ...tdBase, textAlign: "center" }}>&nbsp;</td>
+              <td style={{ ...tdBase }}>&nbsp;</td>
+              <td style={{ ...tdBase }}>&nbsp;</td>
+              <td style={{ ...tdBase }}>&nbsp;</td>
+              <td style={{ ...tdBase }}>&nbsp;</td>
             </tr>
           ))}
         </tbody>
-        <tfoot>
-          <tr className="bg-gray-100 font-bold">
-            <td colSpan={4} className="border border-gray-400 px-2 py-1 text-right">Total Geral</td>
-            <td className="border border-gray-400 px-2 py-1 text-right">
-              {total > 0 ? formatBRL(total) : "—"}
-            </td>
-          </tr>
-        </tfoot>
       </table>
 
-      {/* Observações */}
-      {compra.observacoes && (
-        <div className="mb-4 text-xs border border-gray-400 rounded p-2">
-          <p className="font-semibold mb-1">Observações</p>
-          <p className="whitespace-pre-wrap">{compra.observacoes}</p>
-        </div>
-      )}
-
-      {/* Status */}
-      <div className="mb-8 text-xs">
-        <span className="font-semibold">Status: </span>
-        <span className="uppercase">{STATUS_LABEL[compra.status]}</span>
-        {compra.dataEntrega && <span className="ml-4 font-semibold">Entrega: </span>}
-        {compra.dataEntrega && <span>{formatDate(compra.dataEntrega)}</span>}
-        {compra.dataPagamento && <span className="ml-4 font-semibold">Pagamento: </span>}
-        {compra.dataPagamento && <span>{formatDate(compra.dataPagamento)}</span>}
-      </div>
-
-      {/* Signature */}
-      <div className="flex justify-center mt-12">
-        <div className="text-center w-72">
-          <div className="border-t border-black pt-2">
-            <p className="font-semibold">Leonardo Almeida</p>
-            <p className="text-xs">Secretário de Transportes</p>
+      {/* ── FOOTER ROW ── */}
+      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none", marginBottom: 12 }}>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "8px 10px" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Observações</div>
+          <div style={{ fontSize: 11, color: C.text, minHeight: 32, whiteSpace: "pre-wrap" }}>
+            {compra.observacoes || "—"}
           </div>
         </div>
+        <div style={{ flex: 1, padding: "8px 10px" }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Status do Pedido</div>
+          <div style={{ fontSize: 11, color: C.navy, fontWeight: 700 }}>
+            {STATUS_LABEL[compra.status]}
+            {compra.dataEntrega ? ` — Entregue em ${formatDate(compra.dataEntrega)}` : ""}
+            {compra.dataPagamento ? ` — Pago em ${formatDate(compra.dataPagamento)}` : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* ── SIGNATURES ── */}
+      <div style={{ display: "flex", gap: 40, marginTop: 36 }}>
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ borderTop: `1px solid ${C.black}`, paddingTop: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 700 }}>Leonardo Almeida</div>
+            <div style={{ fontSize: 10, color: C.muted }}>Secretário de Transportes</div>
+          </div>
+        </div>
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ borderTop: `1px solid ${C.black}`, paddingTop: 6 }}>
+            <div style={{ fontSize: 11, color: C.muted }}>Assinatura do Fornecedor</div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── CUT LINE ── */}
+      <div style={{ marginTop: 20, borderTop: "1px dashed #999", textAlign: "center", paddingTop: 4 }}>
+        <span style={{ fontSize: 9, color: "#999", letterSpacing: 2 }}>✂ RECORTAR AQUI</span>
       </div>
     </div>
   )
@@ -439,12 +566,10 @@ function PrintDialog({
     win.document.write(`
       <html><head><title>Pedido de Compra</title>
       <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background: #fff; margin: 0; padding: 0; }
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background: #fff; margin: 0; padding: 16px; }
         table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #999; padding: 4px 6px; }
-        thead th { background: #e5e7eb; }
-        tfoot td { background: #f3f4f6; font-weight: bold; }
-        @page { margin: 15mm; }
+        @page { margin: 10mm; size: A4; }
       </style>
       </head><body>${el.innerHTML}</body></html>
     `)
