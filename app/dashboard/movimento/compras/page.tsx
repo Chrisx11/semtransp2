@@ -82,223 +82,152 @@ const C = {
   black:  "#000000",
 }
 
-function PrintView({ compra }: { compra: Compra }) {
+// Via única — reutilizada duas vezes na impressão
+function Via({ compra, label }: { compra: Compra; label: string }) {
   const total = totalCompra(compra.itens)
   const hasValues = compra.itens.some((i) => i.valorUnitario != null)
-  const subtotal = compra.itens.reduce((a, i) => a + (i.quantidade ?? 0) * (i.valorUnitario ?? 0), 0)
 
-  const tdBase: React.CSSProperties = {
+  const td: React.CSSProperties = {
     border: `1px solid ${C.border}`,
-    padding: "5px 8px",
-    fontSize: 11,
+    padding: "2px 5px",
+    fontSize: 9,
     color: C.text,
+    lineHeight: 1.3,
+  }
+  const thStyle: React.CSSProperties = {
+    ...td,
+    background: C.navy,
+    color: C.white,
+    fontWeight: 700,
+    fontSize: 8,
+    borderColor: C.navy,
+    whiteSpace: "nowrap",
   }
 
   return (
-    <div
-      id="print-area"
-      style={{
-        fontFamily: "Arial, sans-serif",
-        fontSize: 12,
-        color: C.black,
-        background: C.white,
-        padding: "20px 24px",
-        maxWidth: 780,
-        margin: "0 auto",
-        boxSizing: "border-box",
-      }}
-    >
+    <div style={{ fontFamily: "Arial, sans-serif", color: C.black, background: C.white, boxSizing: "border-box" }}>
+
       {/* ── HEADER ── */}
-      <div style={{ display: "flex", alignItems: "stretch", borderBottom: `3px solid ${C.navy}`, paddingBottom: 10, marginBottom: 0 }}>
-        {/* Left – org */}
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 22, fontWeight: 900, color: C.navy, letterSpacing: 1, lineHeight: 1 }}>
+      <div style={{ display: "flex", alignItems: "center", borderBottom: `2px solid ${C.navy}`, paddingBottom: 4, marginBottom: 0 }}>
+        <div style={{ flex: 1.2 }}>
+          <div style={{ fontSize: 17, fontWeight: 900, color: C.navy, letterSpacing: 1, lineHeight: 1 }}>
             SEM<span style={{ color: C.mid }}>TRANSP</span>
           </div>
-          <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Secretaria Municipal de Transportes</div>
-          <div style={{ fontSize: 9, color: C.muted }}>Manutenção e Controle da Frota Municipal</div>
+          <div style={{ fontSize: 8, color: C.muted }}>Secretaria Municipal de Transportes</div>
+          <div style={{ fontSize: 7.5, color: C.muted }}>CNPJ: 30.417.158/0001-22 · Av. Herivelton Alves Marinho, 168 · CEP 28.250-000</div>
         </div>
 
-        {/* Center – doc type */}
-        <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: C.navy, letterSpacing: 1 }}>PEDIDO DE{"\n"}COMPRA</div>
-          <div style={{
-            border: `1px solid ${C.mid}`,
-            borderRadius: 4,
-            padding: "2px 8px",
-            fontSize: 9,
-            color: C.mid,
-            fontWeight: 700,
-          }}>
-            Controle Interno — Não Fiscal
-          </div>
-          <div style={{
-            background: C.mid,
-            borderRadius: 4,
-            padding: "2px 10px",
-            fontSize: 9,
-            color: C.white,
-            fontWeight: 700,
-          }}>
-            VIA SECRETARIA
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ fontSize: 12, fontWeight: 900, color: C.navy, letterSpacing: 0.5 }}>PEDIDO DE COMPRA</div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 4, marginTop: 2 }}>
+            <span style={{ border: `1px solid ${C.mid}`, borderRadius: 3, padding: "1px 5px", fontSize: 7, color: C.mid, fontWeight: 700 }}>
+              Controle Interno — Não Fiscal
+            </span>
+            <span style={{ background: C.mid, borderRadius: 3, padding: "1px 6px", fontSize: 7, color: C.white, fontWeight: 700 }}>
+              {label}
+            </span>
           </div>
         </div>
 
-        {/* Right – number + date */}
-        <div style={{ flex: 1, textAlign: "right" }}>
-          <div style={{ fontSize: 32, fontWeight: 900, color: C.mid, letterSpacing: 1 }}>
+        <div style={{ flex: 0.8, textAlign: "right" }}>
+          <div style={{ fontSize: 24, fontWeight: 900, color: C.mid, lineHeight: 1 }}>
             {String(compra.numero).padStart(6, "0")}
           </div>
-          <div style={{ fontSize: 10, color: C.muted }}>{formatDate(compra.dataPedido)}</div>
-          {compra.dataEntrega && (
-            <div style={{ fontSize: 9, color: C.muted }}>Entrega: {formatDate(compra.dataEntrega)}</div>
-          )}
+          <div style={{ fontSize: 8, color: C.muted }}>{formatDate(compra.dataPedido)}</div>
         </div>
       </div>
 
-      {/* ── INFO ROW ── */}
-      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none", marginBottom: 0 }}>
-        <div style={{ flex: 2, borderRight: `1px solid ${C.border}`, padding: "6px 10px", background: C.xlight }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Fornecedor</div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.navy }}>{compra.fornecedor || "—"}</div>
+      {/* ── INFO STRIP ── */}
+      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: `1px solid ${C.border}`, marginBottom: 0 }}>
+        <div style={{ flex: 2.5, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Fornecedor</div>
+          <div style={{ fontSize: 10, fontWeight: 700, color: C.navy }}>{compra.fornecedor || "—"}</div>
         </div>
-        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "6px 10px", background: C.xlight }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>CNPJ Secretaria</div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: C.navy }}>30.417.158/0001-22</div>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Nº NF Fornecedor</div>
+          <div style={{ fontSize: 9, fontWeight: 600, color: C.navy }}>{compra.notaFornecedor || "—"}</div>
         </div>
-        <div style={{ flex: 1, padding: "6px 10px", background: C.xlight }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Status</div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.navy }}>{STATUS_LABEL[compra.status]}</div>
+        <div style={{ flex: 0.8, borderRight: `1px solid ${C.border}`, padding: "3px 6px", background: C.xlight }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase" }}>Status</div>
+          <div style={{ fontSize: 9, fontWeight: 700, color: C.navy }}>{STATUS_LABEL[compra.status]}</div>
         </div>
-      </div>
-
-      {/* address strip */}
-      <div style={{ background: C.light, padding: "3px 10px", fontSize: 9, color: C.text, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, marginBottom: 0 }}>
-        Endereço: Avenida Herivelton Alves Marinho, 168 — CEP: 28.250-000
+        {/* Total box integrado ao header */}
+        <div style={{ flex: 0.9, padding: "3px 8px", background: C.blue, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase" }}>TOTAL DO PEDIDO</div>
+          <div style={{ fontSize: 13, color: C.white, fontWeight: 900, lineHeight: 1.1 }}>
+            {hasValues ? formatBRL(total) : "A definir"}
+          </div>
+        </div>
       </div>
 
       {/* ── ITEMS TABLE ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 0 }}>
-        <colgroup>
-          <col style={{ width: "5%" }} />
-          <col />
-          <col style={{ width: "8%" }} />
-          <col style={{ width: "14%" }} />
-          <col style={{ width: "14%" }} />
-          <col style={{ width: "22%" }} />
-        </colgroup>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
-          <tr style={{ background: C.navy, color: C.white }}>
-            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>#</th>
-            <th style={{ ...tdBase, color: C.white, textAlign: "left", borderColor: C.navy }}>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
-            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>QTD</th>
-            <th style={{ ...tdBase, color: C.white, textAlign: "right", borderColor: C.navy }}>VALOR</th>
-            <th style={{ ...tdBase, color: C.white, textAlign: "right", borderColor: C.navy }}>TOTAL</th>
-            <th style={{ ...tdBase, color: C.white, textAlign: "center", borderColor: C.navy }}>RESUMO</th>
+          <tr>
+            <th style={{ ...thStyle, textAlign: "center", width: "4%" }}>#</th>
+            <th style={{ ...thStyle, textAlign: "left" }}>DESCRIÇÃO DO PRODUTO / SERVIÇO</th>
+            <th style={{ ...thStyle, textAlign: "center", width: "7%" }}>QTD</th>
+            <th style={{ ...thStyle, textAlign: "right", width: "13%" }}>VALOR UNIT.</th>
+            <th style={{ ...thStyle, textAlign: "right", width: "13%" }}>TOTAL</th>
           </tr>
         </thead>
         <tbody>
           {compra.itens.map((item, idx) => (
             <tr key={item.id} style={{ background: idx % 2 === 0 ? C.white : C.xlight }}>
-              <td style={{ ...tdBase, textAlign: "center" }}>{idx + 1}</td>
-              <td style={{ ...tdBase }}>{item.descricao}</td>
-              <td style={{ ...tdBase, textAlign: "center" }}>{item.quantidade}</td>
-              <td style={{ ...tdBase, textAlign: "right" }}>
+              <td style={{ ...td, textAlign: "center" }}>{idx + 1}</td>
+              <td style={{ ...td }}>{item.descricao}</td>
+              <td style={{ ...td, textAlign: "center" }}>{item.quantidade}</td>
+              <td style={{ ...td, textAlign: "right" }}>
                 {item.valorUnitario != null ? formatBRL(item.valorUnitario) : "—"}
               </td>
-              <td style={{ ...tdBase, textAlign: "right" }}>
+              <td style={{ ...td, textAlign: "right" }}>
                 {item.valorUnitario != null ? formatBRL(item.quantidade * item.valorUnitario) : "—"}
               </td>
-              {/* Summary column: show labels only on first rows */}
-              {idx === 0 && (
-                <td
-                  rowSpan={compra.itens.length}
-                  style={{
-                    ...tdBase,
-                    verticalAlign: "top",
-                    padding: 0,
-                    background: C.white,
-                  }}
-                >
-                  <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Subtotal Itens</div>
-                    <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>
-                      {hasValues ? formatBRL(subtotal) : "—"}
-                    </div>
-                  </div>
-                  <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Nº Nota Fornecedor</div>
-                    <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>
-                      {compra.notaFornecedor || "—"}
-                    </div>
-                  </div>
-                  {compra.dataPagamento && (
-                    <div style={{ padding: "6px 10px", borderBottom: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase" }}>Pagamento</div>
-                      <div style={{ fontSize: 11, color: C.text, marginTop: 2 }}>{formatDate(compra.dataPagamento)}</div>
-                    </div>
-                  )}
-                  {/* Total box */}
-                  <div style={{ background: C.blue, padding: "8px 10px", marginTop: "auto" }}>
-                    <div style={{ fontSize: 9, color: "rgba(255,255,255,0.8)", fontWeight: 700, textTransform: "uppercase" }}>TOTAL DO PEDIDO</div>
-                    <div style={{ fontSize: 16, color: C.white, fontWeight: 900, marginTop: 2 }}>
-                      {hasValues ? formatBRL(total) : "A definir"}
-                    </div>
-                  </div>
-                </td>
-              )}
             </tr>
           ))}
-          {/* blank filler rows */}
-          {Array.from({ length: Math.max(0, 6 - compra.itens.length) }).map((_, i) => (
-            <tr key={`blank-${i}`} style={{ background: (compra.itens.length + i) % 2 === 0 ? C.white : C.xlight }}>
-              <td style={{ ...tdBase, textAlign: "center" }}>&nbsp;</td>
-              <td style={{ ...tdBase }}>&nbsp;</td>
-              <td style={{ ...tdBase }}>&nbsp;</td>
-              <td style={{ ...tdBase }}>&nbsp;</td>
-              <td style={{ ...tdBase }}>&nbsp;</td>
+          {/* linhas em branco para preencher */}
+          {Array.from({ length: Math.max(0, 8 - compra.itens.length) }).map((_, i) => (
+            <tr key={`b${i}`} style={{ background: (compra.itens.length + i) % 2 === 0 ? C.white : C.xlight }}>
+              <td style={{ ...td, height: 14 }}>&nbsp;</td>
+              <td style={td}>&nbsp;</td>
+              <td style={td}>&nbsp;</td>
+              <td style={td}>&nbsp;</td>
+              <td style={td}>&nbsp;</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* ── FOOTER ROW ── */}
-      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none", marginBottom: 12 }}>
-        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "8px 10px" }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Observações</div>
-          <div style={{ fontSize: 11, color: C.text, minHeight: 32, whiteSpace: "pre-wrap" }}>
-            {compra.observacoes || "—"}
+      {/* ── RODAPÉ ── */}
+      <div style={{ display: "flex", border: `1px solid ${C.border}`, borderTop: "none" }}>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "4px 6px" }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Observações</div>
+          <div style={{ fontSize: 8, color: C.text, minHeight: 20, whiteSpace: "pre-wrap" }}>{compra.observacoes || "—"}</div>
+        </div>
+        <div style={{ flex: 1, borderRight: `1px solid ${C.border}`, padding: "4px 6px" }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Assinatura do Secretário</div>
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.black}`, paddingTop: 2, textAlign: "center" }}>
+            <div style={{ fontSize: 8, fontWeight: 700 }}>Leonardo Almeida</div>
+            <div style={{ fontSize: 7, color: C.muted }}>Secretário de Transportes</div>
           </div>
         </div>
-        <div style={{ flex: 1, padding: "8px 10px" }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Status do Pedido</div>
-          <div style={{ fontSize: 11, color: C.navy, fontWeight: 700 }}>
-            {STATUS_LABEL[compra.status]}
-            {compra.dataEntrega ? ` — Entregue em ${formatDate(compra.dataEntrega)}` : ""}
-            {compra.dataPagamento ? ` — Pago em ${formatDate(compra.dataPagamento)}` : ""}
-          </div>
+        <div style={{ flex: 1, padding: "4px 6px" }}>
+          <div style={{ fontSize: 7, fontWeight: 700, color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Assinatura do Fornecedor</div>
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.black}`, paddingTop: 2 }}>&nbsp;</div>
         </div>
       </div>
+    </div>
+  )
+}
 
-      {/* ── SIGNATURES ── */}
-      <div style={{ display: "flex", gap: 40, marginTop: 36 }}>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ borderTop: `1px solid ${C.black}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 11, fontWeight: 700 }}>Leonardo Almeida</div>
-            <div style={{ fontSize: 10, color: C.muted }}>Secretário de Transportes</div>
-          </div>
-        </div>
-        <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ borderTop: `1px solid ${C.black}`, paddingTop: 6 }}>
-            <div style={{ fontSize: 11, color: C.muted }}>Assinatura do Fornecedor</div>
-          </div>
-        </div>
+function PrintView({ compra }: { compra: Compra }) {
+  return (
+    <div id="print-area" style={{ background: C.white, padding: "12px 16px", maxWidth: 800, margin: "0 auto" }}>
+      <Via compra={compra} label="VIA SECRETARIA" />
+      <div style={{ margin: "10px 0", borderTop: "1px dashed #aaa", textAlign: "center", paddingTop: 4 }}>
+        <span style={{ fontSize: 8, color: "#aaa", letterSpacing: 2 }}>✂ RECORTAR AQUI</span>
       </div>
-
-      {/* ── CUT LINE ── */}
-      <div style={{ marginTop: 20, borderTop: "1px dashed #999", textAlign: "center", paddingTop: 4 }}>
-        <span style={{ fontSize: 9, color: "#999", letterSpacing: 2 }}>✂ RECORTAR AQUI</span>
-      </div>
+      <Via compra={compra} label="VIA FORNECEDOR" />
     </div>
   )
 }
@@ -567,9 +496,10 @@ function PrintDialog({
       <html><head><title>Pedido de Compra</title>
       <style>
         * { box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 12px; color: #000; background: #fff; margin: 0; padding: 16px; }
+        body { font-family: Arial, sans-serif; font-size: 9px; color: #000; background: #fff; margin: 0; padding: 8px 12px; }
         table { border-collapse: collapse; width: 100%; }
-        @page { margin: 10mm; size: A4; }
+        @page { margin: 8mm; size: A4 portrait; }
+        @media print { body { padding: 0; } }
       </style>
       </head><body>${el.innerHTML}</body></html>
     `)
