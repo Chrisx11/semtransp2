@@ -30,6 +30,7 @@ import {
   FolderOpen,
   ClipboardList,
   Calendar,
+  ShoppingCart,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -208,6 +209,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           title: "Saídas",
           href: "/dashboard/movimento/saidas",
           icon: ArrowLeft,
+          requiredPermission: { modulo: "produtos", acao: "visualizar" }
+        },
+        {
+          title: "Compras",
+          href: "/dashboard/movimento/compras",
+          icon: ShoppingCart,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
       ],
