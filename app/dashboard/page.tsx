@@ -58,7 +58,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
-import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart, FileSpreadsheet } from "lucide-react"
+import { CalendarIcon, Car, Clock, BarChart3, Package, Droplets, ArrowRight, AlertTriangle, CheckCircle, RefreshCw, TrendingUp, Activity, ChevronLeft, ChevronRight, Wrench, Users, ArrowLeft, FileText, CalendarRange, Disc, History, ClipboardList, Calendar, Settings, FolderOpen, FuelIcon as Oil, Search, Filter, Download, LogOut, User, ChevronDown, ShoppingCart, FileSpreadsheet, FileImage } from "lucide-react"
 import { jsPDF } from "jspdf"
 import autoTable from "jspdf-autotable"
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
@@ -227,6 +227,8 @@ function DashboardMobileView() {
         { href: "/dashboard/veiculos", title: "Veículos", icon: Car, desc: "Gerenciar veículos" },
         { href: "/dashboard/produtos", title: "Produtos", icon: Package, desc: "Gerenciar produtos" },
         { href: "/dashboard/filtros", title: "Filtros", icon: Oil, desc: "Gerenciar filtros" },
+        { href: "/dashboard/buscar-filtros", title: "Buscar Filtros", icon: Search, desc: "Consultar filtros e equivalentes" },
+        { href: "/dashboard/arquivo", title: "Arquivo", icon: FileImage, desc: "Importar notas de fornecedor" },
       ]
     },
     {

@@ -70,6 +70,10 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Buscar Filtros",
     description: "Consulta de filtros e códigos equivalentes na Showlub",
   },
+  "/dashboard/arquivo": {
+    title: "Arquivo",
+    description: "Importação e leitura de notas de fornecedor escaneadas",
+  },
   "/dashboard/manutencoes/painel": {
     title: "Painel de Manutenções",
     description: "Visão geral das manutenções",

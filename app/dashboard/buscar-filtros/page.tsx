@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog"
 import { Search, ExternalLink, Loader2 } from "lucide-react"
+import { MobileBackButton } from "@/components/mobile-back-button"
 
 interface EquivalenteFiltro {
   marca: string
@@ -107,6 +108,7 @@ export default function BuscarFiltrosPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <MobileBackButton />
       <form onSubmit={handleBuscar} className="flex gap-2">
         <Input
           type="text"

@@ -32,6 +32,7 @@ import {
   Calendar,
   ShoppingCart,
   Search,
+  FileImage,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -129,7 +130,8 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         pathname?.includes("/dashboard/documentos") ||
         pathname?.includes("/dashboard/produtos") ||
         pathname?.includes("/dashboard/filtros") ||
-        pathname?.includes("/dashboard/buscar-filtros")) {
+        pathname?.includes("/dashboard/buscar-filtros") ||
+        pathname?.includes("/dashboard/arquivo")) {
       setOpenCadastros(true)
     }
     if (pathname?.includes("/dashboard/movimento")) {
@@ -195,6 +197,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           title: "Buscar Filtros",
           href: "/dashboard/buscar-filtros",
           icon: Search,
+          requiredPermission: { modulo: "produtos", acao: "visualizar" }
+        },
+        {
+          title: "Arquivo",
+          href: "/dashboard/arquivo",
+          icon: FileImage,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
       ],
