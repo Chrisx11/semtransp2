@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Conferência de Filtros</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 1200px; margin: 40px auto; padding: 0 16px; background: #f4f4f4; color: #222; }
+    h1 { color: #2c3e50; }
+    form { display: flex; gap: 8px; margin-bottom: 24px; }
+    input[type=text] { flex: 1; padding: 10px; font-size: 16px; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 10px 20px; font-size: 16px; background: #2c3e50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #1a252f; }
+    .erro { color: #b00020; margin-bottom: 16px; }
+    .resultado { background: #fff; padding: 16px 20px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .resultado h2 { margin-top: 0; font-size: 18px; }
+    .resultado a { color: #1a73e8; text-decoration: none; font-size: 14px; }
+    .contador { font-size: 13px; color: #777; margin: 12px 0 4px; }
+    .grid-equivalentes {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 1px;
+      background: #eee;
+      border: 1px solid #eee;
+      margin-top: 8px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .item-equivalente {
+      background: #fff;
+      padding: 8px 10px;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .item-equivalente { cursor: pointer; transition: background .1s; }
+    .item-equivalente:hover { background: #eef5ff; }
+    .item-equivalente .marca { font-size: 11px; text-transform: uppercase; color: #888; letter-spacing: .03em; }
+    .item-equivalente .codigo { font-weight: 600; color: #1a1a1a; }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.aberto { display: flex; }
+    .modal-caixa {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      max-width: 420px;
+      width: 90%;
+      text-align: center;
+      position: relative;
+    }
+    .modal-fechar {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      cursor: pointer;
+      font-size: 22px;
+      color: #888;
+      line-height: 1;
+      background: none;
+      border: none;
+    }
+    .modal-fechar:hover { color: #222; }
+    .modal-caixa h3 { margin: 8px 0 4px; font-size: 16px; }
+    .modal-caixa img { max-width: 100%; max-height: 320px; border-radius: 6px; margin-top: 8px; }
+    .modal-status { color: #777; font-size: 14px; padding: 30px 0; }
+    .modal-caixa a { display: inline-block; margin-top: 10px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Conferência de Filtros Automotivos</h1>
+  <form method="get" action="/">
+    <input type="text" name="codigo" placeholder="Digite o código do filtro (ex: PH8A)" value="{{ codigo }}" autofocus>
+    <button type="submit">Buscar</button>
+  </form>
+
+  {% if erro %}
+    <p class="erro">{{ erro }}</p>
+  {% endif %}
+
+  {% if resultado %}
+    <div class="resultado">
+      <h2>{{ resultado.nome }}</h2>
+      {% if resultado.produto_encontrado != resultado.nome %}
+        <p style="font-size:13px;color:#777;">Fonte: {{ resultado.produto_encontrado }}</p>
+      {% endif %}
+      <a href="{{ resultado.url }}" target="_blank">Ver produto na Showlub →</a>
+
+      {% if resultado.equivalentes %}
+        <p class="contador">{{ resultado.equivalentes|length }} códigos equivalentes encontrados</p>
+        <div class="grid-equivalentes">
+          {% for eq in resultado.equivalentes %}
+            <div class="item-equivalente" data-codigo="{{ eq.codigo }}" data-marca="{{ eq.marca }}" onclick="abrirModal(this)">
+              <span class="marca">{{ eq.marca }}</span>
+              <span class="codigo">{{ eq.codigo }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Nenhum código equivalente encontrado para este produto.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) fecharModal()">
+    <div class="modal-caixa">
+      <button class="modal-fechar" onclick="fecharModal()">&times;</button>
+      <div id="modalConteudo" class="modal-status">Carregando...</div>
+    </div>
+  </div>
+
+  <script>
+    function abrirModal(el) {
+      var codigo = el.getAttribute('data-codigo');
+      var marca = el.getAttribute('data-marca');
+      var overlay = document.getElementById('modalOverlay');
+      var conteudo = document.getElementById('modalConteudo');
+
+      conteudo.className = 'modal-status';
+      conteudo.innerHTML = 'Carregando imagem...';
+      overlay.classList.add('aberto');
+
+      fetch('/api/imagem?codigo=' + encodeURIComponent(codigo))
+        .then(function(resp) { return resp.json().then(function(data) { return { ok: resp.ok, data: data }; }); })
+        .then(function(res) {
+          if (!res.ok) {
+            conteudo.className = 'modal-status';
+            conteudo.innerHTML = res.data.erro || 'Imagem não encontrada.';
+            return;
+          }
+          conteudo.className = '';
+          conteudo.innerHTML =
+            '<h3>' + marca + ' ' + codigo + '</h3>' +
+            '<img src="' + res.data.imagem + '" alt="' + res.data.nome + '">' +
+            '<br><a href="' + res.data.url + '" target="_blank">Ver na Showlub →</a>';
+        })
+        .catch(function() {
+          conteudo.className = 'modal-status';
+          conteudo.innerHTML = 'Erro ao carregar imagem.';
+        });
+    }
+
+    function fecharModal() {
+      document.getElementById('modalOverlay').classList.remove('aberto');
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') fecharModal();
+    });
+  </script>
+</body>
+</html>

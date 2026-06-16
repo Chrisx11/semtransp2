@@ -31,6 +31,7 @@ import {
   ClipboardList,
   Calendar,
   ShoppingCart,
+  Search,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -126,8 +127,9 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     if (pathname?.includes("/dashboard/colaboradores") || 
         pathname?.includes("/dashboard/veiculos") || 
         pathname?.includes("/dashboard/documentos") ||
-        pathname?.includes("/dashboard/produtos") || 
-        pathname?.includes("/dashboard/filtros")) {
+        pathname?.includes("/dashboard/produtos") ||
+        pathname?.includes("/dashboard/filtros") ||
+        pathname?.includes("/dashboard/buscar-filtros")) {
       setOpenCadastros(true)
     }
     if (pathname?.includes("/dashboard/movimento")) {
@@ -187,6 +189,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           title: "Filtros",
           href: "/dashboard/filtros",
           icon: Oil,
+          requiredPermission: { modulo: "produtos", acao: "visualizar" }
+        },
+        {
+          title: "Buscar Filtros",
+          href: "/dashboard/buscar-filtros",
+          icon: Search,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
       ],

@@ -66,6 +66,10 @@ const pageInfo: Record<string, { title: string; description: string }> = {
     title: "Filtros",
     description: "Gerenciamento de filtros dos veículos",
   },
+  "/dashboard/buscar-filtros": {
+    title: "Buscar Filtros",
+    description: "Consulta de filtros e códigos equivalentes na Showlub",
+  },
   "/dashboard/manutencoes/painel": {
     title: "Painel de Manutenções",
     description: "Visão geral das manutenções",
