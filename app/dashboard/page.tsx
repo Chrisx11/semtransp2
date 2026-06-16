@@ -47,6 +47,7 @@ async function getFiltrosDoVeiculoSupabase(veiculoId: string): Promise<FiltroReg
 }
 import { getSaidasSupabase } from "@/services/saida-service"
 import { getEntradasSupabase } from "@/services/entrada-service"
+import { getOrdensServicoSupabase, STATUS_ORDEM_ENCERRADA } from "@/services/ordem-servico-service"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -552,6 +553,7 @@ export default function DashboardPage() {
   const [trocasMesAtual, setTrocasMesAtual] = useState(0) // Contador de trocas do mês atual
   const [veiculosSemAtualizacaoKm, setVeiculosSemAtualizacaoKm] = useState<any[]>([])
   const [veiculosComAtualizacaoKm, setVeiculosComAtualizacaoKm] = useState<any[]>([])
+  const [veiculosNaOficina, setVeiculosNaOficina] = useState<any[]>([])
   const [kmAtualizacaoDialogOpen, setKmAtualizacaoDialogOpen] = useState(false)
   // ---------- ESTADO GLOBAL USUÁRIO (topo do componente)
   const [usuariosKmMap, setUsuariosKmMap] = useState<Record<string, string>>({});
@@ -559,7 +561,7 @@ export default function DashboardPage() {
   const [kmSearchTerm, setKmSearchTerm] = useState("")
   const [kmSecretariaFilter, setKmSecretariaFilter] = useState<string>("all")
   const [kmPdfDialogOpen, setKmPdfDialogOpen] = useState(false)
-  const [kmPdfOption, setKmPdfOption] = useState<"sem-atualizacao" | "com-atualizacao" | "ambos">("ambos")
+  const [kmPdfOption, setKmPdfOption] = useState<"sem-atualizacao" | "com-atualizacao" | "oficina" | "ambos">("ambos")
   // Estados para vistoria de pneu
   const [vistoriaPneuStats, setVistoriaPneuStats] = useState({
     precisaAlinhar: 0,
@@ -994,8 +996,32 @@ export default function DashboardPage() {
         return dataAtualizacao >= dataLimite
       })
       
-      setVeiculosSemAtualizacaoKm(semAtualizacao)
+      // Veículos com OS aberta (na oficina) não entram em "Não Atualizaram"
+      const statusEncerrados = new Set<string>(STATUS_ORDEM_ENCERRADA)
+      const ordensServico = await getOrdensServicoSupabase()
+      const ordemAbertaPorVeiculo = new Map<string, (typeof ordensServico)[0]>()
+      for (const ordem of ordensServico) {
+        if (ordem.veiculoId && !statusEncerrados.has(ordem.status) && !ordemAbertaPorVeiculo.has(ordem.veiculoId)) {
+          ordemAbertaPorVeiculo.set(ordem.veiculoId, ordem)
+        }
+      }
+
+      const naOficina = veiculosComInfoKm
+        .filter(v => v.status === "Ativo" && ordemAbertaPorVeiculo.has(v.id))
+        .map(v => {
+          const ordem = ordemAbertaPorVeiculo.get(v.id)!
+          return {
+            ...v,
+            ordemNumero: ordem.numero,
+            ordemStatus: ordem.status,
+            ordemMecanico: ordem.mecanicoInfo,
+            ordemData: ordem.data || ordem.createdAt,
+          }
+        })
+
+      setVeiculosSemAtualizacaoKm(semAtualizacao.filter(v => !ordemAbertaPorVeiculo.has(v.id)))
       setVeiculosComAtualizacaoKm(comAtualizacao)
+      setVeiculosNaOficina(naOficina)
       
     } catch (err: any) {
       console.error("Erro ao carregar dados:", err)
@@ -1115,9 +1141,9 @@ export default function DashboardPage() {
   // ---------- EFFECT AO ABRIR O KM DIALOG
   useEffect(() => {
     if (kmAtualizacaoDialogOpen) {
-      carregarNomesUsuariosKmDialog([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm]);
+      carregarNomesUsuariosKmDialog([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm, ...veiculosNaOficina]);
     }
-  }, [kmAtualizacaoDialogOpen, veiculosSemAtualizacaoKm, veiculosComAtualizacaoKm]);
+  }, [kmAtualizacaoDialogOpen, veiculosSemAtualizacaoKm, veiculosComAtualizacaoKm, veiculosNaOficina]);
 
   // ---------- FUNÇÕES DE EXPORTAÇÃO PARA VISTORIA DE PNEU
   const exportarVistoriaPneuPDF = async (tipo: "alinhar" | "balancear") => {
@@ -2726,7 +2752,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">Atualização de Quilometragem</DialogTitle>
             <DialogDescription className="text-base">
-              Veículos que atualizaram e não atualizaram KM nos últimos 3 dias
+              Veículos que atualizaram e não atualizaram KM nos últimos 3 dias. Veículos na oficina (com OS aberta) são listados separadamente.
             </DialogDescription>
           </DialogHeader>
           
@@ -2750,7 +2776,7 @@ export default function DashboardPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas as secretarias</SelectItem>
-                  {Array.from(new Set([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm]
+                  {Array.from(new Set([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm, ...veiculosNaOficina]
                     .map(v => v.secretaria)
                     .filter(Boolean)))
                     .sort()
@@ -2771,7 +2797,7 @@ export default function DashboardPage() {
             </div>
 
             <Tabs defaultValue="sem-atualizacao" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="sem-atualizacao" className="text-amber-600 data-[state=active]:font-bold">
                   <AlertTriangle className="h-4 w-4 mr-2" />
                   Não Atualizaram ({veiculosSemAtualizacaoKm.filter(v => {
@@ -2786,6 +2812,17 @@ export default function DashboardPage() {
                 <TabsTrigger value="com-atualizacao" className="text-green-600 data-[state=active]:font-bold">
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Atualizaram ({veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
+                </TabsTrigger>
+                <TabsTrigger value="oficina" className="text-blue-600 data-[state=active]:font-bold">
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Oficina ({veiculosNaOficina.filter(v => {
                     const matchesSearch = !kmSearchTerm || 
                       v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
                       v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
@@ -2987,6 +3024,82 @@ export default function DashboardPage() {
                   )
                 })()}
               </TabsContent>
+
+              <TabsContent value="oficina" className="mt-6">
+                {(() => {
+                  const filtered = veiculosNaOficina.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  })
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12 text-muted-foreground border rounded-lg bg-muted/30">
+                        <Wrench className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+                        <p className="text-lg font-medium">
+                          {veiculosNaOficina.length === 0 
+                            ? "Nenhum veículo com OS aberta na oficina."
+                            : "Nenhum veículo encontrado com os filtros aplicados"}
+                        </p>
+                        <p className="text-sm mt-2">
+                          {veiculosNaOficina.length === 0 
+                            ? "Todos os veículos estão em operação normal."
+                            : "Tente ajustar os filtros de busca ou secretaria."}
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  return (
+                    <div className="border rounded-lg overflow-hidden shadow-sm">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-muted/50">
+                            <TableHead className="font-semibold">Placa</TableHead>
+                            <TableHead className="font-semibold">Modelo</TableHead>
+                            <TableHead className="font-semibold">Marca</TableHead>
+                            <TableHead className="font-semibold">Secretaria</TableHead>
+                            <TableHead className="text-right font-semibold">Km Atual</TableHead>
+                            <TableHead className="font-semibold">OS</TableHead>
+                            <TableHead className="font-semibold">Status OS</TableHead>
+                            <TableHead className="font-semibold">Mecânico</TableHead>
+                            <TableHead className="text-right font-semibold">Dias Sem Atualizar</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filtered
+                            .sort((a, b) => (a.ordemNumero || "").localeCompare(b.ordemNumero || ""))
+                            .map((veiculo) => (
+                            <TableRow key={veiculo.id} className="hover:bg-blue-50 dark:hover:bg-blue-900/10 border-b">
+                              <TableCell className="font-medium">{veiculo.placa}</TableCell>
+                              <TableCell>{veiculo.modelo}</TableCell>
+                              <TableCell>{veiculo.marca}</TableCell>
+                              <TableCell className="text-muted-foreground">{veiculo.secretaria || 'N/A'}</TableCell>
+                              <TableCell className="text-right font-medium">{veiculo.kmAtual?.toLocaleString() || 'N/A'}</TableCell>
+                              <TableCell className="font-medium text-blue-600 dark:text-blue-400">{veiculo.ordemNumero}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {veiculo.ordemStatus}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">{veiculo.ordemMecanico || 'N/A'}</TableCell>
+                              <TableCell className="text-right font-medium text-muted-foreground">
+                                {veiculo.diasSemAtualizar !== null 
+                                  ? `${veiculo.diasSemAtualizar} ${veiculo.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
+                                  : 'N/A'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )
+                })()}
+              </TabsContent>
             </Tabs>
           </div>
         </DialogContent>
@@ -3002,7 +3115,7 @@ export default function DashboardPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Select value={kmPdfOption} onValueChange={(value: "sem-atualizacao" | "com-atualizacao" | "ambos") => setKmPdfOption(value)}>
+            <Select value={kmPdfOption} onValueChange={(value: "sem-atualizacao" | "com-atualizacao" | "oficina" | "ambos") => setKmPdfOption(value)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -3019,6 +3132,16 @@ export default function DashboardPage() {
                 </SelectItem>
                 <SelectItem value="com-atualizacao">
                   Atualizaram ({veiculosComAtualizacaoKm.filter(v => {
+                    const matchesSearch = !kmSearchTerm || 
+                      v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
+                      v.marca?.toLowerCase().includes(kmSearchTerm.toLowerCase())
+                    const matchesSecretaria = kmSecretariaFilter === "all" || v.secretaria === kmSecretariaFilter
+                    return matchesSearch && matchesSecretaria
+                  }).length})
+                </SelectItem>
+                <SelectItem value="oficina">
+                  Oficina ({veiculosNaOficina.filter(v => {
                     const matchesSearch = !kmSearchTerm || 
                       v.placa?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
                       v.modelo?.toLowerCase().includes(kmSearchTerm.toLowerCase()) ||
@@ -3073,6 +3196,9 @@ export default function DashboardPage() {
               } else if (kmPdfOption === "com-atualizacao") {
                 veiculosParaPdf = filterVeiculos(veiculosComAtualizacaoKm)
                 tituloSecao = "Veículos que Atualizaram KM"
+              } else if (kmPdfOption === "oficina") {
+                veiculosParaPdf = filterVeiculos(veiculosNaOficina)
+                tituloSecao = "Veículos na Oficina (OS Aberta)"
               } else {
                 const semAtualizacao = filterVeiculos(veiculosSemAtualizacaoKm)
                 const comAtualizacao = filterVeiculos(veiculosComAtualizacaoKm)
@@ -3200,6 +3326,8 @@ export default function DashboardPage() {
                       const diasA = a.diasSemAtualizar ?? 999
                       const diasB = b.diasSemAtualizar ?? 999
                       return diasB - diasA
+                    } else if (kmPdfOption === "oficina") {
+                      return (a.ordemNumero || "").localeCompare(b.ordemNumero || "")
                     } else {
                       const dataA = a.ultimaAtualizacaoKm?.getTime() || 0
                       const dataB = b.ultimaAtualizacaoKm?.getTime() || 0
@@ -3223,6 +3351,20 @@ export default function DashboardPage() {
                         v.userId || v.user_id
                           ? usuariosKmMap[v.userId || v.user_id] || "Sistema"
                           : "Sistema"
+                      ]
+                    } else if (kmPdfOption === "oficina") {
+                      return [
+                        v.placa || "",
+                        v.modelo || "",
+                        v.marca || "",
+                        v.secretaria || "N/A",
+                        v.kmAtual?.toLocaleString() || "N/A",
+                        v.ordemNumero || "N/A",
+                        v.ordemStatus || "N/A",
+                        v.ordemMecanico || "N/A",
+                        v.diasSemAtualizar !== null 
+                          ? `${v.diasSemAtualizar} ${v.diasSemAtualizar === 1 ? 'dia' : 'dias'}`
+                          : "N/A",
                       ]
                     } else {
                       const diasDesdeAtualizacao = v.ultimaAtualizacaoKm
@@ -3249,6 +3391,8 @@ export default function DashboardPage() {
 
                 const headers = kmPdfOption === "sem-atualizacao"
                   ? [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Sem Atualizar", "Usuário"]]
+                  : kmPdfOption === "oficina"
+                  ? [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "OS", "Status OS", "Mecânico", "Dias Sem Atualizar"]]
                   : [["Placa", "Modelo", "Marca", "Secretaria", "Km Atual", "Última Atualização", "Dias Desde Atualização", "Usuário"]]
 
                 autoTable(doc, {
@@ -3257,10 +3401,10 @@ export default function DashboardPage() {
                   startY: startY,
                   styles: { fontSize: 8, cellPadding: 2 },
                   headStyles: { 
-                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 140, 0] : [34, 197, 94] 
+                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 140, 0] : kmPdfOption === "oficina" ? [59, 130, 246] : [34, 197, 94] 
                   },
                   alternateRowStyles: { 
-                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 250, 240] : [240, 253, 244] 
+                    fillColor: kmPdfOption === "sem-atualizacao" ? [255, 250, 240] : kmPdfOption === "oficina" ? [239, 246, 255] : [240, 253, 244] 
                   },
                   margin: { top: startY, left: 10, right: 10 },
                 })
