@@ -11,8 +11,8 @@ export interface EventoHistorico {
   para: string // Setor de destino
   status: string // Status da OS no momento do evento
   observacao: string // Observação deixada
-  usuarioId?: string // ID do usuário que realizou a ação (para implementação futura)
-  usuarioNome?: string // Nome do usuário que realizou a ação (para implementação futura)
+  usuarioId?: string // ID do usuário que realizou a ação
+  usuarioNome?: string // Nome do usuário que realizou a ação
 }
 
 // Atualizar a interface OrdemServico para incluir o campo kmAtual

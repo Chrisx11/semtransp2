@@ -401,6 +401,7 @@ export function OrdemServicoVisualizacao({ ordem, onBack, onEdit }: OrdemServico
                           <span> (De: {evento.de} → Para: {evento.para})</span>
                         )}
                         {" - Status: "}<span>{evento.status}</span>
+                        {evento.usuarioNome && <span> - Por: {evento.usuarioNome}</span>}
                         {evento.observacao && <span> - {evento.observacao}</span>}
                       </li>
                     )

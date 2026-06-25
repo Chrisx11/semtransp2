@@ -257,8 +257,109 @@ export async function updateVeiculoSupabase(id: string, dataUpdate: Partial<Omit
   return data[0]
 }
 
+// Função auxiliar para excluir registros relacionados antes de remover o veículo
+function isErroTabelaInexistente(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false
+  const msg = (error.message || "").toLowerCase()
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST204" ||
+    error.code === "PGRST205" ||
+    msg.includes("could not find the table") ||
+    msg.includes("does not exist") ||
+    msg.includes("schema cache")
+  )
+}
+
+async function excluirRegistrosRelacionadosVeiculo(id: string): Promise<void> {
+  const excluirPorColuna = async (tabela: string, coluna: string) => {
+    const { error } = await supabase.from(tabela).delete().eq(coluna, id)
+    if (error && !isErroTabelaInexistente(error)) {
+      throw new Error(`Erro ao limpar ${tabela}: ${error.message}`)
+    }
+  }
+
+  const anularColuna = async (tabela: string, coluna: string) => {
+    const { error } = await supabase.from(tabela).update({ [coluna]: null }).eq(coluna, id)
+    if (error && !isErroTabelaInexistente(error)) {
+      throw new Error(`Erro ao atualizar ${tabela}: ${error.message}`)
+    }
+  }
+
+  // Histórico das ordens de serviço vinculadas ao veículo
+  const { data: ordens, error: ordensError } = await supabase
+    .from("ordens_servico")
+    .select("id")
+    .eq("veiculoId", id)
+
+  if (ordensError && !isErroTabelaInexistente(ordensError)) {
+    throw new Error(`Erro ao buscar ordens de serviço: ${ordensError.message}`)
+  }
+
+  const ordemIds = (ordens || []).map((o) => o.id)
+  if (ordemIds.length > 0) {
+    const { error: historicoOsError } = await supabase
+      .from("ordem_servico_historico")
+      .delete()
+      .in("ordem_id", ordemIds)
+
+    if (historicoOsError && !isErroTabelaInexistente(historicoOsError)) {
+      throw new Error(`Erro ao limpar histórico de OS: ${historicoOsError.message}`)
+    }
+  }
+
+  // Registros vinculados diretamente ao veículo (ignora tabelas que não existem no banco)
+  const tabelasParaExcluir = [
+    { tabela: "servicos_externos", coluna: "veiculo_id" },
+    { tabela: "ordens_servico", coluna: "veiculoId" },
+    { tabela: "trocas_pneu", coluna: "veiculo_id" },
+    { tabela: "trocas_oleo", coluna: "veiculo_id" },
+    { tabela: "historico_troca_oleo", coluna: "veiculoid" },
+    { tabela: "observacoes_veiculo", coluna: "veiculo_id" },
+    { tabela: "manutencoes_antigas", coluna: "veiculo_id" },
+    { tabela: "filtros_registrados", coluna: "veiculoid" },
+    { tabela: "autorizacoes_borracharia", coluna: "veiculo_id" },
+    { tabela: "autorizacoes_lavador", coluna: "veiculo_id" },
+    { tabela: "vistorias_tacografo", coluna: "veiculo_id" },
+    { tabela: "saidas", coluna: "veiculoId" },
+    { tabela: "historicos", coluna: "veiculo_id" },
+  ] as const
+
+  for (const { tabela, coluna } of tabelasParaExcluir) {
+    await excluirPorColuna(tabela, coluna)
+  }
+
+  // Manter notas e despesas, apenas desvinculando o veículo
+  await anularColuna("notas", "veiculo_id")
+  await anularColuna("despesas_notas", "veiculo_id")
+
+  // Remover o veículo dos produtos compatíveis
+  const { data: produtos, error: produtosError } = await supabase
+    .from("produtos")
+    .select("id, veiculosCompativeis")
+    .contains("veiculosCompativeis", [id])
+
+  if (produtosError && !isErroTabelaInexistente(produtosError)) {
+    throw new Error(`Erro ao buscar produtos compatíveis: ${produtosError.message}`)
+  }
+
+  for (const produto of produtos || []) {
+    const veiculosCompativeis = (produto.veiculosCompativeis || []).filter(
+      (veiculoId: string) => veiculoId !== id
+    )
+    const { error } = await supabase
+      .from("produtos")
+      .update({ veiculosCompativeis })
+      .eq("id", produto.id)
+
+    if (error) throw new Error(`Erro ao atualizar produto ${produto.id}: ${error.message}`)
+  }
+}
+
 // Função para excluir um veículo do Supabase
 export async function deleteVeiculoSupabase(id: string): Promise<boolean> {
+  await excluirRegistrosRelacionadosVeiculo(id)
+
   const { error } = await supabase.from("veiculos").delete().eq("id", id)
   if (error) throw error
   return true

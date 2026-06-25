@@ -518,11 +518,11 @@ export default function VeiculosPage() {
       } else {
         throw new Error("Falha ao excluir veículo")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao excluir veículo:", error)
       toast({
         title: "Erro",
-        description: "Não foi possível excluir o veículo.",
+        description: error?.message || "Não foi possível excluir o veículo.",
         variant: "destructive",
       })
     } finally {
@@ -812,7 +812,7 @@ export default function VeiculosPage() {
             onOpenChange={setDeleteOpen}
             onConfirm={handleDelete}
             title="Excluir veículo"
-            description="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
+            description="Tem certeza que deseja excluir este veículo? Os registros vinculados (trocas, OS, saídas, etc.) também serão removidos. Esta ação não pode ser desfeita."
           />
           {veiculoTrocaOleo && (
             <TrocaOleoDialog
@@ -1181,7 +1181,7 @@ export default function VeiculosPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={handleDelete}
         title="Excluir veículo"
-        description="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
+        description="Tem certeza que deseja excluir este veículo? Os registros vinculados (trocas, OS, saídas, etc.) também serão removidos. Esta ação não pode ser desfeita."
       />
 
       {veiculoTrocaOleo && (

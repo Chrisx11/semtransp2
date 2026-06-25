@@ -91,6 +91,13 @@ function TimelineItem({ evento, isLast }: TimelineItemProps) {
           </div>
         )}
 
+        {evento.usuarioNome && (
+          <div className="text-sm">
+            <span className="text-muted-foreground">Realizado por: </span>
+            <span className="font-medium">{evento.usuarioNome}</span>
+          </div>
+        )}
+
         {evento.observacao && <div className="rounded-md bg-muted/50 p-3 text-sm">{evento.observacao}</div>}
       </div>
     </div>

@@ -7,6 +7,7 @@ interface HistoricoEvento {
   tipo: string;
   status: string;
   observacao?: string;
+  usuarioNome?: string;
 }
 
 interface OrdemServicoPDFProps {
@@ -479,6 +480,11 @@ export function OrdemServicoPDF({ ordem }: OrdemServicoPDFProps) {
                 <Text style={{ width: 80, fontSize: 10, color: colors.dark }}>
                   {evento.status}
                 </Text>
+                {evento.usuarioNome && (
+                  <Text style={{ width: 90, fontSize: 10, color: colors.dark }}>
+                    {evento.usuarioNome}
+                  </Text>
+                )}
                 {evento.observacao && (
                   <Text style={{ flex: 1, fontSize: 10, fontStyle: 'italic', color: colors.muted }}>
                     {evento.observacao}
