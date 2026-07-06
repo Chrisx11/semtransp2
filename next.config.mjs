@@ -29,6 +29,9 @@ const nextConfig = withPWA({
   outputFileTracingRoot: path.join(__dirname),
   // Configuração do Turbopack para compatibilidade com Next.js 16
   turbopack: {},
+  // pdf-parse/pdfjs-dist tentam resolver um worker via caminho de arquivo;
+  // mantê-los fora do bundle do servidor evita que o Turbopack quebre essa resolução.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "pdf-lib"],
 })
 
 export default nextConfig

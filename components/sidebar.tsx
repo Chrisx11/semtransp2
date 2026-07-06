@@ -233,6 +233,12 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           icon: ShoppingCart,
           requiredPermission: { modulo: "produtos", acao: "visualizar" }
         },
+        {
+          title: "Compras Realizadas",
+          href: "/dashboard/movimento/compras-realizadas",
+          icon: ClipboardList,
+          requiredPermission: { modulo: "produtos", acao: "visualizar" }
+        },
       ],
     },
     {
