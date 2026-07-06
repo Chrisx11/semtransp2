@@ -68,6 +68,7 @@ interface ImportRow {
   parsed: ParsedResult
   veiculoId: string | null
   veiculoModelo: string | null
+  placaVeiculo: string | null
   semVeiculoConfirmado: boolean
   duplicado: boolean
   reimportar: boolean
@@ -119,12 +120,14 @@ function ImportarPdfsDialog({
         results.map(async (parsed, idx) => {
           let veiculoId: string | null = null
           let veiculoModelo: string | null = null
+          let placaVeiculo: string | null = null
           if (parsed.ok && parsed.placa) {
             const alvo = normalizePlaca(parsed.placa)
             const match = veiculosData.find((v) => normalizePlaca(v.placa) === alvo)
             if (match) {
               veiculoId = match.id
               veiculoModelo = `${match.modelo} (${match.placa})`
+              placaVeiculo = match.placa
             }
           }
           const duplicado =
@@ -135,6 +138,7 @@ function ImportarPdfsDialog({
             parsed,
             veiculoId,
             veiculoModelo,
+            placaVeiculo,
             semVeiculoConfirmado: false,
             duplicado,
             reimportar: false,
@@ -155,7 +159,13 @@ function ImportarPdfsDialog({
     setRows((prev) =>
       prev.map((r) =>
         r.key === editingRowKey
-          ? { ...r, veiculoId: veiculo.id, veiculoModelo: `${veiculo.modelo} (${veiculo.placa})`, semVeiculoConfirmado: false }
+          ? {
+              ...r,
+              veiculoId: veiculo.id,
+              veiculoModelo: `${veiculo.modelo} (${veiculo.placa})`,
+              placaVeiculo: veiculo.placa,
+              semVeiculoConfirmado: false,
+            }
           : r,
       ),
     )
@@ -189,7 +199,7 @@ function ImportarPdfsDialog({
         const existente = p.numeroOS ? await getCompraRealizadaPorNumeroOSSupabase(p.numeroOS) : null
         const input = {
           numeroOS: p.numeroOS ?? p.arquivoNome,
-          placa: p.placa,
+          placa: row.placaVeiculo ?? p.placa,
           veiculoId: row.veiculoId,
           veiculoModelo: row.veiculoModelo,
           data: p.dataISO ?? new Date().toISOString(),
@@ -320,7 +330,7 @@ function ImportarPdfsDialog({
                     {row.parsed.ok && (
                       <div className="pl-6 flex flex-wrap items-center gap-2">
                         <span className="text-xs text-muted-foreground">
-                          Placa: <strong>{row.parsed.placa ?? "não identificada"}</strong>
+                          Placa: <strong>{row.placaVeiculo ?? row.parsed.placa ?? "não identificada"}</strong>
                         </span>
                         {row.veiculoModelo && (
                           <span className="text-xs text-muted-foreground">→ {row.veiculoModelo}</span>
@@ -446,7 +456,29 @@ export default function ComprasRealizadasPage() {
   const load = async () => {
     try {
       setLoading(true)
-      setCompras(await getComprasRealizadasSupabase())
+      const [comprasData, veiculosData] = await Promise.all([
+        getComprasRealizadasSupabase(),
+        getVeiculosSupabase(),
+      ])
+
+      const precisaSincronizarPlaca = comprasData.filter((c) => {
+        if (!c.veiculoId) return false
+        const veiculo = veiculosData.find((v) => v.id === c.veiculoId)
+        if (!veiculo) return false
+        return normalizePlaca(c.placa ?? "") !== normalizePlaca(veiculo.placa)
+      })
+
+      if (precisaSincronizarPlaca.length > 0) {
+        await Promise.all(
+          precisaSincronizarPlaca.map((c) => {
+            const veiculo = veiculosData.find((v) => v.id === c.veiculoId)!
+            return updateCompraRealizadaSupabase(c.id, { placa: veiculo.placa })
+          }),
+        )
+        setCompras(await getComprasRealizadasSupabase())
+      } else {
+        setCompras(comprasData)
+      }
     } catch (e: any) {
       toast({ title: "Erro ao carregar lançamentos", description: e.message, variant: "destructive" })
     } finally {
@@ -505,6 +537,7 @@ export default function ComprasRealizadasPage() {
       await updateCompraRealizadaSupabase(veiculoEditId, {
         veiculoId: veiculo.id,
         veiculoModelo: `${veiculo.modelo} (${veiculo.placa})`,
+        placa: veiculo.placa,
       })
       toast({ title: "Veículo vinculado" })
       setVeiculoEditId(null)
