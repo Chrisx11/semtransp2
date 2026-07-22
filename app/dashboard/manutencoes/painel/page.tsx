@@ -34,6 +34,7 @@ import {
   ChevronsUpDown,
   Trophy,
   ClipboardList,
+  Package,
 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -153,6 +154,11 @@ const StatusBadge = ({ status }: { status: string }) => {
       statusClasses = "bg-[#6B7280]/10 text-[#6B7280] border-[#6B7280]/30";
       Icon = FileText;
       break;
+    case "aguardando peça":
+      iconClasses += " text-[#EF4444]";
+      statusClasses = "bg-[#EF4444]/10 text-[#EF4444] border-[#EF4444]/30";
+      Icon = Package;
+      break;
     case "em análise":
       iconClasses += " text-[#D97706]";
       statusClasses = "bg-[#D97706]/10 text-[#D97706] border-[#D97706]/30";
@@ -251,6 +257,8 @@ const getStatusBarColor = (status: string) => {
   switch (status) {
     case "Aguardando Mecânico":
       return "#6B7280"
+    case "Aguardando Peça":
+      return "#EF4444"
     case "Em Análise":
       return "#D97706"
     case "Em Aprovação":
@@ -377,6 +385,12 @@ export default function PainelManutencaoPage() {
       hover: "hover:border-[#6B7280]",
       icon: <FileText className="h-5 w-5" />,
     },
+    "Aguardando Peça": {
+      bg: "bg-[#EF4444]/10",
+      text: "text-[#EF4444]",
+      hover: "hover:border-[#EF4444]",
+      icon: <Package className="h-5 w-5" />,
+    },
     "Em Análise": {
       bg: "bg-[#D97706]/10",
       text: "text-[#D97706]",
@@ -436,6 +450,7 @@ export default function PainelManutencaoPage() {
   // Status para exibir nos cards
   const statusList = [
     "Aguardando Mecânico",
+    "Aguardando Peça",
     "Em Análise",
     "Em Aprovação",
     "Aguardando OS",

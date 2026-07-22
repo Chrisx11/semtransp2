@@ -173,7 +173,7 @@ export function ServicoExternoDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Ordem de Serviço</label>
-                    <div className="text-base font-semibold">{servicoExterno.ordemServicoNumero}</div>
+                    <div className="text-base font-semibold">{servicoExterno.ordemServicoNumero || "Sem OS"}</div>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Data de Autorização</label>

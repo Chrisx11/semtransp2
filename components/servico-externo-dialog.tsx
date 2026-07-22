@@ -47,10 +47,17 @@ export function ServicoExternoDialog({
     setIsLoading(true)
     try {
       const data = await getColaboradores()
-      // Filtrar apenas colaboradores com função MECÂNICO
-      const mecanicos = data.filter(
-        (colaborador) => colaborador.funcao && colaborador.funcao.toUpperCase() === "MECÂNICO"
-      )
+      // Filtrar colaboradores com função de mecânico (aceita variações de acentuação)
+      const mecanicos = data
+        .filter((colaborador) => {
+          if (!colaborador.funcao) return false
+          const normalizada = colaborador.funcao
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toUpperCase()
+          return normalizada.includes("MECANICO")
+        })
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
       setColaboradores(mecanicos)
       setFilteredColaboradores(mecanicos)
     } catch (error) {

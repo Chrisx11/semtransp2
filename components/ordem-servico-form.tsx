@@ -112,7 +112,7 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
       mecanicoId: ordemExistente?.mecanicoId || "",
       prioridade: (ordemExistente?.prioridade as any) || "Média",
       kmAtual: ordemExistente?.kmAtual || "",
-      status: ordemExistente?.status || "Aguardando Mecânico",
+      status: ordemExistente?.status || "Fila de Serviço",
       defeitosRelatados: ordemExistente?.defeitosRelatados || "",
       pecasServicos: ordemExistente?.pecasServicos || "",
     },
@@ -296,7 +296,7 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
           veiculoInfo: selectedVeiculo ? formatarInfoVeiculo(selectedVeiculo) : "",
           solicitanteInfo: selectedSolicitante ? formatarInfoColaborador(selectedSolicitante) : "",
           mecanicoInfo: selectedMecanico ? formatarInfoColaborador(selectedMecanico) : "",
-          status: data.status || "Aguardando Mecânico",
+          status: data.status || "Fila de Serviço",
           pecasServicos: data.pecasServicos || "", // Garante que nunca será undefined
         }
 

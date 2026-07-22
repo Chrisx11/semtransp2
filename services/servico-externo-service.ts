@@ -2,11 +2,14 @@
 
 import { supabase } from "@/lib/supabase"
 
+/** UUID sentinela usado quando o serviço é lançado sem Ordem de Serviço (compatível com coluna NOT NULL). */
+export const SERVICO_EXTERNO_SEM_OS_ID = "00000000-0000-4000-a000-000000000001"
+
 // Interface que corresponde ao formato do banco de dados (snake_case)
 interface ServicoExternoDB {
   id: string
-  ordem_servico_id: string
-  ordem_servico_numero: string
+  ordem_servico_id: string | null
+  ordem_servico_numero: string | null
   veiculo_id: string
   veiculo_placa: string
   veiculo_modelo: string
@@ -26,8 +29,8 @@ interface ServicoExternoDB {
 // Interface que corresponde ao formato usado na aplicação (camelCase)
 export interface ServicoExterno {
   id: string
-  ordemServicoId: string
-  ordemServicoNumero: string
+  ordemServicoId: string | null
+  ordemServicoNumero: string | null
   veiculoId: string
   veiculoPlaca: string
   veiculoModelo: string
@@ -44,12 +47,29 @@ export interface ServicoExterno {
   updatedAt: string
 }
 
+function isSemOsId(id: string | null | undefined): boolean {
+  return !id || id === SERVICO_EXTERNO_SEM_OS_ID
+}
+
+function formatSupabaseError(error: any): string {
+  if (!error) return "Erro desconhecido"
+  const parts = [
+    error.message,
+    error.details,
+    error.hint,
+    error.code ? `código ${error.code}` : null,
+  ].filter(Boolean)
+  return parts.length > 0 ? parts.join(" — ") : JSON.stringify(error, Object.getOwnPropertyNames(error))
+}
+
 // Função para converter do formato do banco (snake_case) para o formato da aplicação (camelCase)
 function dbToApp(data: ServicoExternoDB): ServicoExterno {
+  const ordemId = data.ordem_servico_id
+  const semOs = isSemOsId(ordemId)
   return {
     id: data.id,
-    ordemServicoId: data.ordem_servico_id,
-    ordemServicoNumero: data.ordem_servico_numero,
+    ordemServicoId: semOs ? null : ordemId,
+    ordemServicoNumero: semOs ? (data.ordem_servico_numero || "Sem OS") : (data.ordem_servico_numero ?? null),
     veiculoId: data.veiculo_id,
     veiculoPlaca: data.veiculo_placa,
     veiculoModelo: data.veiculo_modelo,
@@ -114,10 +134,7 @@ export async function createServicoExterno(
   servico: Omit<ServicoExterno, "id" | "createdAt" | "updatedAt" | "status">
 ): Promise<ServicoExterno> {
   try {
-    // Validar campos obrigatórios
-    if (!servico.ordemServicoId) {
-      throw new Error("ordemServicoId é obrigatório")
-    }
+    // Validar campos obrigatórios (OS é opcional — permite lançamento direto)
     if (!servico.veiculoId) {
       throw new Error("veiculoId é obrigatório")
     }
@@ -127,6 +144,9 @@ export async function createServicoExterno(
     if (!servico.dataAutorizacao) {
       throw new Error("dataAutorizacao é obrigatória")
     }
+    if (!servico.servicoSolicitado?.trim()) {
+      throw new Error("servicoSolicitado é obrigatório")
+    }
     
     // Converter data se for objeto Date
     const dataAutorizacaoStr = servico.dataAutorizacao instanceof Date
@@ -134,9 +154,13 @@ export async function createServicoExterno(
       : servico.dataAutorizacao
     
     // Criar objeto de inserção
-    const dataToInsert: ServicoExternoDB = {
-      ordem_servico_id: servico.ordemServicoId,
-      ordem_servico_numero: servico.ordemServicoNumero || "",
+    // Sem OS: usa UUID sentinela para compatibilidade com coluna NOT NULL (antes da migration)
+    const semOs = !servico.ordemServicoId
+    const dataToInsert: Record<string, unknown> = {
+      ordem_servico_id: semOs ? SERVICO_EXTERNO_SEM_OS_ID : servico.ordemServicoId,
+      ordem_servico_numero: semOs
+        ? (servico.ordemServicoNumero || "Sem OS")
+        : (servico.ordemServicoNumero || ""),
       veiculo_id: servico.veiculoId,
       veiculo_placa: servico.veiculoPlaca || "",
       veiculo_modelo: servico.veiculoModelo || "",
@@ -158,8 +182,14 @@ export async function createServicoExterno(
       .single()
     
     if (error) {
-      console.error("Erro ao criar serviço externo:", error)
-      throw new Error(`Erro ao criar serviço externo: ${error.message}`)
+      console.error("Erro ao criar serviço externo:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        payload: dataToInsert,
+      })
+      throw new Error(`Erro ao criar serviço externo: ${formatSupabaseError(error)}`)
     }
     
     return dbToApp(data)

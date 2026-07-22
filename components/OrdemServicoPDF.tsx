@@ -275,6 +275,7 @@ const SvgIcon = ({ path, width = 16, height = 16, color = colors.primary }: { pa
 // Função para gerar a cor do status
 const getStatusColor = (status: string) => {
   const statusLower = status.toLowerCase();
+  if (statusLower.includes('peça') || statusLower.includes('peca')) return colors.danger;
   if (statusLower.includes('aberta') || statusLower.includes('nova')) return colors.primary;
   if (statusLower.includes('andamento') || statusLower.includes('aguardando') || statusLower.includes('espera')) return colors.warning;
   if (statusLower.includes('concluída') || statusLower.includes('finalizada') || statusLower.includes('aprovada')) return colors.success;

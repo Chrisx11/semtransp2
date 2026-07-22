@@ -18,7 +18,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { Button } from "@/components/ui/button"
 import { MobileBackButton } from "@/components/mobile-back-button"
 
-const STATUS_TELA = new Set(["Em Serviço", "Fila de Serviço", "Aguardando Mecânico"])
+const STATUS_TELA = new Set(["Em Serviço", "Fila de Serviço", "Aguardando Mecânico", "Aguardando Peça"])
 
 const prioridadeCor: Record<string, string> = {
   Urgente: "bg-red-500",
@@ -31,6 +31,7 @@ const statusCor: Record<string, string> = {
   "Em Serviço": "bg-emerald-500",
   "Fila de Serviço": "bg-cyan-500",
   "Aguardando Mecânico": "bg-slate-500",
+  "Aguardando Peça": "bg-red-500",
 }
 
 function extrairNomeMecanico(info?: string) {
@@ -69,6 +70,7 @@ function OrdemTelaItem({ ordem }: { ordem: OrdemServico }) {
         ordem.status === "Em Serviço" && "border-l-emerald-500 ring-2 ring-emerald-500/60 shadow-lg shadow-emerald-500/10",
         ordem.status === "Fila de Serviço" && "border-l-cyan-500",
         ordem.status === "Aguardando Mecânico" && "border-l-slate-500",
+        ordem.status === "Aguardando Peça" && "border-l-red-500",
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-2">

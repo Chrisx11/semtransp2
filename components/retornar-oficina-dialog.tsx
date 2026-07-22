@@ -95,6 +95,24 @@ export function RetornarOficinaDialog({ open, onOpenChange, ordemId, origem, onS
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Aguardando Mecânico" id="aguardando-mecanico" />
+                  <Label htmlFor="aguardando-mecanico" className="font-normal cursor-pointer">
+                    Aguardando Mecânico
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Aguardando Peça" id="aguardando-peca" />
+                  <Label htmlFor="aguardando-peca" className="font-normal cursor-pointer text-red-700">
+                    Aguardando Peça
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Em Serviço" id="em-servico" />
+                  <Label htmlFor="em-servico" className="font-normal cursor-pointer">
+                    Em Serviço
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="Serviço Externo" id="servico-externo" />
                   <Label htmlFor="servico-externo" className="font-normal cursor-pointer">
                     Serviço Externo

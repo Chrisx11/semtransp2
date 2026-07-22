@@ -21,6 +21,8 @@ const StatusBadge = ({ status }: { status: string }) => {
   switch (status) {
     case "Aguardando Mecânico":
       badgeClasses = "bg-[#6B7280] text-white hover:bg-[#6B7280]/80 border-[#6B7280]/30 shadow-sm"; break
+    case "Aguardando Peça":
+      badgeClasses = "bg-[#EF4444] text-white hover:bg-[#EF4444]/80 border-[#EF4444]/30 shadow-sm"; break
     case "Em Análise":
       badgeClasses = "bg-[#D97706] text-white hover:bg-[#D97706]/80 border-[#D97706]/30 shadow-sm"; break
     case "Aguardando aprovação":
@@ -83,6 +85,7 @@ const actionsBySetor: Record<string, { label: string; action: string }[]> = {
     { action: "editar", label: "Editar" },
     { action: "enviar_almoxarifado", label: "Enviar p/ Almoxarifado" },
     { action: "aguardando_mecanico", label: "Status: Aguardando Mecânico" },
+    { action: "aguardando_peca", label: "Status: Aguardando Peça" },
     { action: "fila_servico", label: "Status: Fila de Serviço" },
     { action: "em_servico", label: "Status: Em Serviço" },
     { action: "finalizado", label: "Status: Finalizado" },

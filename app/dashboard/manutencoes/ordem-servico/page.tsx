@@ -124,6 +124,10 @@ const StatusBadge = ({ status }: { status: string }) => {
       // Cinza pastel
       badgeClasses = "bg-[#E5E7EB] text-[#374151] hover:bg-[#D1D5DB] border-[#D1D5DB] shadow-sm"
       break
+    case "Aguardando Peça":
+      // Vermelho
+      badgeClasses = "bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] border-[#FECACA] shadow-sm"
+      break
     case "Em Análise":
       // Âmbar pastel
       badgeClasses = "bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] border-[#FDE68A] shadow-sm"
@@ -188,6 +192,8 @@ const getStatusRowClass = (status: string) => {
   switch (status) {
     case "Aguardando Mecânico":
       return "bg-slate-50/70"
+    case "Aguardando Peça":
+      return "bg-red-50/70"
     case "Em Análise":
       return "bg-amber-50/60"
     case "Aguardando aprovação":
@@ -314,6 +320,10 @@ const AcoesDialog = ({ open, onOpenChange, ordemId, activeTab, onAction }: Acoes
               <Button variant="ghost" className="w-full justify-start h-10 rounded-xl hover:bg-primary/5" onClick={() => handleAction("aguardando_mecanico")}>
                 <FileText className="mr-2 h-4 w-4" />
                 <span>Aguardando Mecânico</span>
+              </Button>
+              <Button variant="ghost" className="w-full justify-start h-10 rounded-xl hover:bg-primary/5" onClick={() => handleAction("aguardando_peca")}>
+                <Package className="mr-2 h-4 w-4 text-red-600" />
+                <span className="text-red-700">Aguardando Peça</span>
               </Button>
               <Button variant="ghost" className="w-full justify-start h-10 rounded-xl hover:bg-primary/5" onClick={() => handleAction("fila_servico")}>
                 <Settings className="mr-2 h-4 w-4" />
@@ -870,7 +880,7 @@ export default function OrdemServicoPage() {
 
       switch (activeTab) {
         case "oficina":
-          statusFiltro = ["Aguardando Mecânico", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
+          statusFiltro = ["Aguardando Mecânico", "Aguardando Peça", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
           break
         case "almoxarifado":
           statusFiltro = ["Em Análise", "Aguardando OS", "Aguardando Fornecedor", "Comprar na Rua"]
@@ -882,7 +892,7 @@ export default function OrdemServicoPage() {
           statusFiltro = ["Finalizado"]
           break
         default:
-          statusFiltro = ["Aguardando Mecânico", "Em Serviço"]
+          statusFiltro = ["Aguardando Mecânico", "Aguardando Peça", "Em Serviço"]
       }
 
       const todasOrdens = await getOrdensServicoSupabase()
@@ -1096,6 +1106,26 @@ export default function OrdemServicoPage() {
           })
         }
         break
+      case "aguardando_peca":
+        try {
+          const result = await updateOrdemServicoSupabase(
+            id,
+            { status: "Aguardando Peça" },
+            undefined,
+            user?.id,
+            user?.nome || user?.login || "Sistema"
+          )
+          console.log('[EDITAR] Resultado updateOrdemServicoSupabase:', result)
+          carregarOrdensServico()
+        } catch (error) {
+          console.error('[EDITAR] Erro ao atualizar para Aguardando Peça:', error)
+          toast({
+            title: "Erro ao atualizar status",
+            description: error instanceof Error ? error.message : JSON.stringify(error),
+            variant: "destructive",
+          })
+        }
+        break
       case "fila_servico":
         try {
           console.log('[EDITAR] Atualizando status para Fila de Serviço, ID:', id)
@@ -1262,7 +1292,7 @@ export default function OrdemServicoPage() {
     let statusFiltro: string[] = []
     switch (aba) {
       case "oficina":
-        statusFiltro = ["Aguardando Mecânico", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
+        statusFiltro = ["Aguardando Mecânico", "Aguardando Peça", "Em Serviço", "Aguardando aprovação", "Fila de Serviço"]
         break
       case "almoxarifado":
         statusFiltro = ["Em Análise", "Aguardando OS", "Aguardando Fornecedor", "Comprar na Rua"]

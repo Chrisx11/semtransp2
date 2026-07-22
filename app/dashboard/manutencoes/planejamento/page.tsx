@@ -340,6 +340,8 @@ export default function PlanejamentoPage() {
     switch (status) {
       case "Aguardando Mecânico":
         return "bg-gray-500 hover:bg-gray-600 text-white"
+      case "Aguardando Peça":
+        return "bg-red-500 hover:bg-red-600 text-white"
       case "Nova":
       case "Aguardando OS":
         // Azul Claro (#3B82F6)

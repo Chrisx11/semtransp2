@@ -7,8 +7,8 @@
 
 CREATE TABLE IF NOT EXISTS servicos_externos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  ordem_servico_id UUID NOT NULL,
-  ordem_servico_numero VARCHAR(255) NOT NULL,
+  ordem_servico_id UUID,
+  ordem_servico_numero VARCHAR(255),
   veiculo_id UUID NOT NULL,
   veiculo_placa VARCHAR(255) NOT NULL,
   veiculo_modelo VARCHAR(255) NOT NULL,
@@ -35,8 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_servicos_externos_data_autorizacao ON servicos_ex
 -- Comentários para documentação
 COMMENT ON TABLE servicos_externos IS 'Tabela para armazenar serviços externos criados automaticamente ao enviar uma OS para serviço externo';
 COMMENT ON COLUMN servicos_externos.id IS 'Identificador único do serviço externo (UUID)';
-COMMENT ON COLUMN servicos_externos.ordem_servico_id IS 'ID da ordem de serviço relacionada';
-COMMENT ON COLUMN servicos_externos.ordem_servico_numero IS 'Número da ordem de serviço';
+COMMENT ON COLUMN servicos_externos.ordem_servico_id IS 'ID da ordem de serviço relacionada (nulo quando lançado diretamente sem OS)';
+COMMENT ON COLUMN servicos_externos.ordem_servico_numero IS 'Número da ordem de serviço (nulo ou "Sem OS" quando lançado diretamente)';
 COMMENT ON COLUMN servicos_externos.veiculo_id IS 'ID do veículo';
 COMMENT ON COLUMN servicos_externos.veiculo_placa IS 'Placa do veículo';
 COMMENT ON COLUMN servicos_externos.veiculo_modelo IS 'Modelo do veículo';

@@ -26,10 +26,12 @@ import {
   FileText,
   Filter,
   Wrench,
+  Plus,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { EmptyState } from "@/components/empty-state"
 import { ServicoExternoDialog } from "@/components/servico-externo-edicao-dialog"
+import { LancarServicoExternoDialog } from "@/components/lancar-servico-externo-dialog"
 import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
@@ -82,6 +84,7 @@ export default function ServicoExternoPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [viewingId, setViewingId] = useState<string | null>(null)
+  const [lancarDialogOpen, setLancarDialogOpen] = useState(false)
 
   // Estado para o modal de confirmação de exclusão
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -198,12 +201,29 @@ export default function ServicoExternoPage() {
 
   // Função para atualizar o status do serviço externo
   const handleUpdateStatus = async (id: string, newStatus: "Pendente" | "Em Andamento" | "Concluído" | "Cancelado") => {
-    // Se for marcar como "Concluído", mostrar diálogo perguntando se quer finalizar a OS também
+    // Se for marcar como "Concluído" e houver OS vinculada, perguntar se quer finalizar a OS
     if (newStatus === "Concluído") {
       const servico = servicosExternos.find((s) => s.id === id)
-      if (servico) {
+      if (servico?.ordemServicoId) {
         setServicoParaFinalizar(servico)
         setFinalizarOSDialogOpen(true)
+        return
+      }
+      // Sem OS: apenas concluir o serviço
+      try {
+        await updateServicoExterno(id, { status: "Concluído" })
+        toast({
+          title: "Serviço externo concluído",
+          description: "O serviço externo foi marcado como concluído.",
+        })
+        loadData()
+      } catch (error) {
+        console.error("Erro ao atualizar status:", error)
+        toast({
+          title: "Erro",
+          description: "Não foi possível atualizar o status do serviço externo.",
+          variant: "destructive",
+        })
       }
       return
     }
@@ -235,7 +255,7 @@ export default function ServicoExternoPage() {
       // Atualizar o serviço externo para "Concluído"
       await updateServicoExterno(servicoParaFinalizar.id, { status: "Concluído" })
 
-      if (finalizarOS) {
+      if (finalizarOS && servicoParaFinalizar.ordemServicoId) {
         // Atualizar a OS para "Finalizado"
         await updateOrdemServicoSupabase(
           servicoParaFinalizar.ordemServicoId,
@@ -276,8 +296,8 @@ export default function ServicoExternoPage() {
     try {
       // Converter para o formato esperado pelo gerador de PDF
       const ordemServicoMock = {
-        id: servico.ordemServicoId,
-        numero: servico.ordemServicoNumero,
+        id: servico.ordemServicoId || servico.id,
+        numero: servico.ordemServicoNumero || "Sem OS",
         veiculoId: servico.veiculoId,
         veiculoInfo: `${servico.veiculoPlaca} - ${servico.veiculoMarca} ${servico.veiculoModelo}`,
         solicitanteInfo: "",
@@ -312,7 +332,7 @@ export default function ServicoExternoPage() {
     if (searchTerm) {
       const lowerQuery = searchTerm.toLowerCase()
       const matchesSearch =
-        servico.ordemServicoNumero.toLowerCase().includes(lowerQuery) ||
+        (servico.ordemServicoNumero ?? "").toLowerCase().includes(lowerQuery) ||
         servico.veiculoPlaca.toLowerCase().includes(lowerQuery) ||
         servico.veiculoModelo.toLowerCase().includes(lowerQuery) ||
         servico.veiculoMarca.toLowerCase().includes(lowerQuery) ||
@@ -430,6 +450,7 @@ export default function ServicoExternoPage() {
     handleUpdateStatus,
     handleGerarCanhoto,
     handleDeleteClick,
+    onLancar,
   }: {
     paginatedData: ServicoExterno[]
     processedData: ServicoExterno[]
@@ -450,12 +471,17 @@ export default function ServicoExternoPage() {
     handleUpdateStatus: (id: string, status: "Pendente" | "Em Andamento" | "Concluído" | "Cancelado") => Promise<void>
     handleGerarCanhoto: (servico: ServicoExterno) => Promise<void>
     handleDeleteClick: (id: string) => void
+    onLancar: () => void
   }) {
     return (
       <div className="w-full max-w-full overflow-x-hidden px-3 py-4 pb-6 flex flex-col">
         <div className="w-[98%] mb-4">
           <MobileBackButton />
         </div>
+
+        <Button className="w-[98%] mb-4 h-11 text-base" onClick={onLancar}>
+          <Plus className="mr-2 h-5 w-5" /> Lançar Serviço Externo
+        </Button>
         
         {/* Busca e Filtros */}
         <div className="flex flex-col gap-3 mb-4 w-[98%]">
@@ -513,7 +539,7 @@ export default function ServicoExternoPage() {
                             {servico.veiculoMarca} {servico.veiculoModelo}
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                            OS: {servico.ordemServicoNumero}
+                            OS: {servico.ordemServicoNumero || "Sem OS"}
                           </div>
                         </div>
                       </div>
@@ -711,6 +737,12 @@ export default function ServicoExternoPage() {
           handleUpdateStatus={handleUpdateStatus}
           handleGerarCanhoto={handleGerarCanhoto}
           handleDeleteClick={handleDeleteClick}
+          onLancar={() => setLancarDialogOpen(true)}
+        />
+        <LancarServicoExternoDialog
+          open={lancarDialogOpen}
+          onOpenChange={setLancarDialogOpen}
+          onSuccess={loadData}
         />
         <ServicoExternoDialog
           open={dialogOpen}
@@ -795,6 +827,10 @@ export default function ServicoExternoPage() {
                 </Select>
               </div>
             </div>
+
+            <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={() => setLancarDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Lançar Serviço Externo
+            </Button>
           </div>
 
           {/* Tabela */}
@@ -850,7 +886,7 @@ export default function ServicoExternoPage() {
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>{servico.ordemServicoNumero}</TableCell>
+                      <TableCell>{servico.ordemServicoNumero || "Sem OS"}</TableCell>
                       <TableCell>{servico.fornecedorNome}</TableCell>
                       <TableCell className="max-w-[200px]">
                         <div className="truncate" title={servico.servicoSolicitado}>
@@ -1014,6 +1050,11 @@ export default function ServicoExternoPage() {
         </CardContent>
       </Card>
 
+      <LancarServicoExternoDialog
+        open={lancarDialogOpen}
+        onOpenChange={setLancarDialogOpen}
+        onSuccess={loadData}
+      />
       <ServicoExternoDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
