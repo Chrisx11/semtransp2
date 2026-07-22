@@ -4,7 +4,7 @@ import { getVeiculosSupabase } from '@/services/veiculo-service'
 import { Button } from '@/components/ui/button'
 import React, { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardFooter } from '@/components/ui/card'
-import { Car, Calendar, Palette, Building, Search, Pencil, Trash, Plus, Disc, History, Wrench, Package, FileText, Droplet, Gauge, AlertCircle, Loader2, Clock, CheckCircle2 } from 'lucide-react'
+import { Car, Calendar, Palette, Building, Search, Pencil, Trash, Plus, Disc, History, Wrench, Package, FileText, Droplet, Gauge, AlertCircle, Loader2, Clock, CheckCircle2, Filter, FileDown } from 'lucide-react'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getSaidasSupabase } from '@/services/saida-service'
 import { getProdutosCompativeisComVeiculoSupabase, getLocalizacoesSupabase } from '@/services/produto-service'
 import { getOrdensServicoSupabase } from '@/services/ordem-servico-service'
-import { getTrocasOleo } from '@/services/troca-oleo-service'
+import { getTrocasOleo, getAllTrocasOleo } from '@/services/troca-oleo-service'
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Dialog as UIDialog, DialogContent as UIDialogContent, DialogHeader as UIDialogHeader, DialogTitle as UIDialogTitle } from '@/components/ui/dialog'
@@ -26,6 +26,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { MobileBackButton } from '@/components/mobile-back-button'
 import { jsPDF } from "jspdf"
+import autoTable from "jspdf-autotable"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // Mapa de cores pastel para secretarias
 const secretariaColors: Record<string, string> = {
@@ -103,6 +105,8 @@ export default function HistoricosPage() {
   const [editObs, setEditObs] = useState<any | null>(null)
   const [formObs, setFormObs] = useState<{data_observacao: string, observacao: string}>({data_observacao: '', observacao: ''})
   const [isLoadingData, setIsLoadingData] = useState(false)
+  const [secretariaFilter, setSecretariaFilter] = useState<string>("all")
+  const [gerandoRelatorio, setGerandoRelatorio] = useState(false)
   const { toast } = useToast()
 
   // Buscar peças utilizadas ao abrir o modal ou trocar de veículo
@@ -239,9 +243,19 @@ export default function HistoricosPage() {
     getLocalizacoesSupabase().then(setLocalizacoes)
   }, [])
 
-  // Filtro de pesquisa
+  // Filtro de pesquisa + secretaria
+  const secretariasDisponiveis = React.useMemo(() => {
+    return Array.from(
+      new Set(veiculos.map((v) => v.secretaria).filter(Boolean) as string[]),
+    ).sort((a, b) => a.localeCompare(b, "pt-BR"))
+  }, [veiculos])
+
   const filteredVeiculos = veiculos.filter((v) => {
-    const q = search.toLowerCase()
+    if (secretariaFilter !== "all" && (v.secretaria || "") !== secretariaFilter) {
+      return false
+    }
+    const q = search.toLowerCase().trim()
+    if (!q) return true
     return (
       v.placa?.toLowerCase().includes(q) ||
       v.modelo?.toLowerCase().includes(q) ||
@@ -556,6 +570,313 @@ export default function HistoricosPage() {
 
     desenharRodape();
     doc.save(`resumo-historico-${selectedVeiculo.placa || "veiculo"}.pdf`);
+  }
+
+  async function gerarRelatorioFiltrado() {
+    if (filteredVeiculos.length === 0) {
+      toast({
+        title: "Nenhum veículo",
+        description: "Ajuste os filtros para incluir pelo menos um veículo no relatório.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setGerandoRelatorio(true)
+    try {
+      const ids = filteredVeiculos.map((v) => v.id)
+      const idSet = new Set(ids)
+
+      const fetchInChunks = async <T,>(
+        table: string,
+        select: string,
+        column: string,
+        vehicleIds: string[],
+      ): Promise<T[]> => {
+        const chunkSize = 100
+        const all: T[] = []
+        for (let i = 0; i < vehicleIds.length; i += chunkSize) {
+          const chunk = vehicleIds.slice(i, i + chunkSize)
+          const { data, error } = await supabase.from(table).select(select).in(column, chunk)
+          if (error) throw error
+          if (data) all.push(...(data as T[]))
+        }
+        return all
+      }
+
+      const [saidas, ordens, trocasOleo, trocasPneu, manutAntigasAll, observacoesAll] =
+        await Promise.all([
+          getSaidasSupabase(),
+          getOrdensServicoSupabase(),
+          getAllTrocasOleo(),
+          fetchInChunks<any>(
+            "trocas_pneu",
+            `*, tipo_pneu:tipo_pneu_id (marca, modelo, medida)`,
+            "veiculo_id",
+            ids,
+          ),
+          fetchInChunks<any>("manutencoes_antigas", "*", "veiculo_id", ids),
+          fetchInChunks<any>("observacoes_veiculo", "*", "veiculo_id", ids),
+        ])
+
+      const saidasMap = new Map<string, typeof saidas>()
+      saidas.forEach((s) => {
+        if (!idSet.has(s.veiculoId)) return
+        if (!saidasMap.has(s.veiculoId)) saidasMap.set(s.veiculoId, [])
+        saidasMap.get(s.veiculoId)!.push(s)
+      })
+
+      const ordensMap = new Map<string, typeof ordens>()
+      ordens.forEach((o) => {
+        if (!idSet.has(o.veiculoId)) return
+        if (!ordensMap.has(o.veiculoId)) ordensMap.set(o.veiculoId, [])
+        ordensMap.get(o.veiculoId)!.push(o)
+      })
+
+      const oleoMap = new Map<string, typeof trocasOleo>()
+      trocasOleo.forEach((t) => {
+        if (!idSet.has(t.veiculo_id)) return
+        if (!oleoMap.has(t.veiculo_id)) oleoMap.set(t.veiculo_id, [])
+        oleoMap.get(t.veiculo_id)!.push(t)
+      })
+
+      const pneuMap = new Map<string, any[]>()
+      trocasPneu.forEach((t) => {
+        if (!pneuMap.has(t.veiculo_id)) pneuMap.set(t.veiculo_id, [])
+        pneuMap.get(t.veiculo_id)!.push(t)
+      })
+
+      const manutMap = new Map<string, any[]>()
+      manutAntigasAll.forEach((m) => {
+        if (!manutMap.has(m.veiculo_id)) manutMap.set(m.veiculo_id, [])
+        manutMap.get(m.veiculo_id)!.push(m)
+      })
+
+      const obsMap = new Map<string, any[]>()
+      observacoesAll.forEach((o) => {
+        if (!obsMap.has(o.veiculo_id)) obsMap.set(o.veiculo_id, [])
+        obsMap.get(o.veiculo_id)!.push(o)
+      })
+
+      const veiculosOrdenados = [...filteredVeiculos].sort((a, b) => {
+        const sec = (a.secretaria || "").localeCompare(b.secretaria || "", "pt-BR")
+        if (sec !== 0) return sec
+        return (a.placa || "").localeCompare(b.placa || "", "pt-BR")
+      })
+
+      const doc = new jsPDF({ unit: "mm", format: "a4" })
+      const margem = 12
+      const filtroLabel =
+        secretariaFilter === "all" ? "Todas as secretarias" : secretariaFilter
+      const buscaLabel = search.trim() ? ` | Busca: "${search.trim()}"` : ""
+
+      doc.setFillColor(15, 23, 42)
+      doc.rect(0, 0, 210, 28, "F")
+      doc.setTextColor(255, 255, 255)
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.text("Relatório de Históricos de Veículos", margem, 12)
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+      doc.text(
+        `Gerado em ${new Date().toLocaleString("pt-BR")} | Secretaria: ${filtroLabel}${buscaLabel}`,
+        margem,
+        19,
+      )
+      doc.text(`Total de veículos: ${veiculosOrdenados.length}`, margem, 24)
+      doc.setTextColor(0, 0, 0)
+
+      autoTable(doc, {
+        startY: 34,
+        head: [["Placa", "Marca/Modelo", "Ano", "Secretaria", "Status"]],
+        body: veiculosOrdenados.map((v) => [
+          v.placa || "-",
+          `${v.marca || ""} ${v.modelo || ""}`.trim() || "-",
+          v.ano?.toString() || "-",
+          v.secretaria || "-",
+          v.status || "-",
+        ]),
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [30, 41, 59], textColor: 255 },
+        margin: { left: margem, right: margem },
+      })
+
+      const fmtData = (d?: string) => {
+        if (!d) return "-"
+        const dt = new Date(d)
+        return Number.isNaN(dt.getTime()) ? d : dt.toLocaleDateString("pt-BR")
+      }
+
+      for (const veiculo of veiculosOrdenados) {
+        doc.addPage()
+        let y = 16
+
+        doc.setFillColor(30, 41, 59)
+        doc.roundedRect(margem, y, 210 - margem * 2, 18, 2, 2, "F")
+        doc.setTextColor(255, 255, 255)
+        doc.setFont("helvetica", "bold")
+        doc.setFontSize(12)
+        doc.text(`${veiculo.placa || "-"} — ${veiculo.marca || ""} ${veiculo.modelo || ""}`.trim(), margem + 3, y + 7)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(9)
+        doc.text(
+          `Secretaria: ${veiculo.secretaria || "-"} | Ano: ${veiculo.ano || "-"} | Cor: ${veiculo.cor || "-"} | Status: ${veiculo.status || "-"}`,
+          margem + 3,
+          y + 13,
+        )
+        doc.setTextColor(0, 0, 0)
+        y += 24
+
+        const ensureSpace = (needed = 30) => {
+          if (y + needed > 280) {
+            doc.addPage()
+            y = 16
+          }
+        }
+
+        const secao = (titulo: string) => {
+          ensureSpace(20)
+          doc.setFont("helvetica", "bold")
+          doc.setFontSize(11)
+          doc.setTextColor(15, 23, 42)
+          doc.text(titulo, margem, y)
+          y += 3
+          doc.setDrawColor(200, 200, 200)
+          doc.line(margem, y, 210 - margem, y)
+          y += 4
+          doc.setTextColor(0, 0, 0)
+        }
+
+        const tabela = (head: string[], body: (string | number)[][]) => {
+          ensureSpace(25)
+          if (body.length === 0) {
+            doc.setFont("helvetica", "normal")
+            doc.setFontSize(9)
+            doc.setTextColor(100, 100, 100)
+            doc.text("Nenhum registro.", margem, y)
+            doc.setTextColor(0, 0, 0)
+            y += 8
+            return
+          }
+          autoTable(doc, {
+            startY: y,
+            head: [head],
+            body,
+            styles: { fontSize: 7.5, cellPadding: 1.5, overflow: "linebreak" },
+            headStyles: { fillColor: [71, 85, 105], textColor: 255, fontSize: 8 },
+            margin: { left: margem, right: margem },
+            theme: "striped",
+          })
+          y = ((doc as any).lastAutoTable?.finalY ?? y) + 8
+        }
+
+        const osList = ordensMap.get(veiculo.id) || []
+        secao(`Ordens de Serviço (${osList.length})`)
+        tabela(
+          ["Nº", "Data", "Status", "Prioridade", "Km", "Defeitos", "Mecânico"],
+          osList.map((os) => [
+            os.numero ?? "-",
+            fmtData(os.data),
+            os.status || "-",
+            os.prioridade || "-",
+            os.kmAtual ?? "-",
+            (os.defeitosRelatados || "-").toString().slice(0, 80),
+            (os.mecanicoInfo || "-").toString().slice(0, 40),
+          ]),
+        )
+
+        const pecas = saidasMap.get(veiculo.id) || []
+        secao(`Peças Utilizadas (${pecas.length})`)
+        tabela(
+          ["Data", "Produto", "Categoria", "Qtd"],
+          pecas.map((p) => [
+            fmtData(p.data),
+            p.produtoNome || "-",
+            p.categoria || "-",
+            p.quantidade ?? "-",
+          ]),
+        )
+
+        const oleos = oleoMap.get(veiculo.id) || []
+        const trocasOleoVeic = oleos.filter((t) => t.tipo_servico === "Troca de Óleo")
+
+        secao(`Trocas de Óleo (${trocasOleoVeic.length})`)
+        tabela(
+          ["Data", "Km Anterior", "Km Atual", "Próx. Troca", "Observação"],
+          trocasOleoVeic.map((t) => [
+            fmtData(t.data_troca),
+            t.km_anterior ?? "-",
+            t.km_atual ?? "-",
+            t.km_proxima_troca ?? "-",
+            (t.observacao || "-").toString().slice(0, 60),
+          ]),
+        )
+
+        const pneus = pneuMap.get(veiculo.id) || []
+        secao(`Trocas de Pneu (${pneus.length})`)
+        tabela(
+          ["Data", "Km", "Tipo", "Alinh.", "Balanc.", "Observação"],
+          pneus.map((t) => [
+            fmtData(t.data_troca),
+            t.km ?? "-",
+            t.tipo_pneu
+              ? `${t.tipo_pneu.marca} ${t.tipo_pneu.modelo} (${t.tipo_pneu.medida})`
+              : "-",
+            t.alinhamento ? "Sim" : "Não",
+            t.balanceamento ? "Sim" : "Não",
+            (t.observacao || "-").toString().slice(0, 50),
+          ]),
+        )
+
+        const manuts = manutMap.get(veiculo.id) || []
+        secao(`Manutenções Antigas (${manuts.length})`)
+        tabela(
+          ["Data", "Título", "Peças"],
+          manuts.map((m) => [
+            fmtData(m.data_servico || m.data),
+            m.titulo || "-",
+            (m.pecas || "-").toString().slice(0, 80),
+          ]),
+        )
+
+        const obs = obsMap.get(veiculo.id) || []
+        secao(`Observações (${obs.length})`)
+        tabela(
+          ["Data", "Observação"],
+          obs.map((o) => [
+            fmtData(o.data_observacao),
+            (o.observacao || "-").toString().slice(0, 120),
+          ]),
+        )
+      }
+
+      const totalPages = doc.getNumberOfPages()
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(8)
+        doc.setTextColor(120, 120, 120)
+        doc.text(`Página ${i} de ${totalPages}`, 210 - margem, 292, { align: "right" })
+      }
+
+      const nomeSec =
+        secretariaFilter === "all" ? "todas" : secretariaFilter.replace(/\s+/g, "-").toLowerCase()
+      doc.save(`relatorio-historicos-${nomeSec}-${new Date().toISOString().slice(0, 10)}.pdf`)
+
+      toast({
+        title: "Relatório gerado",
+        description: `PDF com ${veiculosOrdenados.length} veículo(s) baixado com sucesso.`,
+      })
+    } catch (err: any) {
+      console.error("Erro ao gerar relatório:", err)
+      toast({
+        title: "Erro ao gerar relatório",
+        description: err?.message || "Não foi possível gerar o PDF.",
+        variant: "destructive",
+      })
+    } finally {
+      setGerandoRelatorio(false)
+    }
   }
 
   // Filtro para troca de óleo
@@ -1297,11 +1618,43 @@ export default function HistoricosPage() {
           />
         </div>
 
+        <div className="flex flex-col gap-2">
+          <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+            <SelectTrigger className="w-full">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Secretaria" />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as secretarias</SelectItem>
+              {secretariasDisponiveis.map((sec) => (
+                <SelectItem key={sec} value={sec}>{sec}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            onClick={gerarRelatorioFiltrado}
+            disabled={gerandoRelatorio || filteredVeiculos.length === 0}
+            className="w-full"
+            variant="secondary"
+          >
+            {gerandoRelatorio ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileDown className="h-4 w-4 mr-2" />
+            )}
+            Relatório ({filteredVeiculos.length})
+          </Button>
+        </div>
+
         {filteredVeiculos.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
             <Search className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
             <p>
-              {search ? `Nenhum veículo encontrado para "${search}"` : "Nenhum veículo encontrado"}
+              {search || secretariaFilter !== "all"
+                ? "Nenhum veículo encontrado com os filtros aplicados"
+                : "Nenhum veículo encontrado"}
             </p>
           </div>
         ) : (
@@ -1384,6 +1737,35 @@ export default function HistoricosPage() {
                   className="pl-8 w-full"
                 />
               </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+                <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+                  <SelectTrigger className="w-full sm:w-[220px]">
+                    <div className="flex items-center gap-2 truncate">
+                      <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <SelectValue placeholder="Secretaria" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as secretarias</SelectItem>
+                    {secretariasDisponiveis.map((sec) => (
+                      <SelectItem key={sec} value={sec}>{sec}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={gerarRelatorioFiltrado}
+                  disabled={gerandoRelatorio || filteredVeiculos.length === 0}
+                  variant="secondary"
+                  className="whitespace-nowrap"
+                >
+                  {gerandoRelatorio ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <FileDown className="h-4 w-4 mr-2" />
+                  )}
+                  Relatório ({filteredVeiculos.length})
+                </Button>
+              </div>
             </div>
             
             <div className="rounded-md border shadow-sm-custom overflow-hidden">
@@ -1407,7 +1789,9 @@ export default function HistoricosPage() {
                         <div className="flex flex-col items-center justify-center">
                           <Search className="h-8 w-8 text-muted-foreground/50 mb-2" />
                           <p className="text-muted-foreground">
-                            {search ? `Nenhum veículo encontrado para "${search}"` : "Nenhum veículo encontrado"}
+                            {search || secretariaFilter !== "all"
+                              ? "Nenhum veículo encontrado com os filtros aplicados"
+                              : "Nenhum veículo encontrado"}
                           </p>
                         </div>
                       </TableCell>
