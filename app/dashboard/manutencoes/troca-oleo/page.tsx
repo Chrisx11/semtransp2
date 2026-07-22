@@ -9,8 +9,9 @@ import {
   getTrocasOleo, 
   registrarTrocaOleo, 
   atualizarKmVeiculo, 
-  getEstatisticasTrocasOleo,
-  getEstatisticasFiltroCombustivel,
+  getAllTrocasOleo,
+  calcularEstatisticasTrocasOleoFromRegistros,
+  calcularEstatisticasFiltroCombustivelFromRegistros,
   TrocaOleo 
 } from "@/services/troca-oleo-service"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -380,56 +381,82 @@ export default function TrocaOleoPage() {
   async function carregarVeiculos() {
     setLoading(true)
     try {
-      // Buscar todos os veículos diretamente do banco para obter o periodotrocaoleo
-      // Filtrar apenas veículos ativos
-      const { data: veiculosData, error } = await supabase
-        .from("veiculos")
-        .select("*")
-        .eq("status", "Ativo")
-        .order("placa")
-      
+      // Poucas consultas em lote (em vez de N+1 por veículo)
+      const [
+        { data: veiculosData, error },
+        produtosData,
+        todasTrocas,
+        { data: todosFiltros },
+      ] = await Promise.all([
+        supabase
+          .from("veiculos")
+          .select("*")
+          .eq("status", "Ativo")
+          .order("placa"),
+        getProdutosSupabase(),
+        getAllTrocasOleo(),
+        supabase.from("filtros_registrados").select("veiculoid, categoria, produtoid"),
+      ])
+
       if (error) throw error
-      
+
       setVeiculos(veiculosData || [])
 
-      const produtosData = await getProdutosSupabase()
-      const prontidaoMap: Record<string, boolean> = {}
-      await Promise.all(
-        (veiculosData || []).map(async (veiculo) => {
-          const filtrosVeiculo = await getFiltrosDoVeiculoParaPronto(veiculo.id)
-          prontidaoMap[veiculo.id] = verificarProntoParaTroca(filtrosVeiculo, produtosData || [])
-        }),
-      )
-      setVeiculosProntosTroca(prontidaoMap)
-      
-      // Buscar dados de troca de óleo para cada veículo
-      const veiculosPromises = veiculosData.map(async (veiculo) => {
-        const estatisticas = await getEstatisticasTrocasOleo(veiculo.id)
-        return {
-          ...veiculo,
-          ultimaTroca: estatisticas.ultimaTroca,
-          kmAtual: estatisticas.kmAtual || veiculo.kmAtual || 0,
-          kmProxTroca: estatisticas.kmProxTroca || 0,
-          progresso: estatisticas.progresso,
-          secretaria: veiculo.secretaria
-        }
-      })
+      const trocasPorVeiculo = new Map<string, TrocaOleo[]>()
+      for (const troca of todasTrocas) {
+        const lista = trocasPorVeiculo.get(troca.veiculo_id)
+        if (lista) lista.push(troca)
+        else trocasPorVeiculo.set(troca.veiculo_id, [troca])
+      }
 
-      // Buscar dados do filtro de combustível para cada veículo
-      const veiculosFiltroPromises = veiculosData.map(async (veiculo) => {
-        const estatisticas = await getEstatisticasFiltroCombustivel(veiculo.id)
-        return {
-          ...veiculo,
-          ultimaTroca: estatisticas.ultimaTroca,
-          kmAtual: estatisticas.kmAtual || veiculo.kmAtual || 0,
-          kmProxTroca: estatisticas.kmProxTroca || 0,
-          progresso: estatisticas.progresso,
-          secretaria: veiculo.secretaria
+      const filtrosPorVeiculo = new Map<string, FiltroRegistradoTroca[]>()
+      for (const item of todosFiltros || []) {
+        const veiculoId = String((item as any).veiculoid || "").trim()
+        if (!veiculoId) continue
+        const key = veiculoId.toLowerCase()
+        const filtro: FiltroRegistradoTroca = {
+          veiculoId,
+          categoria: (item as any).categoria ? String((item as any).categoria).trim() : "",
+          produtoId: String((item as any).produtoid || "").trim(),
         }
-      })
-      
-      const veiculosProcessados = await Promise.all(veiculosPromises)
-      const veiculosFiltroProcessados = await Promise.all(veiculosFiltroPromises)
+        const lista = filtrosPorVeiculo.get(key)
+        if (lista) lista.push(filtro)
+        else filtrosPorVeiculo.set(key, [filtro])
+      }
+
+      const prontidaoMap: Record<string, boolean> = {}
+      const veiculosProcessados: VeiculoComDados[] = []
+      const veiculosFiltroProcessados: VeiculoComDados[] = []
+
+      for (const veiculo of veiculosData || []) {
+        const registros = trocasPorVeiculo.get(veiculo.id) || []
+        const estatisticasOleo = calcularEstatisticasTrocasOleoFromRegistros(registros)
+        const estatisticasFiltro = calcularEstatisticasFiltroCombustivelFromRegistros(registros)
+        const filtrosVeiculo =
+          filtrosPorVeiculo.get(String(veiculo.id).trim().toLowerCase()) || []
+
+        prontidaoMap[veiculo.id] = verificarProntoParaTroca(filtrosVeiculo, produtosData || [])
+
+        veiculosProcessados.push({
+          ...veiculo,
+          ultimaTroca: estatisticasOleo.ultimaTroca,
+          kmAtual: estatisticasOleo.kmAtual || veiculo.kmAtual || 0,
+          kmProxTroca: estatisticasOleo.kmProxTroca || 0,
+          progresso: estatisticasOleo.progresso,
+          secretaria: veiculo.secretaria,
+        })
+
+        veiculosFiltroProcessados.push({
+          ...veiculo,
+          ultimaTroca: estatisticasFiltro.ultimaTroca,
+          kmAtual: estatisticasFiltro.kmAtual || veiculo.kmAtual || 0,
+          kmProxTroca: estatisticasFiltro.kmProxTroca || 0,
+          progresso: estatisticasFiltro.progresso,
+          secretaria: veiculo.secretaria,
+        })
+      }
+
+      setVeiculosProntosTroca(prontidaoMap)
       setVeiculosComDados(veiculosProcessados)
       setVeiculosFiltrados(ordenarVeiculos(veiculosProcessados))
       setVeiculosComDadosFiltro(veiculosFiltroProcessados)
@@ -891,40 +918,6 @@ export default function TrocaOleoPage() {
     if (progresso < 50) return "bg-green-500"
     if (progresso < 80) return "bg-yellow-500"
     return "bg-red-500"
-  }
-
-  const getFiltrosDoVeiculoParaPronto = async (veiculoId: string): Promise<FiltroRegistradoTroca[]> => {
-    try {
-      const normalizedId = String(veiculoId).trim()
-
-      let { data, error } = await supabase
-        .from("filtros_registrados")
-        .select("veiculoid, categoria, produtoid")
-        .eq("veiculoid", normalizedId)
-
-      // Mesmo fallback da página de Filtros
-      if (!error && (!data || data.length === 0)) {
-        const { data: allData, error: allError } = await supabase
-          .from("filtros_registrados")
-          .select("veiculoid, categoria, produtoid")
-
-        if (!allError && allData) {
-          data = allData.filter(
-            (item: any) => String(item.veiculoid).trim().toLowerCase() === normalizedId.toLowerCase(),
-          )
-        }
-      }
-
-      if (error || !data) return []
-
-      return data.map((item: any) => ({
-        veiculoId: String(item.veiculoid).trim(),
-        categoria: item.categoria ? String(item.categoria).trim() : "",
-        produtoId: String(item.produtoid).trim(),
-      }))
-    } catch {
-      return []
-    }
   }
 
   const verificarProntoParaTroca = (filtros: FiltroRegistradoTroca[], todosProdutos: any[]): boolean => {

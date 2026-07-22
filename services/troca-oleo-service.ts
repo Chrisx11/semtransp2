@@ -304,46 +304,8 @@ export async function atualizarKmVeiculo(veiculoId: string, kmAtual: number, kmP
 // Buscar estatísticas de trocas de óleo
 export async function getEstatisticasTrocasOleo(veiculoId: string) {
   try {
-    const ultimaTroca = await getUltimaTrocaOleo(veiculoId)
-    const ultimoRegistro = await getUltimoRegistro(veiculoId)
-    
-    // Se não tem nenhum registro (nem troca nem atualização)
-    if (!ultimoRegistro) {
-      return {
-        ultimaTroca: null,
-        kmAtual: 0,
-        kmProxTroca: 0,
-        progresso: 0,
-      }
-    }
-    
-    // Se tem algum registro de atualização, mas não tem troca de óleo
-    if (!ultimaTroca) {
-      return {
-        ultimaTroca: null,
-        kmAtual: ultimoRegistro.km_atual, // Usar km atual do último registro
-        kmProxTroca: ultimoRegistro.km_proxima_troca,
-        progresso: 0, // Sem troca de óleo, o progresso é 0
-      }
-    }
-    
-    // Cálculo do progresso quando tem troca de óleo
-    const kmInicial = ultimaTroca.km_atual
-    const kmFinal = ultimaTroca.km_proxima_troca
-    const kmAtual = ultimoRegistro.km_atual
-    
-    const totalKm = kmFinal - kmInicial
-    const kmPercorrido = kmAtual - kmInicial
-    
-    const progresso = totalKm <= 0 ? 0 : 
-                     Math.max(0, Math.min(100, Math.round((kmPercorrido / totalKm) * 100)))
-    
-    return {
-      ultimaTroca,
-      kmAtual,
-      kmProxTroca: kmFinal,
-      progresso,
-    }
+    const registros = await getTrocasOleo(veiculoId)
+    return calcularEstatisticasTrocasOleoFromRegistros(registros)
   } catch (error) {
     console.error("Erro ao calcular estatísticas:", error)
     return {
@@ -353,53 +315,115 @@ export async function getEstatisticasTrocasOleo(veiculoId: string) {
       progresso: 0,
     }
   }
-} 
+}
+
+function isTipoTrocaOleo(tipo?: string | null) {
+  if (!tipo) return false
+  if (tipo === "Troca de Óleo") return true
+  const lower = tipo.toLowerCase()
+  return lower.includes("troca") && lower.includes("óleo")
+}
+
+function isTipoFiltroCombustivel(tipo?: string | null) {
+  const t = (tipo || "").toLowerCase()
+  return t.includes("filtro") && (t.includes("combust") || t.includes("combustível"))
+}
+
+function ordenarRegistrosPorDataDesc(registros: TrocaOleo[]): TrocaOleo[] {
+  return [...registros].sort((a, b) => {
+    const da = new Date(a.data_troca).getTime()
+    const db = new Date(b.data_troca).getTime()
+    return (Number.isNaN(db) ? 0 : db) - (Number.isNaN(da) ? 0 : da)
+  })
+}
+
+/** Calcula estatísticas de óleo a partir de registros já carregados (evita N+1). */
+export function calcularEstatisticasTrocasOleoFromRegistros(registros: TrocaOleo[]) {
+  const sorted = ordenarRegistrosPorDataDesc(registros)
+  const ultimoRegistro = sorted[0] || null
+  const ultimaTroca = sorted.find((r) => isTipoTrocaOleo(r.tipo_servico)) || null
+
+  if (!ultimoRegistro) {
+    return {
+      ultimaTroca: null as TrocaOleo | null,
+      kmAtual: 0,
+      kmProxTroca: 0,
+      progresso: 0,
+    }
+  }
+
+  if (!ultimaTroca) {
+    return {
+      ultimaTroca: null as TrocaOleo | null,
+      kmAtual: ultimoRegistro.km_atual,
+      kmProxTroca: ultimoRegistro.km_proxima_troca,
+      progresso: 0,
+    }
+  }
+
+  const kmInicial = ultimaTroca.km_atual
+  const kmFinal = ultimaTroca.km_proxima_troca
+  const kmAtual = ultimoRegistro.km_atual
+  const totalKm = kmFinal - kmInicial
+  const kmPercorrido = kmAtual - kmInicial
+  const progresso =
+    totalKm <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((kmPercorrido / totalKm) * 100)))
+
+  return {
+    ultimaTroca,
+    kmAtual,
+    kmProxTroca: kmFinal,
+    progresso,
+  }
+}
+
+/** Calcula estatísticas de filtro a partir de registros já carregados (evita N+1). */
+export function calcularEstatisticasFiltroCombustivelFromRegistros(registros: TrocaOleo[]) {
+  const sorted = ordenarRegistrosPorDataDesc(registros)
+  const ultimoRegistro = sorted[0] || null
+  const ultimaTrocaOleo = sorted.find((r) => isTipoTrocaOleo(r.tipo_servico)) || null
+  const ultimaTrocaFiltro = sorted.find((r) => isTipoFiltroCombustivel(r.tipo_servico)) || null
+
+  if (!ultimoRegistro) {
+    return {
+      ultimaTroca: null as TrocaOleo | null,
+      kmAtual: 0,
+      kmProxTroca: 0,
+      progresso: 0,
+    }
+  }
+
+  const kmAtual = ultimoRegistro.km_atual
+  const intervaloOleo = ultimaTrocaOleo
+    ? Number(ultimaTrocaOleo.km_proxima_troca) - Number(ultimaTrocaOleo.km_atual)
+    : 5000
+  const intervaloFiltro = Math.max(1, Math.round(intervaloOleo / 2))
+  const kmInicial = ultimaTrocaFiltro
+    ? Number(ultimaTrocaFiltro.km_atual)
+    : ultimaTrocaOleo
+      ? Number(ultimaTrocaOleo.km_atual)
+      : Number(ultimoRegistro.km_anterior || 0)
+  const kmFinal = kmInicial + intervaloFiltro
+  const totalKm = kmFinal - kmInicial
+  const kmPercorrido = kmAtual - kmInicial
+  const progresso =
+    totalKm <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((kmPercorrido / totalKm) * 100)))
+
+  return {
+    ultimaTroca: ultimaTrocaFiltro,
+    kmAtual,
+    kmProxTroca: kmFinal,
+    progresso,
+  }
+}
 
 // Estatísticas para Filtro de Combustível:
 // Regra: o ciclo do filtro é metade do ciclo do óleo (óleo 50% => filtro 100%),
 // então o intervalo do filtro = (km_proxima_troca - km_atual) da última troca de óleo / 2.
 export async function getEstatisticasFiltroCombustivel(veiculoId: string) {
   try {
-    const ultimaTrocaOleo = await getUltimaTrocaOleo(veiculoId)
-    const ultimaTrocaFiltro = await getUltimaTrocaFiltroCombustivel(veiculoId)
-    const ultimoRegistro = await getUltimoRegistro(veiculoId)
-
-    if (!ultimoRegistro) {
-      return {
-        ultimaTroca: null,
-        kmAtual: 0,
-        kmProxTroca: 0,
-        progresso: 0,
-      }
-    }
-
-    const kmAtual = ultimoRegistro.km_atual
-
-    const intervaloOleo = ultimaTrocaOleo
-      ? Number(ultimaTrocaOleo.km_proxima_troca) - Number(ultimaTrocaOleo.km_atual)
-      : 5000
-
-    const intervaloFiltro = Math.max(1, Math.round(intervaloOleo / 2))
-
-    const kmInicial = ultimaTrocaFiltro
-      ? Number(ultimaTrocaFiltro.km_atual)
-      : (ultimaTrocaOleo ? Number(ultimaTrocaOleo.km_atual) : Number(ultimoRegistro.km_anterior || 0))
-
-    const kmFinal = kmInicial + intervaloFiltro
-
-    const totalKm = kmFinal - kmInicial
-    const kmPercorrido = kmAtual - kmInicial
-
-    const progresso = totalKm <= 0
-      ? 0
-      : Math.max(0, Math.min(100, Math.round((kmPercorrido / totalKm) * 100)))
-
-    return {
-      ultimaTroca: ultimaTrocaFiltro,
-      kmAtual,
-      kmProxTroca: kmFinal,
-      progresso,
-    }
+    const registros = await getTrocasOleo(veiculoId)
+    return calcularEstatisticasFiltroCombustivelFromRegistros(registros)
   } catch (error) {
     console.error("Erro ao calcular estatísticas do filtro de combustível:", error)
     return {
