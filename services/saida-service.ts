@@ -485,6 +485,34 @@ export async function getSaidasByVeiculoAndDataSupabase(veiculoId: string, data:
   return saidas || []
 }
 
+export async function getSaidasByVeiculoSupabase(veiculoId: string): Promise<Saida[]> {
+  const { data, error } = await supabase
+    .from("saidas")
+    .select("*")
+    .eq("veiculoId", veiculoId)
+    .order("data", { ascending: false })
+  if (error) throw error
+  const rows = data || []
+  return rows.map((row: any) => ({
+    id: row.id,
+    produtoId: row.produtoId,
+    produtoNome: row.produtoNome,
+    categoria: row.categoria,
+    quantidade: row.quantidade,
+    valorUnitario: row.valor_unitario ?? undefined,
+    data: row.data,
+    responsavelId: row.responsavelId,
+    responsavelNome: row.responsavelNome,
+    veiculoId: row.veiculoId,
+    veiculoPlaca: row.veiculoPlaca,
+    veiculoModelo: row.veiculoModelo,
+    observacao: row.observacao ?? undefined,
+    historicoId: row.historicoId ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }))
+}
+
 export async function getSaidasByHistoricoIdSupabase(historicoId: string): Promise<Saida[]> {
   const { data, error } = await supabase.from("saidas").select("*").eq("historicoId", historicoId).order("data", { ascending: false })
   if (error) throw error

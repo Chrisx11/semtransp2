@@ -19,7 +19,7 @@ import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { EmptyState } from "@/components/empty-state"
 import { SaidaFormDialog } from "@/components/saida-form-dialog"
 import { getSaidasSupabase, deleteSaidaSupabase, updateSaidaSupabase, type Saida } from "@/services/saida-service"
-import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, Car, MoreVertical, Calendar as CalendarIcon, DollarSign } from "lucide-react"
+import { Search, Plus, Trash2, ArrowUpDown, Download, FileText, Filter, Pencil, Package, Car, MoreVertical, Calendar as CalendarIcon, DollarSign, Copy, CheckSquare, X } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -38,6 +38,8 @@ import { getProdutosSupabase, type Produto } from "@/services/produto-service"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
 
 // Componente Mobile View
 function SaidasMobileView({
@@ -63,6 +65,13 @@ function SaidasMobileView({
   handleEditDataClick,
   handleEditValorClick,
   setFormOpen,
+  modoCopiar,
+  setModoCopiar,
+  itensSelecionados,
+  toggleItemSelecionado,
+  toggleSelecionarPagina,
+  limparSelecao,
+  copiarItensSelecionados,
 }: {
   paginatedData: Saida[]
   processedData: Saida[]
@@ -74,8 +83,8 @@ function SaidasMobileView({
   pageNumbers: number[]
   searchTerm: string
   setSearchTerm: (value: string) => void
-  dateFilter: string
-  setDateFilter: (value: string) => void
+  dateFilter: Date | undefined
+  setDateFilter: (value: Date | undefined) => void
   placaFilter: string
   setPlacaFilter: (value: string) => void
   isLoading: boolean
@@ -86,7 +95,17 @@ function SaidasMobileView({
   handleEditDataClick: (saida: Saida) => void
   handleEditValorClick: (saida: Saida) => void
   setFormOpen: (open: boolean) => void
+  modoCopiar: boolean
+  setModoCopiar: (value: boolean) => void
+  itensSelecionados: Set<string>
+  toggleItemSelecionado: (id: string) => void
+  toggleSelecionarPagina: () => void
+  limparSelecao: () => void
+  copiarItensSelecionados: () => void | Promise<void>
 }) {
+  const todosPaginaSelecionados =
+    paginatedData.length > 0 && paginatedData.every((s) => itensSelecionados.has(s.id))
+
   return (
     <div className="w-full min-w-0 px-2 py-3 space-y-3 overflow-x-hidden box-border">
       <div className="w-full min-w-0">
@@ -155,6 +174,56 @@ function SaidasMobileView({
         <Button className="w-full min-w-0 btn-gradient shadow-md text-sm h-9 box-border" onClick={() => setFormOpen(true)}>
           <Plus className="mr-1 h-3.5 w-3.5" /> Nova Saída
         </Button>
+
+        {!modoCopiar ? (
+          <Button
+            variant="outline"
+            className="w-full text-sm h-9"
+            onClick={() => setModoCopiar(true)}
+          >
+            <CheckSquare className="mr-1 h-3.5 w-3.5" />
+            Copiar itens
+          </Button>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">
+                {itensSelecionados.size} selecionado(s)
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => {
+                  limparSelecao()
+                  setModoCopiar(false)
+                }}
+              >
+                <X className="mr-1 h-3 w-3" />
+                Cancelar
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 h-8 text-xs"
+                onClick={toggleSelecionarPagina}
+              >
+                {todosPaginaSelecionados ? "Desmarcar página" : "Selecionar página"}
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 h-8 text-xs"
+                disabled={itensSelecionados.size === 0}
+                onClick={copiarItensSelecionados}
+              >
+                <Copy className="mr-1 h-3 w-3" />
+                Copiar
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Loading State */}
@@ -174,11 +243,30 @@ function SaidasMobileView({
             const similares = produto && produto.produtosSimilares && produto.produtosSimilares.length > 0
               ? produtos.filter((p) => produto.produtosSimilares.includes(p.id))
               : []
+            const selecionado = itensSelecionados.has(saida.id)
             
             return (
-              <Card key={saida.id} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full min-w-0 overflow-hidden box-border">
+              <Card
+                key={saida.id}
+                className={cn(
+                  "border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow w-full min-w-0 overflow-hidden box-border",
+                  modoCopiar && selecionado && "ring-1 ring-primary bg-primary/5",
+                )}
+                onClick={() => {
+                  if (modoCopiar) toggleItemSelecionado(saida.id)
+                }}
+              >
                 <CardContent className="px-2 py-2 space-y-2 w-full min-w-0 box-border">
                   <div className="flex items-start justify-between gap-1.5 w-full min-w-0">
+                    {modoCopiar && (
+                      <div className="pt-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selecionado}
+                          onCheckedChange={() => toggleItemSelecionado(saida.id)}
+                          aria-label={`Selecionar ${saida.produtoNome}`}
+                        />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       {/* Produto e Info Principal */}
                       <div className="flex items-center gap-1.5 mb-1.5">
@@ -229,7 +317,8 @@ function SaidasMobileView({
                     </div>
                     
                     {/* Menu de Ações */}
-                    <div className="flex-shrink-0">
+                    {!modoCopiar && (
+                    <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -265,6 +354,7 @@ function SaidasMobileView({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -398,6 +488,10 @@ export default function SaidasPage() {
 
   // Estado para todos os produtos (para buscar similares)
   const [produtos, setProdutos] = useState<Produto[]>([])
+
+  // Modo copiar itens para colar em OS
+  const [modoCopiar, setModoCopiar] = useState(false)
+  const [itensSelecionados, setItensSelecionados] = useState<Set<string>>(new Set())
 
   const { toast } = useToast()
 
@@ -752,6 +846,69 @@ export default function SaidasPage() {
     setFormOpen(open)
   }
 
+  const toggleItemSelecionado = (id: string) => {
+    setItensSelecionados((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const limparSelecao = () => setItensSelecionados(new Set())
+
+  const toggleSelecionarPagina = () => {
+    const idsPagina = paginatedData.map((s) => s.id)
+    const todosSelecionados = idsPagina.length > 0 && idsPagina.every((id) => itensSelecionados.has(id))
+    setItensSelecionados((prev) => {
+      const next = new Set(prev)
+      if (todosSelecionados) {
+        idsPagina.forEach((id) => next.delete(id))
+      } else {
+        idsPagina.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const copiarItensSelecionados = async () => {
+    const selecionadas = processedData.filter((s) => itensSelecionados.has(s.id))
+    if (selecionadas.length === 0) {
+      toast({
+        title: "Nenhum item selecionado",
+        description: "Marque ao menos uma saída para copiar.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const texto = selecionadas
+      .map((s) => {
+        const produto = produtos.find((p) => p.id === s.produtoId)
+        const unidade = produto?.unidade ? ` ${produto.unidade}` : ""
+        return `${s.produtoNome} - Qtd: ${s.quantidade}${unidade}`
+      })
+      .join("\n")
+
+    try {
+      await navigator.clipboard.writeText(texto)
+      toast({
+        title: "Itens copiados",
+        description: `${selecionadas.length} item(ns) prontos para colar na OS.`,
+      })
+    } catch (error) {
+      console.error("Erro ao copiar:", error)
+      toast({
+        title: "Erro ao copiar",
+        description: "Não foi possível copiar para a área de transferência.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const todosPaginaSelecionados =
+    paginatedData.length > 0 && paginatedData.every((s) => itensSelecionados.has(s.id))
+
   const isMobile = useIsMobile()
 
   if (isMobile) {
@@ -780,6 +937,13 @@ export default function SaidasPage() {
           handleEditDataClick={handleEditDataClick}
           handleEditValorClick={handleEditValorClick}
           setFormOpen={setFormOpen}
+          modoCopiar={modoCopiar}
+          setModoCopiar={setModoCopiar}
+          itensSelecionados={itensSelecionados}
+          toggleItemSelecionado={toggleItemSelecionado}
+          toggleSelecionarPagina={toggleSelecionarPagina}
+          limparSelecao={limparSelecao}
+          copiarItensSelecionados={copiarItensSelecionados}
         />
         
         {/* Modais compartilhados */}
@@ -873,6 +1037,48 @@ export default function SaidasPage() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              {!modoCopiar ? (
+                <Button
+                  variant="outline"
+                  className="w-full md:w-auto"
+                  onClick={() => setModoCopiar(true)}
+                >
+                  <CheckSquare className="mr-2 h-4 w-4" />
+                  Copiar itens
+                </Button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    {itensSelecionados.size} selecionado(s)
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleSelecionarPagina}
+                  >
+                    {todosPaginaSelecionados ? "Desmarcar página" : "Selecionar página"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={itensSelecionados.size === 0}
+                    onClick={copiarItensSelecionados}
+                  >
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      limparSelecao()
+                      setModoCopiar(false)
+                    }}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Cancelar
+                  </Button>
+                </div>
+              )}
               {/* Botão nova saída */}
               <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={() => setFormOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Nova Saída
@@ -886,6 +1092,15 @@ export default function SaidasPage() {
               <TableCaption>Lista de saídas de produtos do estoque.</TableCaption>
               <TableHeader>
                 <TableRow>
+                  {modoCopiar && (
+                    <TableHead className="w-10">
+                      <Checkbox
+                        checked={todosPaginaSelecionados}
+                        onCheckedChange={toggleSelecionarPagina}
+                        aria-label="Selecionar todos da página"
+                      />
+                    </TableHead>
+                  )}
                   <TableHead onClick={() => toggleSort("produtoNome")} className="cursor-pointer">
                     <div className="flex items-center">Produto {renderSortIcon("produtoNome")}</div>
                   </TableHead>
@@ -918,8 +1133,24 @@ export default function SaidasPage() {
                     const similares = produto && produto.produtosSimilares && produto.produtosSimilares.length > 0
                       ? produtos.filter((p) => produto.produtosSimilares.includes(p.id))
                       : []
+                    const selecionado = itensSelecionados.has(saida.id)
                     return (
-                      <TableRow key={saida.id}>
+                      <TableRow
+                        key={saida.id}
+                        className={cn(modoCopiar && selecionado && "bg-primary/5")}
+                        onClick={() => {
+                          if (modoCopiar) toggleItemSelecionado(saida.id)
+                        }}
+                      >
+                        {modoCopiar && (
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={selecionado}
+                              onCheckedChange={() => toggleItemSelecionado(saida.id)}
+                              aria-label={`Selecionar ${saida.produtoNome}`}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">
                           {saida.produtoNome}
                           {similares.length > 0 && (
@@ -939,7 +1170,8 @@ export default function SaidasPage() {
                             ? `${saida.veiculoPlaca} - ${saida.veiculoModelo}`
                             : "N/A"}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          {!modoCopiar && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -974,13 +1206,14 @@ export default function SaidasPage() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          )}
                         </TableCell>
                       </TableRow>
                     )
                   })
                 ) : (
                   <EmptyState
-                    colSpan={8}
+                    colSpan={modoCopiar ? 9 : 8}
                     title={
                       searchTerm || dateFilter || placaFilter ? "Nenhum resultado encontrado" : "Nenhuma saída cadastrada"
                     }

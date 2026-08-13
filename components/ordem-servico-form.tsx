@@ -30,12 +30,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle, Package } from "lucide-react"
 import { getVeiculoById } from "@/services/veiculo-service"
 import { getColaboradorById } from "@/services/colaborador-service"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase"
+import { Checkbox } from "@/components/ui/checkbox"
+import { getSaidasByVeiculoSupabase, type Saida } from "@/services/saida-service"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 
 // Esquema de validação do formulário
 const formSchema = z.object({
@@ -102,6 +107,12 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   const [verificacaoOpen, setVerificacaoOpen] = useState(false)
   const [verificacaoBloqueada, setVerificacaoBloqueada] = useState(false)
   const [ordemConflito, setOrdemConflito] = useState<OrdemAbertaResumo | null>(null)
+
+  // Trazer itens das saídas do veículo
+  const [trazerItensOpen, setTrazerItensOpen] = useState(false)
+  const [saidasVeiculo, setSaidasVeiculo] = useState<Saida[]>([])
+  const [saidasSelecionadas, setSaidasSelecionadas] = useState<Set<string>>(new Set())
+  const [loadingSaidas, setLoadingSaidas] = useState(false)
 
   // Atualizar os valores padrão do formulário
   const form = useForm<FormValues>({
@@ -530,6 +541,82 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
     }
   }
 
+  const abrirTrazerItens = async () => {
+    const veiculoId = form.getValues("veiculoId") || selectedVeiculo?.id || ordemExistente?.veiculoId
+    if (!veiculoId) {
+      toast({
+        title: "Veículo não selecionado",
+        description: "Selecione um veículo para buscar as saídas.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setTrazerItensOpen(true)
+    setSaidasSelecionadas(new Set())
+    setLoadingSaidas(true)
+    try {
+      const filtradas = await getSaidasByVeiculoSupabase(veiculoId)
+      setSaidasVeiculo(filtradas)
+    } catch (error) {
+      console.error("Erro ao buscar saídas do veículo:", error)
+      setSaidasVeiculo([])
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar as saídas deste veículo.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingSaidas(false)
+    }
+  }
+
+  const toggleSaidaSelecionada = (id: string) => {
+    setSaidasSelecionadas((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelecionarTodasSaidas = () => {
+    if (saidasVeiculo.length === 0) return
+    const todos = saidasVeiculo.every((s) => saidasSelecionadas.has(s.id))
+    if (todos) {
+      setSaidasSelecionadas(new Set())
+    } else {
+      setSaidasSelecionadas(new Set(saidasVeiculo.map((s) => s.id)))
+    }
+  }
+
+  const concluirTrazerItens = () => {
+    const selecionadas = saidasVeiculo.filter((s) => saidasSelecionadas.has(s.id))
+    if (selecionadas.length === 0) {
+      toast({
+        title: "Nenhum item selecionado",
+        description: "Marque ao menos um produto para trazer.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const linhas = selecionadas.map((s) => `${s.produtoNome} - Qtd: ${s.quantidade}`)
+    const textoNovo = linhas.join("\n")
+    const atual = (form.getValues("pecasServicos") || "").trim()
+    form.setValue("pecasServicos", atual ? `${atual}\n${textoNovo}` : textoNovo, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+
+    setTrazerItensOpen(false)
+    setSaidasSelecionadas(new Set())
+    toast({
+      title: "Itens adicionados",
+      description: `${selecionadas.length} item(ns) colados em Relação de Peças e/ou Serviços.`,
+    })
+  }
+
   return (
     <div className="space-y-6">
       <Form {...form}>
@@ -716,7 +803,21 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
                 name="pecasServicos"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Relação de Peças e/ou Serviços</FormLabel>
+                    <div className="flex items-center justify-between gap-2">
+                      <FormLabel>Relação de Peças e/ou Serviços</FormLabel>
+                      {isEdicao && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-6 px-2 text-[10px] leading-none"
+                          onClick={abrirTrazerItens}
+                        >
+                          <Package className="mr-1 h-3 w-3" />
+                          Trazer Itens
+                        </Button>
+                      )}
+                    </div>
                     <FormControl>
                       <Textarea
                         placeholder="Liste as peças e/ou serviços necessários"
@@ -851,6 +952,108 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={trazerItensOpen}
+        onOpenChange={(open) => {
+          setTrazerItensOpen(open)
+          if (!open) setSaidasSelecionadas(new Set())
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Trazer Itens</DialogTitle>
+            <DialogDescription>
+              Produtos utilizados nas saídas deste veículo. Marque os itens e conclua para colar em
+              Relação de Peças e/ou Serviços.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingSaidas ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Carregando saídas...</p>
+            </div>
+          ) : saidasVeiculo.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Nenhuma saída encontrada para este veículo.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={
+                      saidasVeiculo.length > 0 &&
+                      saidasVeiculo.every((s) => saidasSelecionadas.has(s.id))
+                    }
+                    onCheckedChange={toggleSelecionarTodasSaidas}
+                  />
+                  Selecionar todos
+                </label>
+                <span className="text-xs text-muted-foreground">
+                  {saidasSelecionadas.size} selecionado(s)
+                </span>
+              </div>
+              <ScrollArea className="h-[280px] rounded-md border">
+                <div className="p-2 space-y-1">
+                  {saidasVeiculo.map((saida) => {
+                    const selecionado = saidasSelecionadas.has(saida.id)
+                    let dataFmt = "-"
+                    try {
+                      dataFmt = format(new Date(saida.data), "dd/MM/yyyy", { locale: ptBR })
+                    } catch {
+                      dataFmt = saida.data
+                    }
+                    return (
+                      <label
+                        key={saida.id}
+                        className={`flex items-start gap-2 rounded-md p-2 cursor-pointer hover:bg-muted/60 ${
+                          selecionado ? "bg-primary/5" : ""
+                        }`}
+                      >
+                        <Checkbox
+                          checked={selecionado}
+                          onCheckedChange={() => toggleSaidaSelecionada(saida.id)}
+                          className="mt-0.5"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium leading-tight">{saida.produtoNome}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            Qtd: {saida.quantidade}
+                            {saida.categoria ? ` · ${saida.categoria}` : ""}
+                            {` · ${dataFmt}`}
+                          </div>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setTrazerItensOpen(false)
+                setSaidasSelecionadas(new Set())
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={loadingSaidas || saidasSelecionadas.size === 0}
+              onClick={concluirTrazerItens}
+            >
+              Concluir
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
