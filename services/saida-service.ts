@@ -291,28 +291,54 @@ export const filterSaidasByDate = (filter: "today" | "week" | "month"): Saida[] 
 }
 
 // Funções assíncronas para Supabase
-export async function getSaidasSupabase(): Promise<Saida[]> {
-  const { data, error } = await supabase.from("saidas").select("*").order("data", { ascending: false })
-  if (error) throw error
-  const rows = data || []
-  return rows.map((row: any) => ({
+function mapSaidaRow(row: any): Saida {
+  return {
     id: row.id,
-    produtoId: row.produtoId,
-    produtoNome: row.produtoNome,
+    produtoId: row.produtoId ?? row.produtoid ?? row.produto_id,
+    produtoNome: row.produtoNome ?? row.produtonome ?? row.produto_nome,
     categoria: row.categoria,
     quantidade: row.quantidade,
-    valorUnitario: row.valor_unitario ?? undefined,
+    valorUnitario: row.valor_unitario ?? row.valorUnitario ?? undefined,
     data: row.data,
-    responsavelId: row.responsavelId,
-    responsavelNome: row.responsavelNome,
-    veiculoId: row.veiculoId,
-    veiculoPlaca: row.veiculoPlaca,
-    veiculoModelo: row.veiculoModelo,
+    responsavelId: row.responsavelId ?? row.responsavelid ?? row.responsavel_id,
+    responsavelNome: row.responsavelNome ?? row.responsavelnome ?? row.responsavel_nome,
+    veiculoId: String(row.veiculoId ?? row.veiculoid ?? row.veiculo_id ?? "").trim(),
+    veiculoPlaca: String(row.veiculoPlaca ?? row.veiculoplaca ?? row.veiculo_placa ?? "").trim(),
+    veiculoModelo: row.veiculoModelo ?? row.veiculomodelo ?? row.veiculo_modelo ?? "",
     observacao: row.observacao ?? undefined,
-    historicoId: row.historicoId ?? undefined,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }))
+    historicoId: row.historicoId ?? row.historicoid ?? row.historico_id ?? undefined,
+    createdAt: row.createdAt ?? row.createdat ?? row.created_at,
+    updatedAt: row.updatedAt ?? row.updatedat ?? row.updated_at,
+  }
+}
+
+function normalizarPlaca(placa?: string | null): string {
+  return String(placa || "").replace(/[^a-zA-Z0-9]/g, "").toUpperCase()
+}
+
+export async function getSaidasSupabase(): Promise<Saida[]> {
+  // Paginar para não ficar limitado aos 1000 primeiros do PostgREST
+  const pageSize = 1000
+  let from = 0
+  let allRows: any[] = []
+  let hasMore = true
+
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("saidas")
+      .select("*")
+      .order("data", { ascending: false })
+      .range(from, from + pageSize - 1)
+
+    if (error) throw error
+
+    const page = data || []
+    allRows = allRows.concat(page)
+    hasMore = page.length === pageSize
+    from += pageSize
+  }
+
+  return allRows.map(mapSaidaRow)
 }
 
 export async function getSaidaByIdSupabase(id: string): Promise<Saida | null> {
@@ -485,32 +511,28 @@ export async function getSaidasByVeiculoAndDataSupabase(veiculoId: string, data:
   return saidas || []
 }
 
-export async function getSaidasByVeiculoSupabase(veiculoId: string): Promise<Saida[]> {
-  const { data, error } = await supabase
-    .from("saidas")
-    .select("*")
-    .eq("veiculoId", veiculoId)
-    .order("data", { ascending: false })
-  if (error) throw error
-  const rows = data || []
-  return rows.map((row: any) => ({
-    id: row.id,
-    produtoId: row.produtoId,
-    produtoNome: row.produtoNome,
-    categoria: row.categoria,
-    quantidade: row.quantidade,
-    valorUnitario: row.valor_unitario ?? undefined,
-    data: row.data,
-    responsavelId: row.responsavelId,
-    responsavelNome: row.responsavelNome,
-    veiculoId: row.veiculoId,
-    veiculoPlaca: row.veiculoPlaca,
-    veiculoModelo: row.veiculoModelo,
-    observacao: row.observacao ?? undefined,
-    historicoId: row.historicoId ?? undefined,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  }))
+export async function getSaidasByVeiculoSupabase(
+  veiculoId: string,
+  veiculoPlaca?: string,
+): Promise<Saida[]> {
+  const id = String(veiculoId || "").trim()
+  const placaNorm = normalizarPlaca(veiculoPlaca)
+
+  if (!id && !placaNorm) return []
+
+  const todas = await getSaidasSupabase()
+
+  const filtradas = todas.filter((s) => {
+    const saidaId = String(s.veiculoId || "").trim()
+    const saidaPlacaNorm = normalizarPlaca(s.veiculoPlaca)
+
+    const matchId = Boolean(id && saidaId && saidaId === id)
+    const matchPlaca = Boolean(placaNorm && saidaPlacaNorm && saidaPlacaNorm === placaNorm)
+
+    return matchId || matchPlaca
+  })
+
+  return filtradas
 }
 
 export async function getSaidasByHistoricoIdSupabase(historicoId: string): Promise<Saida[]> {

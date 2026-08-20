@@ -35,6 +35,16 @@ import {
   FileImage,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { isUsuarioSecretaria } from "@/lib/secretaria-scope"
+
+/** Rotas liberadas para login especial de secretaria */
+const ROTAS_SECRETARIA = new Set([
+  "/dashboard",
+  "/dashboard/veiculos",
+  "/dashboard/filtros",
+  "/dashboard/manutencoes/tela",
+  "/dashboard/manutencoes/troca-oleo",
+])
 
 interface SidebarProps {
   isCollapsed: boolean
@@ -56,7 +66,8 @@ interface MenuItem {
 
 export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   const pathname = usePathname()
-  const { verificarPermissao } = useAuth()
+  const { verificarPermissao, user } = useAuth()
+  const usuarioSecretaria = isUsuarioSecretaria(user)
   const [openCadastros, setOpenCadastros] = useState(false)
   const [openMovimento, setOpenMovimento] = useState(false)
   const [openManutencoes, setOpenManutencoes] = useState(false)
@@ -387,6 +398,17 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
 
   // Verificar permissão para um item do menu
   const temPermissao = (item: MenuItem): boolean => {
+    // Login de secretaria: só as rotas explicitamente liberadas
+    if (usuarioSecretaria) {
+      if (item.href) {
+        return ROTAS_SECRETARIA.has(item.href)
+      }
+      if (item.isSubmenu && item.submenu) {
+        return item.submenu.some((subItem) => temPermissao(subItem))
+      }
+      return false
+    }
+
     // Sem requisito de permissão, permite
     if (!item.requiredPermission) return true;
     
@@ -403,35 +425,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     }
     
     return false;
-    
-    /* CÓDIGO ORIGINAL - COMENTADO PARA REFATORAÇÃO
-    if (!item.requiredPermission) return true; // Sem requisito de permissão, permite
-
-    const { modulo, acao, submodulo, pagina } = item.requiredPermission;
-    
-    // Log para debug específico de troca-oleo
-    if (pagina === "troca-oleo") {
-      console.log("Verificando permissão para Troca de Óleo no sidebar...", item.href);
-    }
-    
-    // Se o item tem href, verificamos a permissão para essa rota específica
-    if (item.href) {
-      // Para rotas que são submódulos com página específica, adicionar mais informações ao log
-      if (submodulo && pagina) {
-        console.log(`Verificando permissão para rota ${item.href} (${modulo}/${pagina}):`, verificarPermissao(item.href));
-      }
-      return verificarPermissao(item.href);
-    }
-    
-    // Se é um submenu, verificamos apenas a permissão para o módulo principal
-    // Os itens dentro do submenu serão verificados individualmente
-    if (item.isSubmenu && item.submenu) {
-      // Se pelo menos um item do submenu tem permissão, o submenu deve ser exibido
-      return item.submenu.some(subItem => temPermissao(subItem));
-    }
-    
-    return false;
-    */
   }
 
   const simpleMenuItems = menuItems.flatMap((item) => {

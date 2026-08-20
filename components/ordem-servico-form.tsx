@@ -113,6 +113,7 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   const [saidasVeiculo, setSaidasVeiculo] = useState<Saida[]>([])
   const [saidasSelecionadas, setSaidasSelecionadas] = useState<Set<string>>(new Set())
   const [loadingSaidas, setLoadingSaidas] = useState(false)
+  const [filtroTrazerItensLabel, setFiltroTrazerItensLabel] = useState("")
 
   // Atualizar os valores padrão do formulário
   const form = useForm<FormValues>({
@@ -542,8 +543,28 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
   }
 
   const abrirTrazerItens = async () => {
-    const veiculoId = form.getValues("veiculoId") || selectedVeiculo?.id || ordemExistente?.veiculoId
-    if (!veiculoId) {
+    const ordemRaw = ordemExistente as any
+    const veiculoId = String(
+      form.getValues("veiculoId") ||
+        selectedVeiculo?.id ||
+        ordemRaw?.veiculoId ||
+        ordemRaw?.veiculoid ||
+        ordemRaw?.veiculo_id ||
+        "",
+    ).trim()
+
+    const veiculoInfo = String(ordemRaw?.veiculoInfo || ordemRaw?.veiculoinfo || "")
+    const placaDoInfo = veiculoInfo.includes(" - ")
+      ? veiculoInfo.split(" - ")[0].trim()
+      : veiculoInfo.trim()
+
+    // Extrai placa BR (antiga ou Mercosul) do texto, se necessário
+    const placaMatch = (selectedVeiculo?.placa || placaDoInfo || veiculoInfo).match(
+      /[A-Za-z]{3}-?\d{4}|[A-Za-z]{3}\d[A-Za-z]\d{2}/,
+    )
+    const placa = String(selectedVeiculo?.placa || placaMatch?.[0] || placaDoInfo || "").trim()
+
+    if (!veiculoId && !placa) {
       toast({
         title: "Veículo não selecionado",
         description: "Selecione um veículo para buscar as saídas.",
@@ -552,11 +573,14 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
       return
     }
 
+    setFiltroTrazerItensLabel(
+      [placa && `Placa ${placa}`, veiculoId && `ID ${veiculoId.slice(0, 8)}…`].filter(Boolean).join(" · "),
+    )
     setTrazerItensOpen(true)
     setSaidasSelecionadas(new Set())
     setLoadingSaidas(true)
     try {
-      const filtradas = await getSaidasByVeiculoSupabase(veiculoId)
+      const filtradas = await getSaidasByVeiculoSupabase(veiculoId, placa)
       setSaidasVeiculo(filtradas)
     } catch (error) {
       console.error("Erro ao buscar saídas do veículo:", error)
@@ -966,8 +990,8 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
           <DialogHeader>
             <DialogTitle>Trazer Itens</DialogTitle>
             <DialogDescription>
-              Produtos utilizados nas saídas deste veículo. Marque os itens e conclua para colar em
-              Relação de Peças e/ou Serviços.
+              Saídas deste veículo{filtroTrazerItensLabel ? ` (${filtroTrazerItensLabel})` : ""}.
+              Marque os itens e conclua para colar em Relação de Peças e/ou Serviços.
             </DialogDescription>
           </DialogHeader>
 
@@ -1023,6 +1047,7 @@ export function OrdemServicoForm({ onSuccess, onCancel, ordemExistente }: OrdemS
                           <div className="text-sm font-medium leading-tight">{saida.produtoNome}</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             Qtd: {saida.quantidade}
+                            {saida.veiculoPlaca ? ` · ${saida.veiculoPlaca}` : ""}
                             {saida.categoria ? ` · ${saida.categoria}` : ""}
                             {` · ${dataFmt}`}
                           </div>

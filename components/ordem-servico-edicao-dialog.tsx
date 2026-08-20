@@ -68,6 +68,7 @@ export function OrdemServicoEdicaoDialog({ open, onOpenChange, onSuccess, ordemI
           </div>
         ) : ordem ? (
           <OrdemServicoForm
+            key={ordem.id}
             ordemExistente={ordem}
             onSuccess={handleSuccess}
             onCancel={handleCancel}

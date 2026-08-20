@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { exportToPDF, exportToExcel } from "@/utils/export-troca-oleo-utils"
 import { cn } from "@/lib/utils"
+import { getUserSecretaria, isUsuarioSecretaria, scopeBySecretaria } from "@/lib/secretaria-scope"
 
 interface Veiculo {
   id: string
@@ -81,6 +82,8 @@ type SortDirection = 'asc' | 'desc' | null
 export default function TrocaOleoPage() {
   const isMobile = useIsMobile()
   const { user } = useAuth()
+  const userSecretaria = getUserSecretaria(user)
+  const somenteSecretaria = isUsuarioSecretaria(user)
   const [ocultarBotaoRegistrar, setOcultarBotaoRegistrar] = useState(false)
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [veiculosComDados, setVeiculosComDados] = useState<VeiculoComDados[]>([])
@@ -121,7 +124,13 @@ export default function TrocaOleoPage() {
   
   useEffect(() => {
     carregarVeiculos()
-  }, [])
+  }, [userSecretaria])
+
+  useEffect(() => {
+    if (userSecretaria) {
+      setSecretariaFilter(userSecretaria)
+    }
+  }, [userSecretaria])
 
   useEffect(() => {
     // Persistir a lista de veículos removidos apenas para a aba "Filtro de Combustível"
@@ -146,10 +155,16 @@ export default function TrocaOleoPage() {
   }, [veiculosRemovidos])
 
   // Verificar se o usuário tem acesso apenas ao dashboard e troca de óleo
+  // OU se é usuário de secretaria (pode só atualizar KM, não registrar troca)
   useEffect(() => {
     const verificarPermissoesLimitadas = async () => {
       if (!user) {
         setOcultarBotaoRegistrar(false)
+        return
+      }
+
+      if (isUsuarioSecretaria(user)) {
+        setOcultarBotaoRegistrar(true)
         return
       }
 
@@ -400,7 +415,8 @@ export default function TrocaOleoPage() {
 
       if (error) throw error
 
-      setVeiculos(veiculosData || [])
+      const veiculosScoped = scopeBySecretaria(veiculosData || [], userSecretaria)
+      setVeiculos(veiculosScoped)
 
       const trocasPorVeiculo = new Map<string, TrocaOleo[]>()
       for (const troca of todasTrocas) {
@@ -428,7 +444,7 @@ export default function TrocaOleoPage() {
       const veiculosProcessados: VeiculoComDados[] = []
       const veiculosFiltroProcessados: VeiculoComDados[] = []
 
-      for (const veiculo of veiculosData || []) {
+      for (const veiculo of veiculosScoped) {
         const registros = trocasPorVeiculo.get(veiculo.id) || []
         const estatisticasOleo = calcularEstatisticasTrocasOleoFromRegistros(registros)
         const estatisticasFiltro = calcularEstatisticasFiltroCombustivelFromRegistros(registros)
@@ -632,6 +648,14 @@ export default function TrocaOleoPage() {
   }
   
   async function registrarTrocaOleoAction() {
+    if (somenteSecretaria) {
+      toast({
+        title: "Ação não permitida",
+        description: "Usuários de secretaria podem apenas atualizar o km.",
+        variant: "destructive",
+      })
+      return
+    }
     if (!veiculoSelecionado || !kmAtual || !kmProxTroca) return
     
     await executarRegistroTrocaOleo()
@@ -1128,7 +1152,11 @@ export default function TrocaOleoPage() {
                 
                 {/* Filtro de Secretaria */}
                 <div className="w-full md:w-auto">
-                  <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+                  <Select
+                    value={userSecretaria || secretariaFilter}
+                    onValueChange={setSecretariaFilter}
+                    disabled={somenteSecretaria}
+                  >
                     <SelectTrigger className="w-full md:w-[180px]">
                       <div className="flex items-center">
                         <Filter className="mr-2 h-4 w-4" />
@@ -1136,12 +1164,16 @@ export default function TrocaOleoPage() {
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todas as secretarias</SelectItem>
-                      {secretarias.map((secretaria) => (
-                        <SelectItem key={secretaria} value={secretaria}>
-                          {secretaria}
-                        </SelectItem>
-                      ))}
+                      {!somenteSecretaria && <SelectItem value="all">Todas as secretarias</SelectItem>}
+                      {somenteSecretaria && userSecretaria ? (
+                        <SelectItem value={userSecretaria}>{userSecretaria}</SelectItem>
+                      ) : (
+                        secretarias.map((secretaria) => (
+                          <SelectItem key={secretaria} value={secretaria}>
+                            {secretaria}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1315,17 +1347,21 @@ export default function TrocaOleoPage() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  {!ocultarBotaoRegistrar && (
                                   <DropdownMenuItem
                                     onClick={() => abrirDialogTrocaOleo(veiculo, "filtro")}
                                   >
                                     Filtro de Combustível
                                   </DropdownMenuItem>
+                                  )}
                                   <DropdownMenuItem onClick={() => abrirDialogAtualizarKm(veiculo)}>
                                     Atualizar Km
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => abrirHistorico(veiculo)}>
                                     Histórico
                                   </DropdownMenuItem>
+                                  {!ocultarBotaoRegistrar && (
+                                  <>
                                   <DropdownMenuItem
                                     className="text-red-600 focus:text-red-600"
                                     onClick={() => removerVeiculoDaListaFiltro(veiculo.id)}
@@ -1335,10 +1371,13 @@ export default function TrocaOleoPage() {
                                   <DropdownMenuItem onClick={() => setVeiculosRemovidosDialogOpen(true)}>
                                     Veículos removidos
                                   </DropdownMenuItem>
+                                  </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             ) : (
                               <div className="flex justify-end gap-2">
+                                {!ocultarBotaoRegistrar && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1350,6 +1389,7 @@ export default function TrocaOleoPage() {
                                 >
                                   Troca de Óleo
                                 </Button>
+                                )}
                                 <Button variant="ghost" size="sm" onClick={() => abrirDialogAtualizarKm(veiculo)}>
                                   Atualizar Km
                                 </Button>

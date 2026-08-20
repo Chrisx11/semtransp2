@@ -18,6 +18,8 @@ import { Progress } from "@/components/ui/progress"
 import { useIsMobile } from "@/components/ui/use-mobile"
 import { MobileBackButton } from "@/components/mobile-back-button"
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx"
+import { useAuth } from "@/lib/auth-context"
+import { getUserSecretaria, scopeBySecretaria } from "@/lib/secretaria-scope"
 
 const FILTER_HEADERS = [
   "Filtro de Óleo",
@@ -523,6 +525,8 @@ function FiltrosMobileView({
 
 export default function FiltrosPage() {
   const isMobile = useIsMobile()
+  const { user } = useAuth()
+  const userSecretaria = getUserSecretaria(user)
   const [veiculos, setVeiculos] = useState<Veiculo[]>([])
   const [selectedVeiculo, setSelectedVeiculo] = useState<Veiculo | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -599,10 +603,11 @@ export default function FiltrosPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const [veiculosData, produtosData] = await Promise.all([
+      const [veiculosRaw, produtosData] = await Promise.all([
         getVeiculosSupabase(),
         getProdutosSupabase()
       ])
+      const veiculosData = scopeBySecretaria(veiculosRaw, userSecretaria)
       setVeiculos(veiculosData)
       setTodosProdutos(produtosData)
       
@@ -653,7 +658,7 @@ export default function FiltrosPage() {
       setEstatisticasTrocaOleo(estatisticas)
     }
     loadData()
-  }, [])
+  }, [userSecretaria])
 
   const handleOpenModal = async (veiculo: Veiculo) => {
     setSelectedVeiculo(veiculo)
@@ -1243,10 +1248,11 @@ export default function FiltrosPage() {
   const handleRefresh = async () => {
     setIsRefreshing(true)
     try {
-      const [veiculos, produtos] = await Promise.all([
+      const [veiculosRaw, produtos] = await Promise.all([
         getVeiculosSupabase(),
         getProdutosSupabase()
       ])
+      const veiculos = scopeBySecretaria(veiculosRaw, userSecretaria)
       setVeiculos(veiculos)
       setTodosProdutos(produtos)
       

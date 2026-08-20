@@ -19,6 +19,8 @@ export interface AuthUser {
   login: string
   perfil: string
   ativo: boolean
+  /** Quando preenchida, restringe dados à secretaria (login especial). */
+  secretaria?: string | null
   permissoes_customizadas?: any
 }
 
@@ -44,11 +46,18 @@ export const rotasPermissoes: Record<string, {
   "/dashboard/movimento/saidas": { modulo: "saidas", acao: "visualizar" },
   "/dashboard/movimento/saidas-consumiveis": { modulo: "saidas", acao: "visualizar" },
   "/dashboard/filtros": { modulo: "filtros", acao: "visualizar" },
+  "/dashboard/buscar-filtros": { modulo: "buscarFiltros", acao: "visualizar" },
+  "/dashboard/arquivo": { modulo: "arquivo", acao: "visualizar" },
+  "/dashboard/documentos": { modulo: "documentos", acao: "visualizar" },
   "/dashboard/manutencoes/tela": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "tela" },
+  "/dashboard/manutencoes/vistoria-tacografo": { modulo: "manutencoes", acao: "visualizar", submodulo: true, pagina: "vistoria-tacografo" },
   "/dashboard/custo-veiculo": { modulo: "custoVeiculo", acao: "visualizar" },
   "/dashboard/servico-externo/borracharia": { modulo: "borracharia", acao: "visualizar" },
   "/dashboard/servico-externo/lavador": { modulo: "lavador", acao: "visualizar" },
   "/dashboard/servico-externo/servico-externo": { modulo: "servicoExterno", acao: "visualizar" },
+  "/dashboard/movimento/compras": { modulo: "compras", acao: "visualizar" },
+  "/dashboard/movimento/compras-realizadas": { modulo: "comprasRealizadas", acao: "visualizar" },
+  "/dashboard/planner": { modulo: "planner", acao: "visualizar" },
   "/dashboard/configuracoes": { modulo: "configuracoes", acao: "visualizar" },
 }
 
@@ -328,6 +337,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login: userData.username,
         perfil: "customizado",
         ativo: userData.active,
+        secretaria: userData.secretaria ? String(userData.secretaria).trim().toUpperCase() : null,
         permissoes_customizadas: formattedPermissions
       }
 
@@ -413,6 +423,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     login: data.username,
                     perfil: "basico", // Fallback para permissões básicas
                     ativo: data.active,
+                    secretaria: data.secretaria ? String(data.secretaria).trim().toUpperCase() : null,
                     permissoes_customizadas: permissoesPreDefinidas.basico
                   };
                   
@@ -428,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     login: data.username,
                     perfil: "customizado",
                     ativo: data.active,
+                    secretaria: data.secretaria ? String(data.secretaria).trim().toUpperCase() : null,
                     permissoes_customizadas: {
                       dashboard: ["visualizar"],
                       veiculos: ["visualizar"],
@@ -570,8 +582,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
       
-      // Se não houver configuração para esta rota, permite acesso (compatibilidade)
-      if (!rotaConfig) return true;
+      // Se não houver configuração para esta rota, nega acesso
+      if (!rotaConfig) return false;
       
       const { modulo, acao, submodulo, pagina } = rotaConfig;
       
@@ -585,7 +597,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           "troca-pneu": "trocaPneu",
           "planejamento": "planejamento",
           "historicos": "historico",
-          "ordem-servico": "ordemServico"
+          "ordem-servico": "ordemServico",
+          "vistoria-tacografo": "vistoriaTacografo",
         };
         
         const moduleId = pageToModule[pagina] || pagina;
@@ -683,8 +696,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    // Se não houver configuração para esta rota, permite acesso (compatibilidade)
-    if (!rotaConfig) return true;
+    // Se não houver configuração para esta rota, nega acesso
+    if (!rotaConfig) return false;
     
     // Obter permissões do perfil predefinido
     const permissoes = permissoesPreDefinidas[user.perfil] || permissoesPreDefinidas.basico;
@@ -693,11 +706,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Verificar se o módulo existe nas permissões do perfil
     const moduloPerms = permissoes[modulo];
     
-    // Se o módulo não existe nas permissões predefinidas, verificar se é admin
-    // (admin já foi verificado antes, mas aqui é para garantir compatibilidade)
+    // Se o módulo não existe nas permissões predefinidas, nega acesso
     if (!moduloPerms) {
-      // Se não houver configuração para esta rota, permite acesso (compatibilidade)
-      return true;
+      return false;
     }
     
     // Verificar se é um array e se contém a ação
@@ -1014,6 +1025,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login: data.username,
         perfil: "customizado", // Usamos o perfil customizado
         ativo: data.active,
+        secretaria: data.secretaria ? String(data.secretaria).trim().toUpperCase() : null,
         permissoes_customizadas: formattedPermissions
       }
 

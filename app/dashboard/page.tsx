@@ -67,6 +67,7 @@ import { useIsMobile } from "@/components/ui/use-mobile"
 import { supabase } from "@/lib/supabase"
 import { useAuth, rotasPermissoes } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import { getUserSecretaria, scopeBySecretaria } from "@/lib/secretaria-scope"
 
 // Interfaces para os dados
 interface VeiculoBase {
@@ -528,6 +529,8 @@ function DashboardMobileView() {
 export default function DashboardPage() {
   const isMobile = useIsMobile()
   const { toast } = useToast()
+  const { user } = useAuth()
+  const userSecretaria = getUserSecretaria(user)
   const [veiculos, setVeiculos] = useState<VeiculoBase[]>([])
   const [proximasTrocas, setProximasTrocas] = useState<VeiculoCalculado[]>([])
   const [emAtraso, setEmAtraso] = useState<VeiculoCalculado[]>([])
@@ -577,8 +580,9 @@ export default function DashboardPage() {
   const atualizarDashboard = async () => {
     setLoading(true)
     try {
-      // Carregar dados de veículos
-      const veiculosData = await getVeiculosSupabase()
+      // Carregar dados de veículos (escopo por secretaria, se aplicável)
+      const veiculosRaw = await getVeiculosSupabase()
+      const veiculosData = scopeBySecretaria(veiculosRaw as any[], userSecretaria)
       setVeiculos(veiculosData)
       
       // Próximas trocas
@@ -1082,7 +1086,13 @@ export default function DashboardPage() {
   useEffect(() => {
     atualizarDashboard()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [userSecretaria])
+
+  useEffect(() => {
+    if (userSecretaria) {
+      setKmSecretariaFilter(userSecretaria)
+    }
+  }, [userSecretaria])
 
   // Listener para atualizar quando houver atualização de KM
   useEffect(() => {
@@ -2769,20 +2779,28 @@ export default function DashboardPage() {
                   onChange={(e) => setKmSearchTerm(e.target.value)}
                 />
               </div>
-              <Select value={kmSecretariaFilter} onValueChange={setKmSecretariaFilter}>
+              <Select
+                value={userSecretaria || kmSecretariaFilter}
+                onValueChange={setKmSecretariaFilter}
+                disabled={Boolean(userSecretaria)}
+              >
                 <SelectTrigger className="w-full sm:w-[180px] h-9 text-sm">
                   <Filter className="mr-2 h-3.5 w-3.5" />
                   <SelectValue placeholder="Filtrar por secretaria" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todas as secretarias</SelectItem>
-                  {Array.from(new Set([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm, ...veiculosNaOficina]
-                    .map(v => v.secretaria)
-                    .filter(Boolean)))
-                    .sort()
-                    .map(secretaria => (
-                      <SelectItem key={secretaria} value={secretaria}>{secretaria}</SelectItem>
-                    ))}
+                  {!userSecretaria && <SelectItem value="all">Todas as secretarias</SelectItem>}
+                  {userSecretaria ? (
+                    <SelectItem value={userSecretaria}>{userSecretaria}</SelectItem>
+                  ) : (
+                    Array.from(new Set([...veiculosSemAtualizacaoKm, ...veiculosComAtualizacaoKm, ...veiculosNaOficina]
+                      .map(v => v.secretaria)
+                      .filter(Boolean)))
+                      .sort()
+                      .map(secretaria => (
+                        <SelectItem key={secretaria} value={secretaria}>{secretaria}</SelectItem>
+                      ))
+                  )}
                 </SelectContent>
               </Select>
               <Button

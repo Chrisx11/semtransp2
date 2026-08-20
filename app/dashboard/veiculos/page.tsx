@@ -44,6 +44,8 @@ import { DeleteConfirmation } from "@/components/delete-confirmation"
 import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { getVeiculosSupabase, deleteVeiculoSupabase, type Veiculo, addVeiculoSupabase, addVeiculo } from "@/services/veiculo-service"
+import { useAuth } from "@/lib/auth-context"
+import { getUserSecretaria, isUsuarioSecretaria, scopeBySecretaria } from "@/lib/secretaria-scope"
 import { exportToCSV, exportToPDF, exportToExcel } from "@/utils/export-veiculos-utils"
 import { VeiculoCard } from "@/components/veiculo-card"
 import { Badge } from "@/components/ui/badge"
@@ -104,6 +106,8 @@ function VeiculosMobileView({
   getDespesaMensal,
   setVeiculoTrocaOleo,
   setTrocaOleoOpen,
+  somenteSecretaria,
+  userSecretaria,
 }: {
   veiculos: Veiculo[]
   isLoading: boolean
@@ -129,6 +133,8 @@ function VeiculosMobileView({
   getDespesaMensal: (id: string) => number
   setVeiculoTrocaOleo: (veiculo: any) => void
   setTrocaOleoOpen: (open: boolean) => void
+  somenteSecretaria?: boolean
+  userSecretaria?: string | null
 }) {
   return (
     <div className="p-3 space-y-4">
@@ -145,7 +151,11 @@ function VeiculosMobileView({
         />
       </div>
 
-      <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+      <Select
+        value={userSecretaria || secretariaFilter || "all"}
+        onValueChange={setSecretariaFilter}
+        disabled={somenteSecretaria}
+      >
         <SelectTrigger className="w-full text-sm">
           <div className="flex items-center min-w-0">
             <Filter className="mr-1.5 h-3.5 w-3.5 flex-shrink-0" />
@@ -153,18 +163,24 @@ function VeiculosMobileView({
           </div>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todas as secretarias</SelectItem>
-          {secretarias.map((secretaria) => (
-            <SelectItem key={secretaria} value={secretaria}>
-              {secretaria}
-            </SelectItem>
-          ))}
+          {!somenteSecretaria && <SelectItem value="all">Todas as secretarias</SelectItem>}
+          {somenteSecretaria && userSecretaria ? (
+            <SelectItem value={userSecretaria}>{userSecretaria}</SelectItem>
+          ) : (
+            secretarias.map((secretaria) => (
+              <SelectItem key={secretaria} value={secretaria}>
+                {secretaria}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
 
+      {!somenteSecretaria && (
       <Button className="w-full btn-gradient shadow-md text-sm h-9" onClick={handleNew}>
         <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo Veículo
       </Button>
+      )}
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12 text-xs text-muted-foreground">
@@ -401,14 +417,18 @@ export default function VeiculosPage() {
   const jsonInputRef = useRef<HTMLInputElement | null>(null)
 
   const { toast } = useToast()
+  const { user } = useAuth()
+  const userSecretaria = getUserSecretaria(user)
+  const somenteSecretaria = isUsuarioSecretaria(user)
 
   // Carregar dados
   const loadData = async () => {
     setIsLoading(true)
     try {
       const data = await getVeiculosSupabase()
-      console.log('[VeiculosPage] Dados retornados do Supabase:', data.map(v => ({ id: v.id, kmAtual: v.kmAtual, kmProxTroca: v.kmProxTroca })))
-      setVeiculos(data)
+      const scoped = scopeBySecretaria(data, userSecretaria)
+      console.log('[VeiculosPage] Dados retornados do Supabase:', scoped.map(v => ({ id: v.id, kmAtual: v.kmAtual, kmProxTroca: v.kmProxTroca })))
+      setVeiculos(scoped)
     } catch (error) {
       console.error("Erro ao carregar dados:", error)
       toast({
@@ -425,7 +445,13 @@ export default function VeiculosPage() {
   useEffect(() => {
     loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [userSecretaria])
+
+  useEffect(() => {
+    if (userSecretaria) {
+      setSecretariaFilter(userSecretaria)
+    }
+  }, [userSecretaria])
 
   useEffect(() => {
     async function fetchSaidas() {
@@ -799,6 +825,8 @@ export default function VeiculosPage() {
             getDespesaMensal={getDespesaMensal}
             setVeiculoTrocaOleo={setVeiculoTrocaOleo}
             setTrocaOleoOpen={setTrocaOleoOpen}
+            somenteSecretaria={somenteSecretaria}
+            userSecretaria={userSecretaria}
           />
           <VeiculoForm
             open={formOpen}
@@ -858,7 +886,11 @@ export default function VeiculosPage() {
 
               {/* Filtro por secretaria */}
               <div className="w-full md:w-auto">
-                <Select value={secretariaFilter} onValueChange={setSecretariaFilter}>
+                <Select
+                  value={userSecretaria || secretariaFilter || "all"}
+                  onValueChange={setSecretariaFilter}
+                  disabled={somenteSecretaria}
+                >
                   <SelectTrigger className="w-full md:w-[180px]">
                     <div className="flex items-center">
                       <Filter className="mr-2 h-4 w-4" />
@@ -866,12 +898,16 @@ export default function VeiculosPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent position="popper" side="top">
-                    <SelectItem value="all">Todas as secretarias</SelectItem>
-                    {secretarias.map((secretaria) => (
-                      <SelectItem key={secretaria} value={secretaria}>
-                        {secretaria}
-                      </SelectItem>
-                    ))}
+                    {!somenteSecretaria && <SelectItem value="all">Todas as secretarias</SelectItem>}
+                    {somenteSecretaria && userSecretaria ? (
+                      <SelectItem value={userSecretaria}>{userSecretaria}</SelectItem>
+                    ) : (
+                      secretarias.map((secretaria) => (
+                        <SelectItem key={secretaria} value={secretaria}>
+                          {secretaria}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -902,9 +938,11 @@ export default function VeiculosPage() {
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
               {/* Botão novo veículo */}
+              {!somenteSecretaria && (
               <Button className="w-full md:w-auto btn-gradient shadow-md-custom" onClick={handleNew}>
                 <Plus className="mr-2 h-4 w-4" /> Novo Veículo
               </Button>
+              )}
               {/* Botão relatório PDF */}
               <Button
                 className="w-full md:w-auto shadow-md-custom"
